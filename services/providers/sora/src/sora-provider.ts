@@ -2,17 +2,25 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import type { ClipGenerationJob, DownloadedAsset, GenerateClipInput, VideoGenerationProvider } from "@content-engine/shared";
+import type { ClipGenerationJob, DownloadedAsset, GenerateClipInput, ReferenceAssetInput, VideoGenerationProvider } from "@content-engine/shared";
 import { generateClipInputSchema } from "@content-engine/shared";
 
 import { getSoraConfig, type SoraConfig } from "./config.js";
-import { soraVideoJobSchema, type SoraVideoJob } from "./types.js";
+import { openAIModelListSchema, soraVideoJobSchema, type OpenAIModel, type SoraVideoJob } from "./types.js";
 
-const SUPPORTED_DURATIONS = [4, 8, 12] as const;
-const ASPECT_RATIO_TO_SIZE = {
-  "9:16": "720x1280",
-  "16:9": "1280x720"
+const DEFAULT_VIDEO_SIZES = {
+  "9:16": {
+    standard: "720x1280",
+    highResolution: "1080x1920"
+  },
+  "16:9": {
+    standard: "1280x720",
+    highResolution: "1920x1080"
+  }
 } as const;
+const MAX_VIDEO_DURATION_SECONDS = 20;
+const SORA_MODEL_PREFIX = "sora-";
+const PREFERRED_MODEL_ORDER = ["sora-2-pro", "sora-2"] as const;
 
 export class SoraProviderError extends Error {
   constructor(
@@ -27,31 +35,16 @@ export class SoraProviderError extends Error {
   }
 }
 
-const resolveDurationSeconds = (durationSeconds: number) =>
-  SUPPORTED_DURATIONS.reduce((closest, current) =>
-    Math.abs(current - durationSeconds) < Math.abs(closest - durationSeconds) ? current : closest
-  );
+const clampDurationSeconds = (durationSeconds: number) => Math.max(1, Math.min(durationSeconds, MAX_VIDEO_DURATION_SECONDS));
 
-const resolveSize = (aspectRatio: GenerateClipInput["aspectRatio"]) => {
-  const size = ASPECT_RATIO_TO_SIZE[aspectRatio];
-
-  if (!size) {
-    throw new SoraProviderError(
-      `Aspect ratio ${aspectRatio} is not supported by the current Sora provider mapping.`,
-      "unsupported_aspect_ratio",
-      400,
-      false,
-      { supportedAspectRatios: Object.keys(ASPECT_RATIO_TO_SIZE) }
-    );
-  }
-
-  return size;
-};
+const isHighResolutionRequested = (metadata: Record<string, unknown> | undefined) =>
+  metadata?.renderProfile === "high-resolution" || metadata?.resolution === "1080p";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class SoraProvider implements VideoGenerationProvider {
   readonly provider = "sora" as const;
+  private discoveredModels: OpenAIModel[] | null = null;
 
   constructor(
     private readonly config: SoraConfig = getSoraConfig(),
@@ -60,26 +53,25 @@ export class SoraProvider implements VideoGenerationProvider {
 
   async generateClip(input: GenerateClipInput): Promise<ClipGenerationJob> {
     const request = generateClipInputSchema.parse(input);
-    const seconds = resolveDurationSeconds(request.durationSeconds);
-    const size = resolveSize(request.aspectRatio);
-    const form = new FormData();
-
-    form.set("model", this.config.OPENAI_SORA_MODEL);
-    form.set("prompt", request.prompt);
-    form.set("seconds", String(seconds));
-    form.set("size", size);
-
+    const model = await this.resolveModel(
+      typeof request.metadata?.preferredModel === "string" ? request.metadata.preferredModel : undefined
+    );
+    const seconds = clampDurationSeconds(request.durationSeconds);
+    const size = this.resolveSize(request.aspectRatio, model, request.metadata);
     const reference = request.referenceAssets?.[0];
-    if (reference?.localPath) {
-      const buffer = await readFile(reference.localPath);
-      const blob = new Blob([buffer], { type: reference.mimeType ?? "application/octet-stream" });
-      form.set("input_reference", blob, reference.localPath.split(/[\\/]/).pop() ?? "reference.bin");
-    }
+    const { body, contentType } = await this.buildRequestBody({
+      model,
+      prompt: request.prompt,
+      seconds,
+      size,
+      reference
+    });
 
     const job = await this.requestJson<SoraVideoJob>({
       path: "/videos",
       method: "POST",
-      body: form
+      body,
+      contentType
     });
 
     return this.mapClipGenerationJob(job, request.durationSeconds, request.aspectRatio);
@@ -106,16 +98,10 @@ export class SoraProvider implements VideoGenerationProvider {
   }
 
   async downloadResult(providerJobId: string, outputPath: string): Promise<DownloadedAsset> {
-    const response = await this.fetchImpl(`${this.config.OPENAI_VIDEO_BASE_URL}/videos/${providerJobId}/content`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${this.config.OPENAI_API_KEY}`
-      }
+    const response = await this.requestRaw({
+      path: `/videos/${providerJobId}/content`,
+      method: "GET"
     });
-
-    if (!response.ok) {
-      throw await this.toProviderError(response);
-    }
 
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -131,7 +117,8 @@ export class SoraProvider implements VideoGenerationProvider {
   }
 
   private mapAspectRatioFromSize(size: string): GenerateClipInput["aspectRatio"] {
-    if (size.endsWith("x720") || size.endsWith("x1024")) {
+    const [width, height] = size.split("x").map((value) => Number(value));
+    if (Number.isFinite(width) && Number.isFinite(height) && width >= height) {
       return "16:9";
     }
 
@@ -180,26 +167,172 @@ export class SoraProvider implements VideoGenerationProvider {
   private async requestJson<T>({
     path,
     method,
-    body
+    body,
+    contentType
   }: {
     path: string;
     method: "GET" | "POST";
     body?: BodyInit;
+    contentType?: string;
   }): Promise<T> {
-    const response = await this.fetchImpl(`${this.config.OPENAI_VIDEO_BASE_URL}${path}`, {
-      method,
-      body,
-      headers: {
-        Authorization: `Bearer ${this.config.OPENAI_API_KEY}`
-      }
-    });
-
-    if (!response.ok) {
-      throw await this.toProviderError(response);
-    }
+    const response = await this.requestRaw({ path, method, body, contentType });
 
     const payload = await response.json();
     return soraVideoJobSchema.parse(payload) as T;
+  }
+
+  private async requestRaw({
+    path,
+    method,
+    body,
+    contentType
+  }: {
+    path: string;
+    method: "GET" | "POST";
+    body?: BodyInit;
+    contentType?: string;
+  }) {
+    return this.withRetry(async () => {
+      const response = await this.fetchImpl(`${this.config.OPENAI_VIDEO_BASE_URL}${path}`, {
+        method,
+        body,
+        headers: {
+          Authorization: `Bearer ${this.config.OPENAI_API_KEY}`,
+          ...(contentType ? { "Content-Type": contentType } : {})
+        }
+      });
+
+      if (!response.ok) {
+        throw await this.toProviderError(response);
+      }
+
+      return response;
+    });
+  }
+
+  private async withRetry<T>(operation: () => Promise<T>, attempt = 1): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!(error instanceof SoraProviderError) || !error.retriable || attempt >= 3) {
+        throw error;
+      }
+
+      await sleep(500 * attempt);
+      return this.withRetry(operation, attempt + 1);
+    }
+  }
+
+  private async listAvailableModels() {
+    if (this.discoveredModels) {
+      return this.discoveredModels;
+    }
+
+    const response = await this.requestRaw({
+      path: "/models",
+      method: "GET"
+    });
+    const payload = openAIModelListSchema.parse(await response.json());
+    this.discoveredModels = payload.data.filter((model) => model.id.startsWith(SORA_MODEL_PREFIX));
+    return this.discoveredModels;
+  }
+
+  private async resolveModel(preferredModel?: string) {
+    const availableModels = await this.listAvailableModels();
+
+    if (!availableModels.length) {
+      throw new SoraProviderError(
+        "No Sora-capable models are currently exposed to this API key.",
+        "sora_model_unavailable",
+        400,
+        false
+      );
+    }
+
+    const preferred = preferredModel ?? this.config.OPENAI_SORA_MODEL;
+    if (preferred && availableModels.some((model) => model.id === preferred)) {
+      return preferred;
+    }
+
+    for (const candidate of PREFERRED_MODEL_ORDER) {
+      if (availableModels.some((model) => model.id === candidate)) {
+        return candidate;
+      }
+    }
+
+    return [...availableModels].sort((left, right) => right.id.localeCompare(left.id))[0]!.id;
+  }
+
+  private resolveSize(
+    aspectRatio: GenerateClipInput["aspectRatio"],
+    model: string,
+    metadata: Record<string, unknown> | undefined
+  ) {
+    const sizeConfig = DEFAULT_VIDEO_SIZES[aspectRatio];
+
+    if (!sizeConfig) {
+      throw new SoraProviderError(
+        `Aspect ratio ${aspectRatio} is not supported by the current Sora provider mapping.`,
+        "unsupported_aspect_ratio",
+        400,
+        false,
+        { supportedAspectRatios: Object.keys(DEFAULT_VIDEO_SIZES) }
+      );
+    }
+
+    const canUse1080p = model === "sora-2-pro";
+    if (canUse1080p && isHighResolutionRequested(metadata)) {
+      return sizeConfig.highResolution;
+    }
+
+    return sizeConfig.standard;
+  }
+
+  private async buildRequestBody({
+    model,
+    prompt,
+    seconds,
+    size,
+    reference
+  }: {
+    model: string;
+    prompt: string;
+    seconds: number;
+    size: string;
+    reference?: ReferenceAssetInput;
+  }) {
+    if (reference?.localPath) {
+      const form = new FormData();
+      const buffer = await readFile(reference.localPath);
+      const blob = new Blob([buffer], { type: reference.mimeType ?? "application/octet-stream" });
+
+      form.set("model", model);
+      form.set("prompt", prompt);
+      form.set("seconds", String(seconds));
+      form.set("size", size);
+      form.set("input_reference", blob, reference.localPath.split(/[\\/]/).pop() ?? "reference.bin");
+
+      return { body: form as BodyInit, contentType: undefined };
+    }
+
+    const body = {
+      model,
+      prompt,
+      seconds: String(seconds),
+      size,
+      ...(reference?.url
+        ? {
+            input_reference: {
+              image_url: reference.url
+            }
+          }
+        : {})
+    };
+
+    return {
+      body: JSON.stringify(body),
+      contentType: "application/json"
+    };
   }
 
   private async toProviderError(response: Response): Promise<SoraProviderError> {

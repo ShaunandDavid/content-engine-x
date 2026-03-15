@@ -14,7 +14,9 @@
       "@content-engine/shared": ["packages/shared/src/index.ts"],
       "@content-engine/shared/*": ["packages/shared/src/*"],
       "@content-engine/db": ["packages/db/src/index.ts"],
-      "@content-engine/db/*": ["packages/db/src/*"]
+      "@content-engine/db/*": ["packages/db/src/*"],
+      "@content-engine/sora-provider": ["services/providers/sora/src/index.ts"],
+      "@content-engine/sora-provider/*": ["services/providers/sora/src/*"]
     }
   }
 }

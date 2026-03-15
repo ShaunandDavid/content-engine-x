@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
+import { ClipReviewActions } from "../../../../components/clip-review-actions";
 import { FormCard } from "../../../../components/form-card";
 import { StatusChip } from "../../../../components/status-chip";
-import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 
 export default function ClipReviewPage({ params }: { params: { projectId: string } }) {
@@ -25,8 +25,8 @@ async function ClipReviewContent({
   if (!workspace) {
     notFound();
   }
-
-  const clipRows = projectId === demoProject.id ? demoProject.clips : [];
+  const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
+  const activeClipCount = workspace.clips.filter((clip) => ["pending", "queued", "running"].includes(clip.status)).length;
 
   return (
     <DashboardShell
@@ -35,23 +35,36 @@ async function ClipReviewContent({
       status={workspace.project.status}
       projectId={projectId}
     >
+      <ClipReviewActions projectId={projectId} activeClipCount={activeClipCount} clipCount={workspace.clips.length} />
       <FormCard title="Generation Queue" description="The clip layer is provider-agnostic but exposes provider-specific job IDs.">
-        {clipRows.length ? (
+        {workspace.clips.length ? (
           <div className="clip-grid">
-            {clipRows.map((clip) => (
-              <article className="clip-card" key={clip.id}>
-                <div className="button-row" style={{ justifyContent: "space-between" }}>
-                  <span className="eyebrow">{clip.id}</span>
-                  <StatusChip status={clip.status} />
-                </div>
-                <strong>Scene {clip.sceneId.replace("scene-", "")}</strong>
-                <p>Provider job: {clip.providerJobId ?? "Not submitted yet"}</p>
-                <p className="muted">Mapped duration: {clip.duration} seconds</p>
-              </article>
-            ))}
+            {workspace.clips.map((clip) => {
+              const asset = clip.sourceAssetId ? assetsById.get(clip.sourceAssetId) : undefined;
+
+              return (
+                <article className="clip-card" key={clip.id}>
+                  <div className="button-row" style={{ justifyContent: "space-between" }}>
+                    <span className="eyebrow">{clip.id}</span>
+                    <StatusChip status={clip.status} />
+                  </div>
+                  <strong>Scene {workspace.scenes.find((scene) => scene.id === clip.sceneId)?.ordinal ?? "?"}</strong>
+                  <p>Provider job: {clip.providerJobId ?? "Not submitted yet"}</p>
+                  <p className="muted">
+                    Requested {clip.requestedDurationSeconds}s
+                    {clip.actualDurationSeconds ? `, actual ${clip.actualDurationSeconds}s` : ""}
+                  </p>
+                  <p className="muted">Provider: {clip.provider}</p>
+                  <p className="muted">
+                    Asset: {asset?.publicUrl ? asset.publicUrl : asset ? `${asset.bucket}/${asset.objectKey}` : "Not persisted yet"}
+                  </p>
+                  {clip.errorMessage ? <p className="error-banner">{clip.errorMessage}</p> : null}
+                </article>
+              );
+            })}
           </div>
         ) : (
-          <div className="empty-state">No clips have been generated yet. Phase 3 will populate this queue.</div>
+          <div className="empty-state">No clip records exist yet. Start generation to create provider jobs and persisted assets.</div>
         )}
       </FormCard>
     </DashboardShell>

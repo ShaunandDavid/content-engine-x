@@ -3,12 +3,14 @@ import type {
   AspectRatio,
   AuditLogRecord,
   BriefRecord,
+  ClipRecord,
   JobStatus,
   Platform,
   ProjectRecord,
   ProjectTone,
   PromptRecord,
   ProviderName,
+  AssetRecord,
   SceneRecord,
   WorkflowRunRecord,
   WorkflowStage
@@ -83,6 +85,8 @@ export interface ProjectWorkspace {
   brief: BriefRecord | null;
   scenes: SceneRecord[];
   prompts: PromptRecord[];
+  clips: ClipRecord[];
+  assets: AssetRecord[];
   workflowRun: WorkflowRunRecord | null;
   auditLogs: AuditLogRecord[];
 }

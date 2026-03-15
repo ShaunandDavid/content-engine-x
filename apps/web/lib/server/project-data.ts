@@ -64,6 +64,24 @@ const toDemoWorkspace = (): ProjectWorkspace => ({
     updatedAt: new Date().toISOString(),
     metadata: { source: "demo" }
   })),
+  clips: demoProject.clips.map((clip) => ({
+    id: clip.id,
+    projectId: demoProject.id,
+    sceneId: clip.sceneId,
+    promptId: `demo-prompt-${clip.sceneId.replace("scene-", "")}`,
+    provider: demoProject.provider,
+    providerJobId: clip.providerJobId,
+    requestedDurationSeconds: clip.duration,
+    actualDurationSeconds: clip.status === "completed" ? clip.duration : null,
+    aspectRatio: demoProject.aspectRatio,
+    sourceAssetId: null,
+    thumbnailAssetId: null,
+    status: clip.status,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    metadata: { source: "demo" }
+  })),
+  assets: [],
   workflowRun: {
     id: "demo-workflow",
     projectId: demoProject.id,

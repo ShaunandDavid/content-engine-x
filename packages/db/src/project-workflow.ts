@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  type AssetRecord,
   projectBriefInputSchema,
   type AuditLogRecord,
   type BriefRecord,
+  type ClipRecord,
   type CreateProjectWorkflowResult,
   type JobStatus,
   type ProjectBriefInput,
@@ -125,6 +127,46 @@ type UserRow = {
   id: string;
 };
 
+type ClipRow = {
+  id: string;
+  project_id: string;
+  scene_id: string;
+  prompt_id: string;
+  provider: ProjectBriefInput["provider"];
+  provider_job_id: string | null;
+  requested_duration_seconds: number;
+  actual_duration_seconds: number | null;
+  aspect_ratio: ProjectBriefInput["aspectRatio"];
+  source_asset_id: string | null;
+  thumbnail_asset_id: string | null;
+  status: JobStatus;
+  metadata: Record<string, unknown> | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type AssetRow = {
+  id: string;
+  project_id: string;
+  scene_id: string | null;
+  render_id: string | null;
+  clip_id: string | null;
+  kind: AssetRecord["kind"];
+  storage_provider: AssetRecord["storageProvider"];
+  bucket: string;
+  object_key: string;
+  public_url: string | null;
+  mime_type: string;
+  byte_size: number | null;
+  checksum: string | null;
+  status: JobStatus;
+  metadata: Record<string, unknown> | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const STAGE_COMPLETED: JobStatus = "completed";
 
 const toProjectRecord = (row: ProjectRow): ProjectRecord => ({
@@ -188,6 +230,46 @@ const toPromptRecord = (row: PromptRow): PromptRecord => ({
   systemPrompt: row.system_prompt,
   userPrompt: row.user_prompt,
   compiledPrompt: row.compiled_prompt,
+  status: row.status,
+  errorMessage: row.error_message,
+  metadata: row.metadata ?? {},
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const toClipRecord = (row: ClipRow): ClipRecord => ({
+  id: row.id,
+  projectId: row.project_id,
+  sceneId: row.scene_id,
+  promptId: row.prompt_id,
+  provider: row.provider,
+  providerJobId: row.provider_job_id,
+  requestedDurationSeconds: row.requested_duration_seconds,
+  actualDurationSeconds: row.actual_duration_seconds,
+  aspectRatio: row.aspect_ratio,
+  sourceAssetId: row.source_asset_id,
+  thumbnailAssetId: row.thumbnail_asset_id,
+  status: row.status,
+  errorMessage: row.error_message,
+  metadata: row.metadata ?? {},
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const toAssetRecord = (row: AssetRow): AssetRecord => ({
+  id: row.id,
+  projectId: row.project_id,
+  sceneId: row.scene_id,
+  renderId: row.render_id,
+  clipId: row.clip_id,
+  kind: row.kind,
+  storageProvider: row.storage_provider,
+  bucket: row.bucket,
+  objectKey: row.object_key,
+  publicUrl: row.public_url,
+  mimeType: row.mime_type,
+  byteSize: row.byte_size,
+  checksum: row.checksum,
   status: row.status,
   errorMessage: row.error_message,
   metadata: row.metadata ?? {},
@@ -619,6 +701,8 @@ export const createProjectWorkflow = async (
     brief: toBriefRecord(briefRow),
     scenes: sceneRows.map(toSceneRecord),
     prompts: promptRows.map(toPromptRecord),
+    clips: [],
+    assets: [],
     workflowRun: toWorkflowRunRecord(workflowRunRow),
     auditLogs: auditRows.map(toAuditLogRecord)
   };
@@ -640,11 +724,21 @@ export const getProjectWorkspace = async (
 
   const project = assertData(projectData as ProjectRow | null, projectError, "Failed to load project");
 
-  const [{ data: briefData, error: briefError }, { data: scenesData, error: scenesError }, { data: promptsData, error: promptsError }, { data: workflowData, error: workflowError }, { data: auditData, error: auditError }] =
+  const [
+    { data: briefData, error: briefError },
+    { data: scenesData, error: scenesError },
+    { data: promptsData, error: promptsError },
+    { data: clipsData, error: clipsError },
+    { data: assetsData, error: assetsError },
+    { data: workflowData, error: workflowError },
+    { data: auditData, error: auditError }
+  ] =
     await Promise.all([
       client.from("briefs").select("*").eq("project_id", projectId).order("created_at", { ascending: true }).limit(1),
       client.from("scenes").select("*").eq("project_id", projectId).order("ordinal", { ascending: true }),
       client.from("prompts").select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
+      client.from("clips").select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
+      client.from("assets").select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
       client.from("workflow_runs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1),
       client.from("audit_logs").select("*").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20)
     ]);
@@ -661,6 +755,14 @@ export const getProjectWorkspace = async (
     throw new Error(`Failed to load prompts: ${promptsError.message}`);
   }
 
+  if (clipsError) {
+    throw new Error(`Failed to load clips: ${clipsError.message}`);
+  }
+
+  if (assetsError) {
+    throw new Error(`Failed to load assets: ${assetsError.message}`);
+  }
+
   if (workflowError) {
     throw new Error(`Failed to load workflow runs: ${workflowError.message}`);
   }
@@ -674,6 +776,8 @@ export const getProjectWorkspace = async (
     brief: (briefData?.[0] ? toBriefRecord(briefData[0] as BriefRow) : null),
     scenes: (scenesData as SceneRow[] | null)?.map(toSceneRecord) ?? [],
     prompts: (promptsData as PromptRow[] | null)?.map(toPromptRecord) ?? [],
+    clips: (clipsData as ClipRow[] | null)?.map(toClipRecord) ?? [],
+    assets: (assetsData as AssetRow[] | null)?.map(toAssetRecord) ?? [],
     workflowRun: workflowData?.[0] ? toWorkflowRunRecord(workflowData[0] as WorkflowRunRow) : null,
     auditLogs: (auditData as AuditLogRow[] | null)?.map(toAuditLogRecord) ?? []
   };

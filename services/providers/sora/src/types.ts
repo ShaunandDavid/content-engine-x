@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const openAIModelSchema = z.object({
+  id: z.string(),
+  object: z.literal("model"),
+  created: z.number(),
+  owned_by: z.string()
+});
+
+export const openAIModelListSchema = z.object({
+  object: z.literal("list"),
+  data: z.array(openAIModelSchema)
+});
+
 export const soraVideoJobSchema = z.object({
   id: z.string(),
   object: z.string().optional(),
@@ -23,4 +35,6 @@ export const soraVideoJobSchema = z.object({
     .optional()
 });
 
+export type OpenAIModel = z.infer<typeof openAIModelSchema>;
+export type OpenAIModelList = z.infer<typeof openAIModelListSchema>;
 export type SoraVideoJob = z.infer<typeof soraVideoJobSchema>;

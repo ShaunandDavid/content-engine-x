@@ -6,8 +6,8 @@ import { FormCard } from "../../../../components/form-card";
 import { StatusChip } from "../../../../components/status-chip";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 
-export default function ClipReviewPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+export default async function ClipReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const workspacePromise = getProjectWorkspaceOrDemo(projectId);
 
   return <ClipReviewContent workspacePromise={workspacePromise} projectId={projectId} />;

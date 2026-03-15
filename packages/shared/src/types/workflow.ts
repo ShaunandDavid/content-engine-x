@@ -1,6 +1,7 @@
 import type {
   ApprovalStatus,
   AspectRatio,
+  AssetRecord,
   AuditLogRecord,
   BriefRecord,
   ClipRecord,
@@ -10,11 +11,10 @@ import type {
   ProjectTone,
   PromptRecord,
   ProviderName,
-  AssetRecord,
   SceneRecord,
   WorkflowRunRecord,
   WorkflowStage
-} from "./core";
+} from "./core.js";
 
 export interface StageExecution {
   stage: WorkflowStage;

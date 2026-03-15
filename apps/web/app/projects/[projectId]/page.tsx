@@ -5,8 +5,8 @@ import { DashboardShell } from "../../../components/dashboard-shell";
 import { stageLabels } from "../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
 
-export default function ProjectDetailPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const workspacePromise = getProjectWorkspaceOrDemo(projectId);
 
   return <ProjectDetailContent workspacePromise={workspacePromise} projectId={projectId} />;

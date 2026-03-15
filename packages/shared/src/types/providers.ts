@@ -1,4 +1,4 @@
-import type { AspectRatio, ProviderName } from "./core";
+import type { AspectRatio, ProviderName } from "./core.js";
 
 export interface ReferenceAssetInput {
   assetId?: string;

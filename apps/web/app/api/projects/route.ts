@@ -13,10 +13,11 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
+      const issues = error.flatten();
       return NextResponse.json(
         {
           message: "Project brief validation failed.",
-          issues: error.flatten()
+          issues
         },
         { status: 400 }
       );

@@ -5,8 +5,8 @@ import { FormCard } from "../../../../components/form-card";
 import { StatusChip } from "../../../../components/status-chip";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 
-export default function SceneReviewPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+export default async function SceneReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const workspacePromise = getProjectWorkspaceOrDemo(projectId);
 
   return <SceneReviewContent workspacePromise={workspacePromise} projectId={projectId} />;

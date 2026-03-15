@@ -1,4 +1,4 @@
-import type { AspectRatio, Platform, ProjectTone, ProviderName, WorkflowStage } from "./types/core";
+import type { AspectRatio, Platform, ProjectTone, ProviderName, WorkflowStage } from "./types/core.js";
 
 export const PLATFORM_OPTIONS: Platform[] = ["tiktok", "instagram_reels", "youtube_shorts", "linkedin"];
 export const TONE_OPTIONS: ProjectTone[] = ["educational", "authority", "energetic", "playful", "cinematic"];

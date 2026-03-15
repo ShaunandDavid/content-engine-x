@@ -263,11 +263,7 @@ export class SoraProvider implements VideoGenerationProvider {
     return [...availableModels].sort((left, right) => right.id.localeCompare(left.id))[0]!.id;
   }
 
-  private resolveSize(
-    aspectRatio: GenerateClipInput["aspectRatio"],
-    model: string,
-    metadata: Record<string, unknown> | undefined
-  ) {
+  private resolveSize(aspectRatio: GenerateClipInput["aspectRatio"], model: string, metadata: Record<string, unknown> | undefined) {
     const sizeConfig = DEFAULT_VIDEO_SIZES[aspectRatio];
 
     if (!sizeConfig) {

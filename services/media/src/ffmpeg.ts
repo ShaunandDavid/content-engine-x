@@ -29,6 +29,8 @@ const aspectRatioFilter = (aspectRatio: AspectRatio) => {
       return "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1";
     case "16:9":
       return "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:black,setsar=1";
+    default:
+      return "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1";
   }
 };
 
@@ -79,12 +81,13 @@ export const formatAspectRatio = async (inputPath: string, outputPath: string, a
 };
 
 export const burnCaptions = async (inputPath: string, subtitlesPath: string, outputPath: string) => {
+  const escapedSubtitlesPath = subtitlesPath.replace(/\\/g, "\\\\").replace(/:/g, "\\:");
   await runBinary(config.FFMPEG_BIN, [
     "-y",
     "-i",
     inputPath,
     "-vf",
-    `subtitles=${subtitlesPath}`,
+    `subtitles=${escapedSubtitlesPath}`,
     outputPath
   ]);
 };

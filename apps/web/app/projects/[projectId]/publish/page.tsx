@@ -5,8 +5,8 @@ import { FormCard } from "../../../../components/form-card";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 
-export default function PublishHandoffPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+export default async function PublishHandoffPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const workspacePromise = getProjectWorkspaceOrDemo(projectId);
 
   return <PublishHandoffContent workspacePromise={workspacePromise} projectId={projectId} />;

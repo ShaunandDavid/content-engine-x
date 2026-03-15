@@ -88,8 +88,9 @@ export const ProjectCreateForm = () => {
         throw new Error(result.message ?? "Failed to create project.");
       }
 
+      const projectId = result.project.id;
       startTransition(() => {
-        router.push(`/projects/${result.project.id}`);
+        router.push(`/projects/${projectId}`);
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create project.");

@@ -1,6 +1,57 @@
-import type { JobStatus, WorkflowStage } from "@content-engine/shared";
+import type { AspectRatio, JobStatus, Platform, ProjectTone, ProviderName, WorkflowStage } from "@content-engine/shared";
 
-export const demoProject = {
+type DemoScene = {
+  id: string;
+  title: string;
+  narration: string;
+  visualBeat: string;
+  durationSeconds: number;
+  status: JobStatus;
+};
+
+type DemoClip = {
+  id: string;
+  sceneId: string;
+  status: JobStatus;
+  providerJobId: string | null;
+  duration: number;
+};
+
+type DemoProject = {
+  id: string;
+  name: string;
+  status: JobStatus;
+  currentStage: WorkflowStage;
+  provider: ProviderName;
+  durationSeconds: number;
+  aspectRatio: AspectRatio;
+  platforms: Platform[];
+  tone: ProjectTone;
+  brief: {
+    objective: string;
+    audience: string;
+    rawBrief: string;
+  };
+  concept: {
+    hook: string;
+    thesis: string;
+    cta: string;
+  };
+  scenes: DemoScene[];
+  clips: DemoClip[];
+  render: {
+    status: JobStatus;
+    operations: string[];
+  };
+  publish: {
+    title: string;
+    caption: string;
+    hashtags: string[];
+    scheduledPublishTime: string;
+  };
+};
+
+export const demoProject: DemoProject = {
   id: "c9a85d44-b5d2-4b3e-8574-845170a5d351",
   name: "Revenue Ops Content Sprint",
   status: "awaiting_approval" as JobStatus,

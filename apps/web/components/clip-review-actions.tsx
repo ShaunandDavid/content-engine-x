@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useState } from "react";
 
 export const ClipReviewActions = ({
   projectId,
@@ -17,7 +17,7 @@ export const ClipReviewActions = ({
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pollNow = useEffectEvent(async () => {
+  const pollNow = async () => {
     if (isPolling || isGenerating) {
       return;
     }
@@ -39,7 +39,7 @@ export const ClipReviewActions = ({
     } finally {
       setIsPolling(false);
     }
-  });
+  };
 
   useEffect(() => {
     if (activeClipCount < 1) {

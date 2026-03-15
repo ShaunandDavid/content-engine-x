@@ -6,9 +6,9 @@ export const runtime = "nodejs";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { projectId: string } }
+  context: { params: Promise<{ projectId: string }> }
 ) {
-  const { projectId } = params;
+  const { projectId } = await context.params;
 
   try {
     const result = await pollProjectClips(projectId);

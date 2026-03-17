@@ -20,12 +20,26 @@ def scene_planning_node(state: WorkflowState) -> WorkflowState:
     durations = _scene_durations(int(project_config["duration_seconds"]))
     aspect_ratio = project_config["aspect_ratio"]
 
+    # Revision awareness: enrich planning context if script validation failed
+    revision_count = state.get("script_revision_count", 0)
+    revision_notes = state.get("script_revision_notes", "")
+    revision_context = ""
+    if revision_count > 0 and revision_notes:
+        prev_score = state.get("script_score", {}).get("overall_score", 0)
+        revision_context = (
+            f"REVISION REQUIRED — Previous script scored {prev_score}/100. "
+            f"Fix these issues: {revision_notes}"
+        )
+
     scenes = [
         SceneDraft(
             scene_id=str(uuid4()),
             ordinal=index + 1,
             title=f"Scene {index + 1}",
-            visual_beat=f"{concept['visual_direction']} Beat {index + 1} focuses on {concept['thesis']}.",
+            visual_beat=(
+                f"{concept['visual_direction']} Beat {index + 1} focuses on {concept['thesis']}."
+                + (f" {revision_context}" if revision_context else "")
+            ),
             narration=(
                 concept["hook"]
                 if index == 0

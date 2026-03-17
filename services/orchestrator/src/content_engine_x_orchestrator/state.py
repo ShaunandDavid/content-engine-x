@@ -26,6 +26,15 @@ class WorkflowState(TypedDict, total=False):
     publish_payload: dict[str, Any]
     errors: list[str]
     metadata: dict[str, Any]
+    # Trend research
+    trend_briefs: list[dict[str, Any]]
+    trend_source: str
+    trend_niche: str
+    # Script validation
+    script_score: dict[str, Any]
+    script_approved: bool
+    script_revision_count: int
+    script_revision_notes: str
 
 
 def utc_now() -> str:

@@ -6,6 +6,8 @@ from .publish_payload import publish_payload_node
 from .qc_decision import qc_decision_node
 from .render_assembly import render_assembly_node
 from .scene_planning import scene_planning_node
+from .script_validation import script_validation_node
+from .trend_research import trend_research_node
 
 __all__ = [
     "brief_intake_node",
@@ -16,4 +18,6 @@ __all__ = [
     "qc_decision_node",
     "render_assembly_node",
     "scene_planning_node",
+    "script_validation_node",
+    "trend_research_node",
 ]

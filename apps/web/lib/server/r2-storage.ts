@@ -8,7 +8,7 @@ const r2ConfigSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),
   R2_BUCKET: z.string().min(1),
-  R2_PUBLIC_BASE_URL: z.string().url().optional()
+  R2_PUBLIC_BASE_URL: z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional())
 });
 
 type UploadAssetInput = {

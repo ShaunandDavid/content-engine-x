@@ -29,6 +29,8 @@ class WorkflowStage(StrEnum):
     CLIP_GENERATION = "clip_generation"
     QC_DECISION = "qc_decision"
     RENDER_ASSEMBLY = "render_assembly"
+    TREND_RESEARCH = "trend_research"
+    SCRIPT_VALIDATION = "script_validation"
     ASSET_PERSISTENCE = "asset_persistence"
     PUBLISH_PAYLOAD = "publish_payload"
 

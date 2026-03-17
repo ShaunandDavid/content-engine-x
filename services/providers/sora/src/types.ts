@@ -15,9 +15,9 @@ export const openAIModelListSchema = z.object({
 export const soraVideoJobSchema = z.object({
   id: z.string(),
   object: z.string().optional(),
-  created_at: z.number().optional(),
-  completed_at: z.number().optional(),
-  expires_at: z.number().optional(),
+  created_at: z.number().nullable().optional(),
+  completed_at: z.number().nullable().optional(),
+  expires_at: z.number().nullable().optional(),
   status: z.enum(["queued", "in_progress", "completed", "failed"]),
   model: z.string(),
   prompt: z.string().optional(),

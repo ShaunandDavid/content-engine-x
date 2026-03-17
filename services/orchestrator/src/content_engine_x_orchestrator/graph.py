@@ -26,7 +26,7 @@ STAGE_NODE_NAMES = {
     WorkflowStage.CLIP_GENERATION.value: "clip_generation",
     WorkflowStage.QC_DECISION.value: "qc_decision",
     WorkflowStage.RENDER_ASSEMBLY.value: "render_assembly",
-    WorkflowStage.PUBLISH_PAYLOAD.value: "publish_payload",
+    WorkflowStage.PUBLISH_PAYLOAD.value: "publish_handoff",
 }
 
 
@@ -52,7 +52,7 @@ def build_workflow(*, checkpointer: Any | None = None, approval_interrupts: Sequ
     graph.add_node("clip_generation", clip_generation_node)
     graph.add_node("qc_decision", qc_decision_node)
     graph.add_node("render_assembly", render_assembly_node)
-    graph.add_node("publish_payload", publish_payload_node)
+    graph.add_node("publish_handoff", publish_payload_node)
 
     graph.add_conditional_edges(START, route_start, {name: name for name in STAGE_NODE_NAMES.values()})
     graph.add_edge("brief_intake", "concept_generation")
@@ -68,8 +68,8 @@ def build_workflow(*, checkpointer: Any | None = None, approval_interrupts: Sequ
             "halt_for_approval": END,
         },
     )
-    graph.add_edge("render_assembly", "publish_payload")
-    graph.add_edge("publish_payload", END)
+    graph.add_edge("render_assembly", "publish_handoff")
+    graph.add_edge("publish_handoff", END)
 
     return graph.compile(
         checkpointer=checkpointer,

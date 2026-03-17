@@ -35,7 +35,15 @@ export class SoraProviderError extends Error {
   }
 }
 
-const clampDurationSeconds = (durationSeconds: number) => Math.max(1, Math.min(durationSeconds, MAX_VIDEO_DURATION_SECONDS));
+const SORA_VALID_DURATIONS = [4, 8, 12] as const;
+
+const clampDurationSeconds = (durationSeconds: number) => {
+  const clamped = Math.max(1, Math.min(durationSeconds, MAX_VIDEO_DURATION_SECONDS));
+  // Sora API only accepts specific duration values — snap to nearest valid one
+  return SORA_VALID_DURATIONS.reduce((best, valid) =>
+    Math.abs(valid - clamped) < Math.abs(best - clamped) ? valid : best
+  );
+};
 
 const isHighResolutionRequested = (metadata: Record<string, unknown> | undefined) =>
   metadata?.renderProfile === "high-resolution" || metadata?.resolution === "1080p";

@@ -127,7 +127,9 @@ export const demoProject: DemoProject = {
 export const stageLabels: Record<WorkflowStage, string> = {
   brief_intake: "Brief Intake",
   concept_generation: "Concept Generation",
+  trend_research: "Trend Research",
   scene_planning: "Scene Planning",
+  script_validation: "Script Validation",
   prompt_creation: "Prompt Builder",
   clip_generation: "Clip Generation",
   qc_decision: "QC / Approval",

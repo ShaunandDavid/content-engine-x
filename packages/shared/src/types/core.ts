@@ -13,7 +13,9 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type WorkflowStage =
   | "brief_intake"
   | "concept_generation"
+  | "trend_research"
   | "scene_planning"
+  | "script_validation"
   | "prompt_creation"
   | "clip_generation"
   | "qc_decision"

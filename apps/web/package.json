@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
     "@content-engine/db": "workspace:*",
+    "@content-engine/media": "workspace:*",
     "@content-engine/shared": "workspace:*",
     "@content-engine/sora-provider": "workspace:*",
     "next": "^15.2.2",

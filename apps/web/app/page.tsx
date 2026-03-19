@@ -25,10 +25,10 @@ export default function HomePage() {
             Create Project
           </Link>
           <Link className="button button--secondary" href={projectRoute(demoProject.id)}>
-            Open Demo Project
+            Open Demo Project (Sample Data)
           </Link>
           <Link className="button button--secondary" href={clipReviewRoute(demoProject.id)}>
-            Review Clips
+            Review Demo Clips
           </Link>
         </div>
       </section>

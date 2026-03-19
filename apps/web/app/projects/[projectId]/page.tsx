@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { FormCard } from "../../../components/form-card";
 import { DashboardShell } from "../../../components/dashboard-shell";
-import { stageLabels } from "../../../lib/dashboard-data";
+import { demoProject, stageLabels } from "../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -25,6 +25,8 @@ async function ProjectDetailContent({
     notFound();
   }
 
+  const isDemoProject = projectId === demoProject.id;
+
   return (
     <DashboardShell
       title={workspace.project.name}
@@ -32,6 +34,22 @@ async function ProjectDetailContent({
       status={workspace.project.status}
       projectId={projectId}
     >
+      {isDemoProject ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          Demo workspace only. This route renders static sample data and does not verify live Supabase, Sora, or R2
+          execution.
+        </div>
+      ) : null}
+      {workspace.project.errorMessage ? (
+        <p className="error-banner" style={{ marginBottom: "20px" }}>
+          Project error: {workspace.project.errorMessage}
+        </p>
+      ) : null}
+      {workspace.workflowRun?.errorMessage ? (
+        <p className="error-banner" style={{ marginBottom: "20px" }}>
+          Workflow error: {workspace.workflowRun.errorMessage}
+        </p>
+      ) : null}
       <div className="stats-grid">
         <div className="panel-card stat-block">
           <p className="eyebrow">Current Stage</p>

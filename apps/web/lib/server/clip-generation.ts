@@ -14,6 +14,7 @@ import {
 import type { ClipRecord, ProjectWorkspace } from "@content-engine/shared";
 
 import { uploadAssetFile } from "./r2-storage";
+import { assertLiveRuntimeReady } from "./live-runtime-preflight";
 import { createVideoProvider } from "./video-provider-registry";
 
 const ACTIVE_CLIP_STATUSES = new Set<ClipRecord["status"]>(["pending", "queued", "running"]);
@@ -50,21 +51,35 @@ const buildWorkflowSnapshot = (workspace: ProjectWorkspace) => ({
   }))
 });
 
+const setClipStageFailure = async (
+  workspace: ProjectWorkspace,
+  message: string,
+  client = createServiceSupabaseClient()
+) => {
+  await updateProjectWorkflowState(
+    {
+      projectId: workspace.project.id,
+      workflowRunId: workspace.workflowRun?.id ?? null,
+      projectStatus: "failed",
+      currentStage: "clip_generation",
+      workflowStatus: "failed",
+      stateSnapshot: buildWorkflowSnapshot(workspace),
+      errorMessage: message
+    },
+    { client }
+  );
+};
+
 const syncProjectClipStageState = async (workspace: ProjectWorkspace) => {
   const activeClipCount = workspace.clips.filter((clip) => ACTIVE_CLIP_STATUSES.has(clip.status)).length;
   const failedClipCount = workspace.clips.filter((clip) => clip.status === "failed").length;
   const completedClipCount = workspace.clips.filter((clip) => clip.status === "completed").length;
 
-  if (activeClipCount > 0) {
-    await updateProjectWorkflowState({
-      projectId: workspace.project.id,
-      workflowRunId: workspace.workflowRun?.id ?? null,
-      projectStatus: "running",
-      currentStage: "clip_generation",
-      workflowStatus: "running",
-      stateSnapshot: buildWorkflowSnapshot(workspace),
-      errorMessage: null
-    });
+  if (failedClipCount > 0) {
+    await setClipStageFailure(
+      workspace,
+      `${failedClipCount} clip generation${failedClipCount === 1 ? " failed" : "s failed"} during clip generation.`
+    );
     return;
   }
 
@@ -81,15 +96,15 @@ const syncProjectClipStageState = async (workspace: ProjectWorkspace) => {
     return;
   }
 
-  if (failedClipCount > 0 && completedClipCount === 0) {
+  if (activeClipCount > 0) {
     await updateProjectWorkflowState({
       projectId: workspace.project.id,
       workflowRunId: workspace.workflowRun?.id ?? null,
-      projectStatus: "failed",
+      projectStatus: "running",
       currentStage: "clip_generation",
-      workflowStatus: "failed",
+      workflowStatus: "running",
       stateSnapshot: buildWorkflowSnapshot(workspace),
-      errorMessage: "One or more clip generations failed."
+      errorMessage: null
     });
   }
 };
@@ -161,11 +176,23 @@ const persistCompletedClipAsset = async ({
 };
 
 export const generateProjectClips = async (projectId: string, options?: { force?: boolean }) => {
+  await assertLiveRuntimeReady();
+
   const client = createServiceSupabaseClient();
   const workspace = await getProjectWorkspace(projectId, { client });
 
   if (!workspace) {
     throw new Error("Project not found.");
+  }
+
+  if (!workspace.scenes.length) {
+    await setClipStageFailure(workspace, "Clip generation cannot start because no scenes were persisted for this project.", client);
+    throw new Error("Clip generation cannot start because no scenes were persisted for this project.");
+  }
+
+  if (!workspace.prompts.length) {
+    await setClipStageFailure(workspace, "Clip generation cannot start because no prompt records were persisted for this project.", client);
+    throw new Error("Clip generation cannot start because no prompt records were persisted for this project.");
   }
 
   await updateProjectWorkflowState({
@@ -180,10 +207,12 @@ export const generateProjectClips = async (projectId: string, options?: { force?
 
   const startedClips: ClipRecord[] = [];
   const skippedClips: ClipRecord[] = [];
+  const missingPromptScenes: number[] = [];
 
   for (const scene of workspace.scenes) {
     const prompt = getPromptForScene(workspace, scene.id);
     if (!prompt) {
+      missingPromptScenes.push(scene.ordinal);
       continue;
     }
 
@@ -284,9 +313,38 @@ export const generateProjectClips = async (projectId: string, options?: { force?
     }
   }
 
+  if (missingPromptScenes.length) {
+    const message = `Clip generation is blocked because scene prompt records are missing for scene ${missingPromptScenes.join(", ")}.`;
+
+    await appendAuditLog(
+      {
+        projectId: workspace.project.id,
+        workflowRunId: workspace.workflowRun?.id ?? null,
+        actorType: "service",
+        action: "clip.generation_blocked",
+        entityType: "project",
+        entityId: workspace.project.id,
+        stage: "clip_generation",
+        errorMessage: message,
+        metadata: {
+          missingSceneOrdinals: missingPromptScenes
+        }
+      },
+      { client }
+    );
+  }
+
   const refreshedWorkspace = await getProjectWorkspace(projectId, { client });
   if (refreshedWorkspace) {
-    await syncProjectClipStageState(refreshedWorkspace);
+    if (missingPromptScenes.length) {
+      await setClipStageFailure(
+        refreshedWorkspace,
+        `Clip generation is blocked because scene prompt records are missing for scene ${missingPromptScenes.join(", ")}.`,
+        client
+      );
+    } else {
+      await syncProjectClipStageState(refreshedWorkspace);
+    }
   }
 
   return {

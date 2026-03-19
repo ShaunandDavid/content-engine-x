@@ -38,11 +38,12 @@ const initialState: FormState = {
   guardrailsText: ""
 };
 
-export const ProjectCreateForm = () => {
+export const ProjectCreateForm = ({ initialBlockingIssues = [] }: { initialBlockingIssues?: string[] }) => {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialState);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialBlockingIssues[0] ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isBlocked = initialBlockingIssues.length > 0;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,6 +72,11 @@ export const ProjectCreateForm = () => {
       return;
     }
 
+    if (isBlocked) {
+      setError(initialBlockingIssues.join(" "));
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -82,10 +88,16 @@ export const ProjectCreateForm = () => {
         body: JSON.stringify(parsed.data)
       });
 
-      const result = (await response.json()) as { message?: string; project?: { id: string } };
+      const result = (await response.json()) as {
+        message?: string;
+        project?: { id: string };
+        readiness?: { blockingIssues?: string[] };
+      };
 
       if (!response.ok || !result.project?.id) {
-        throw new Error(result.message ?? "Failed to create project.");
+        const readinessIssues = result.readiness?.blockingIssues ?? [];
+        const message = readinessIssues.length > 0 ? [result.message, ...readinessIssues].filter(Boolean).join(" ") : result.message;
+        throw new Error(message ?? "Failed to create project.");
       }
 
       const projectId = result.project.id;
@@ -259,8 +271,8 @@ export const ProjectCreateForm = () => {
           {error ? <p className="error-banner">{error}</p> : null}
 
           <div className="button-row">
-            <button className="button" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating Project..." : "Create Project"}
+            <button className="button" type="submit" disabled={isSubmitting || isBlocked}>
+              {isBlocked ? "Live Runtime Not Ready" : isSubmitting ? "Creating Project..." : "Create Project"}
             </button>
           </div>
         </div>

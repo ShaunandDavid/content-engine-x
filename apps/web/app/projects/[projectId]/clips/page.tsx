@@ -4,6 +4,7 @@ import { DashboardShell } from "../../../../components/dashboard-shell";
 import { ClipReviewActions } from "../../../../components/clip-review-actions";
 import { FormCard } from "../../../../components/form-card";
 import { StatusChip } from "../../../../components/status-chip";
+import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 
 export default async function ClipReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -25,8 +26,11 @@ async function ClipReviewContent({
   if (!workspace) {
     notFound();
   }
+
+  const isDemoProject = projectId === demoProject.id;
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const activeClipCount = workspace.clips.filter((clip) => ["pending", "queued", "running"].includes(clip.status)).length;
+  const failedClipCount = workspace.clips.filter((clip) => clip.status === "failed").length;
 
   return (
     <DashboardShell
@@ -35,7 +39,34 @@ async function ClipReviewContent({
       status={workspace.project.status}
       projectId={projectId}
     >
-      <ClipReviewActions projectId={projectId} activeClipCount={activeClipCount} clipCount={workspace.clips.length} />
+      {isDemoProject ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          Demo clip queue only. The records below are sample data and are intentionally disconnected from the live API
+          routes.
+        </div>
+      ) : null}
+      {workspace.project.errorMessage ? (
+        <p className="error-banner" style={{ marginBottom: "20px" }}>
+          Project error: {workspace.project.errorMessage}
+        </p>
+      ) : null}
+      {workspace.workflowRun?.errorMessage ? (
+        <p className="error-banner" style={{ marginBottom: "20px" }}>
+          Workflow error: {workspace.workflowRun.errorMessage}
+        </p>
+      ) : null}
+      {failedClipCount > 0 ? (
+        <p className="error-banner" style={{ marginBottom: "20px" }}>
+          {failedClipCount} clip generation{failedClipCount === 1 ? " has" : "s have"} failed. Review clip-level errors
+          before treating this project as ready.
+        </p>
+      ) : null}
+      <ClipReviewActions
+        projectId={projectId}
+        activeClipCount={activeClipCount}
+        clipCount={workspace.clips.length}
+        isDemoProject={isDemoProject}
+      />
       <FormCard title="Generation Queue" description="The clip layer is provider-agnostic but exposes provider-specific job IDs.">
         {workspace.clips.length ? (
           <div className="clip-grid">

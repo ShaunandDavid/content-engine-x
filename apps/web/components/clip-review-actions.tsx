@@ -6,11 +6,13 @@ import { useEffect, useState } from "react";
 export const ClipReviewActions = ({
   projectId,
   activeClipCount,
-  clipCount
+  clipCount,
+  isDemoProject
 }: {
   projectId: string;
   activeClipCount: number;
   clipCount: number;
+  isDemoProject: boolean;
 }) => {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,7 +44,7 @@ export const ClipReviewActions = ({
   };
 
   useEffect(() => {
-    if (activeClipCount < 1) {
+    if (isDemoProject || activeClipCount < 1) {
       return;
     }
 
@@ -51,7 +53,18 @@ export const ClipReviewActions = ({
     }, 15000);
 
     return () => window.clearInterval(interval);
-  }, [activeClipCount, pollNow]);
+  }, [activeClipCount, isDemoProject, pollNow]);
+
+  if (isDemoProject) {
+    return (
+      <div className="stack" style={{ marginBottom: "20px" }}>
+        <div className="empty-state">
+          Demo clip actions are disabled. This page is backed by static sample records and does not submit live provider
+          jobs or poll persisted workspace state.
+        </div>
+      </div>
+    );
+  }
 
   const generateMissingClips = async () => {
     setIsGenerating(true);
@@ -65,10 +78,15 @@ export const ClipReviewActions = ({
         },
         body: JSON.stringify({ force: false })
       });
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as {
+        message?: string;
+        readiness?: { blockingIssues?: string[] };
+      };
 
       if (!response.ok) {
-        throw new Error(result.message ?? "Clip generation failed.");
+        const readinessIssues = result.readiness?.blockingIssues ?? [];
+        const message = readinessIssues.length > 0 ? [result.message, ...readinessIssues].filter(Boolean).join(" ") : result.message;
+        throw new Error(message ?? "Clip generation failed.");
       }
 
       router.refresh();

@@ -15,7 +15,7 @@ export const DashboardShell = ({
   title: string;
   subtitle: string;
   status: JobStatus;
-  projectId: string;
+  projectId?: string;
   children: ReactNode;
 }) => (
   <div className="dashboard-shell">

@@ -1,6 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { z } from "zod";
 
 const r2ConfigSchema = z.object({
@@ -53,5 +54,40 @@ export const uploadAssetFile = async ({ localPath, objectKey, contentType }: Upl
     objectKey,
     publicUrl: config.R2_PUBLIC_BASE_URL ? joinUrl(config.R2_PUBLIC_BASE_URL, objectKey) : null,
     byteSize: body.byteLength
+  };
+};
+
+export const downloadAssetFile = async ({
+  objectKey,
+  outputPath,
+  bucket
+}: {
+  objectKey: string;
+  outputPath: string;
+  bucket?: string;
+}) => {
+  const config = getR2Config();
+  const client = createR2Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket ?? config.R2_BUCKET,
+      Key: objectKey
+    })
+  );
+
+  const bytes = await response.Body?.transformToByteArray();
+
+  if (!bytes) {
+    throw new Error(`R2 returned no body for ${objectKey}.`);
+  }
+
+  const buffer = Buffer.from(bytes);
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, buffer);
+
+  return {
+    localPath: outputPath,
+    mimeType: response.ContentType ?? "application/octet-stream",
+    byteSize: buffer.byteLength
   };
 };

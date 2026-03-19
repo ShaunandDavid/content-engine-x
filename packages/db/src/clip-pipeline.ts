@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AssetRecord, AuditLogRecord, ClipRecord, JobStatus, ProviderName, WorkflowStage } from "@content-engine/shared";
+import type { AssetRecord, AuditLogRecord, ClipRecord, JobStatus, ProviderName, PublishJobRecord, RenderRecord, WorkflowStage } from "@content-engine/shared";
 
 import { createServiceSupabaseClient } from "./client.js";
 
@@ -43,6 +43,40 @@ type AssetRow = {
   updated_at: string;
 };
 
+type RenderRow = {
+  id: string;
+  project_id: string;
+  status: JobStatus;
+  aspect_ratio: RenderRecord["aspectRatio"];
+  duration_seconds: number | null;
+  master_asset_id: string | null;
+  thumbnail_asset_id: string | null;
+  caption_asset_id: string | null;
+  metadata: Record<string, unknown> | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type PublishJobRow = {
+  id: string;
+  project_id: string;
+  render_id: string;
+  status: JobStatus;
+  title: string;
+  caption: string;
+  hashtags: string[];
+  platforms: PublishJobRecord["platforms"];
+  webhook_url: string;
+  scheduled_publish_time: string | null;
+  payload: Record<string, unknown> | null;
+  response_payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const toClipRecord = (row: ClipRow): ClipRecord => ({
   id: row.id,
   projectId: row.project_id,
@@ -76,6 +110,39 @@ const toAssetRecord = (row: AssetRow): AssetRecord => ({
   mimeType: row.mime_type,
   byteSize: row.byte_size,
   checksum: row.checksum,
+  status: row.status,
+  errorMessage: row.error_message,
+  metadata: row.metadata ?? {},
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const toRenderRecord = (row: RenderRow): RenderRecord => ({
+  id: row.id,
+  projectId: row.project_id,
+  masterAssetId: row.master_asset_id,
+  thumbnailAssetId: row.thumbnail_asset_id,
+  captionAssetId: row.caption_asset_id,
+  aspectRatio: row.aspect_ratio,
+  durationSeconds: row.duration_seconds,
+  status: row.status,
+  errorMessage: row.error_message,
+  metadata: row.metadata ?? {},
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
+const toPublishJobRecord = (row: PublishJobRow): PublishJobRecord => ({
+  id: row.id,
+  projectId: row.project_id,
+  renderId: row.render_id,
+  title: row.title,
+  caption: row.caption,
+  hashtags: row.hashtags,
+  platforms: row.platforms,
+  scheduledPublishTime: row.scheduled_publish_time,
+  payload: row.payload ?? {},
+  responsePayload: row.response_payload ?? null,
   status: row.status,
   errorMessage: row.error_message,
   metadata: row.metadata ?? {},
@@ -163,6 +230,7 @@ export const createAssetRecord = async (
   input: {
     projectId: string;
     sceneId?: string | null;
+    renderId?: string | null;
     clipId?: string | null;
     kind: AssetRecord["kind"];
     bucket: string;
@@ -183,6 +251,7 @@ export const createAssetRecord = async (
     .insert({
       project_id: input.projectId,
       scene_id: input.sceneId ?? null,
+      render_id: input.renderId ?? null,
       clip_id: input.clipId ?? null,
       kind: input.kind,
       storage_provider: "r2",
@@ -200,6 +269,164 @@ export const createAssetRecord = async (
     .single();
 
   return toAssetRecord(assertData(data as AssetRow | null, error, "Failed to create asset record"));
+};
+
+export const createRenderRecord = async (
+  input: {
+    projectId: string;
+    aspectRatio: RenderRecord["aspectRatio"];
+    durationSeconds?: number | null;
+    status: JobStatus;
+    metadata?: Record<string, unknown>;
+    errorMessage?: string | null;
+  },
+  options?: { client?: SupabaseClient }
+) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const { data, error } = await client
+    .from("renders")
+    .insert({
+      project_id: input.projectId,
+      aspect_ratio: input.aspectRatio,
+      duration_seconds: input.durationSeconds ?? null,
+      status: input.status,
+      metadata: input.metadata ?? {},
+      error_message: input.errorMessage ?? null
+    })
+    .select("*")
+    .single();
+
+  return toRenderRecord(assertData(data as RenderRow | null, error, "Failed to create render record"));
+};
+
+export const updateRenderRecord = async (
+  renderId: string,
+  updates: {
+    status?: JobStatus;
+    durationSeconds?: number | null;
+    masterAssetId?: string | null;
+    thumbnailAssetId?: string | null;
+    captionAssetId?: string | null;
+    metadata?: Record<string, unknown>;
+    errorMessage?: string | null;
+  },
+  options?: { client?: SupabaseClient }
+) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const payload: Record<string, unknown> = {};
+
+  if ("status" in updates) payload.status = updates.status;
+  if ("durationSeconds" in updates) payload.duration_seconds = updates.durationSeconds ?? null;
+  if ("masterAssetId" in updates) payload.master_asset_id = updates.masterAssetId ?? null;
+  if ("thumbnailAssetId" in updates) payload.thumbnail_asset_id = updates.thumbnailAssetId ?? null;
+  if ("captionAssetId" in updates) payload.caption_asset_id = updates.captionAssetId ?? null;
+  if ("metadata" in updates) payload.metadata = updates.metadata ?? {};
+  if ("errorMessage" in updates) payload.error_message = updates.errorMessage ?? null;
+
+  const { data, error } = await client.from("renders").update(payload).eq("id", renderId).select("*").single();
+  return toRenderRecord(assertData(data as RenderRow | null, error, "Failed to update render record"));
+};
+
+export const getLatestRenderForProject = async (projectId: string, options?: { client?: SupabaseClient }) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const { data, error } = await client
+    .from("renders")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load latest render: ${error.message}`);
+  }
+
+  return data ? toRenderRecord(data as RenderRow) : null;
+};
+
+export const createPublishJobRecord = async (
+  input: {
+    projectId: string;
+    renderId: string;
+    status: JobStatus;
+    title: string;
+    caption: string;
+    hashtags: string[];
+    platforms: PublishJobRecord["platforms"];
+    webhookUrl: string;
+    scheduledPublishTime?: string | null;
+    payload: Record<string, unknown>;
+    responsePayload?: Record<string, unknown> | null;
+    metadata?: Record<string, unknown>;
+    errorMessage?: string | null;
+  },
+  options?: { client?: SupabaseClient }
+) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const { data, error } = await client
+    .from("publish_jobs")
+    .insert({
+      project_id: input.projectId,
+      render_id: input.renderId,
+      status: input.status,
+      title: input.title,
+      caption: input.caption,
+      hashtags: input.hashtags,
+      platforms: input.platforms,
+      webhook_url: input.webhookUrl,
+      scheduled_publish_time: input.scheduledPublishTime ?? null,
+      payload: input.payload,
+      response_payload: input.responsePayload ?? null,
+      metadata: input.metadata ?? {},
+      error_message: input.errorMessage ?? null
+    })
+    .select("*")
+    .single();
+
+  return toPublishJobRecord(assertData(data as PublishJobRow | null, error, "Failed to create publish job"));
+};
+
+export const updatePublishJobRecord = async (
+  publishJobId: string,
+  updates: {
+    status?: JobStatus;
+    scheduledPublishTime?: string | null;
+    payload?: Record<string, unknown>;
+    responsePayload?: Record<string, unknown> | null;
+    metadata?: Record<string, unknown>;
+    errorMessage?: string | null;
+  },
+  options?: { client?: SupabaseClient }
+) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const payload: Record<string, unknown> = {};
+
+  if ("status" in updates) payload.status = updates.status;
+  if ("scheduledPublishTime" in updates) payload.scheduled_publish_time = updates.scheduledPublishTime ?? null;
+  if ("payload" in updates) payload.payload = updates.payload ?? {};
+  if ("responsePayload" in updates) payload.response_payload = updates.responsePayload ?? null;
+  if ("metadata" in updates) payload.metadata = updates.metadata ?? {};
+  if ("errorMessage" in updates) payload.error_message = updates.errorMessage ?? null;
+
+  const { data, error } = await client.from("publish_jobs").update(payload).eq("id", publishJobId).select("*").single();
+  return toPublishJobRecord(assertData(data as PublishJobRow | null, error, "Failed to update publish job"));
+};
+
+export const getLatestPublishJobForProject = async (projectId: string, options?: { client?: SupabaseClient }) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const { data, error } = await client
+    .from("publish_jobs")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load latest publish job: ${error.message}`);
+  }
+
+  return data ? toPublishJobRecord(data as PublishJobRow) : null;
 };
 
 export const appendAuditLog = async (

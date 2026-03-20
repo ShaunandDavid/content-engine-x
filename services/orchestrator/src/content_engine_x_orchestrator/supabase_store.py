@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from datetime import date, datetime
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 from uuid import UUID, uuid4
 
 from psycopg import connect
@@ -26,6 +27,8 @@ from .adam_persistence import (
 from .config import load_settings
 from .models import AdamArtifact, AdamModelDecision, JobStatus, WorkflowStage
 from .state import utc_now
+
+logger = logging.getLogger(__name__)
 
 
 def _json_default(value: Any) -> str:
@@ -80,12 +83,27 @@ def load_workflow_run_context(workflow_run_id: str) -> dict[str, Any]:
     return row
 
 
-def _safe_canonical_write(callback: Any) -> None:
+def _safe_canonical_write(
+    callback: Callable[[], None],
+    *,
+    operation: str,
+    run_id: str,
+    project_id: str | None = None,
+    stage: str | None = None,
+) -> None:
     try:
         callback()
     except Exception:
         # Canonical Adam dual-write is additive during migration and must not
         # compromise the existing workflow persistence path.
+        logger.warning(
+            "Canonical Adam dual-write failed during %s; continuing legacy persistence path. run_id=%s project_id=%s stage=%s",
+            operation,
+            run_id,
+            project_id,
+            stage,
+            exc_info=True,
+        )
         return
 
 
@@ -380,7 +398,11 @@ def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) 
                         payload={"source": "python_orchestrator_runtime"},
                     ),
                 ),
-            )
+            ),
+            operation="mark_workflow_running",
+            run_id=workflow_run_id,
+            project_id=workflow_row["project_id"],
+            stage=WorkflowStage.BRIEF_INTAKE.value,
         )
 
         connection.commit()
@@ -693,7 +715,13 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                 ),
             )
 
-        _safe_canonical_write(canonical_success_write)
+        _safe_canonical_write(
+            canonical_success_write,
+            operation="persist_workflow_success",
+            run_id=workflow_run_id,
+            project_id=project_id,
+            stage=WorkflowStage.PROMPT_CREATION.value,
+        )
 
         connection.commit()
 
@@ -813,6 +841,12 @@ def persist_workflow_failure(
                 ),
             )
 
-        _safe_canonical_write(canonical_failure_write)
+        _safe_canonical_write(
+            canonical_failure_write,
+            operation="persist_workflow_failure",
+            run_id=workflow_run_id,
+            project_id=project_id,
+            stage=current_stage,
+        )
 
         connection.commit()

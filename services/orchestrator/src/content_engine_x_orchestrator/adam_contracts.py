@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 from typing_extensions import TypedDict
 
@@ -8,7 +10,14 @@ from pydantic import BaseModel, Field
 
 
 ADAM_STATE_VERSION = "adam.phase0.v1"
-DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000000"
+_COMPATIBILITY_CONFIG_PATH = (
+    Path(__file__).resolve().parents[4] / "packages" / "shared" / "src" / "config" / "adam-compatibility.json"
+)
+with _COMPATIBILITY_CONFIG_PATH.open("r", encoding="utf-8") as compatibility_config_file:
+    _COMPATIBILITY_CONFIG = json.load(compatibility_config_file)
+
+ADAM_COMPATIBILITY_TENANT_ID = _COMPATIBILITY_CONFIG["compatibilityTenantId"]
+DEFAULT_TENANT_ID = ADAM_COMPATIBILITY_TENANT_ID
 DEFAULT_WORKFLOW_KIND = "content_engine_x.fast_path"
 DEFAULT_WORKFLOW_VERSION = "phase0"
 DEFAULT_ENTRYPOINT = "project_workflow"

@@ -95,9 +95,29 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
             "project_id": "project-1",
             "tenant_id": "00000000-0000-0000-0000-000000000000",
             "concept": {"hook": "Hook"},
-            "scenes": [{"scene_id": "scene-1", "ordinal": 1}],
+            "scenes": [
+                {
+                    "scene_id": "scene-1",
+                    "ordinal": 1,
+                    "title": "Hook",
+                    "narration": "Opening narration",
+                    "visual_beat": "Opening visual",
+                    "duration_seconds": 5,
+                    "aspect_ratio": "9:16",
+                }
+            ],
             "prompt_versions": [
-                {"prompt_id": "prompt-1", "provider": "sora", "model": "sora-2", "scene_id": "scene-1"}
+                {
+                    "prompt_id": "prompt-1",
+                    "scene_id": "scene-1",
+                    "stage": "prompt_creation",
+                    "version": 1,
+                    "provider": "sora",
+                    "model": "sora-2",
+                    "system_prompt": "system",
+                    "user_prompt": "user",
+                    "compiled_prompt": "compiled",
+                }
             ],
             "stage_attempts": [],
             "audit_log": [{"action": "prompts.created", "entity_type": "prompt", "metadata": {}}],

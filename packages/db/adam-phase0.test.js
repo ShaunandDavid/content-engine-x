@@ -58,7 +58,25 @@ const loadTsModule = (filePath, mocks = {}) => {
 
 const createQueryResult = (data, error = null) => ({ data, error });
 
-const createMockClient = () => {
+const buildAuditRows = (count) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `audit-${index + 1}`,
+    project_id: "project-1",
+    workflow_run_id: "run-1",
+    actor_user_id: "operator-1",
+    actor_type: "service",
+    action: `event-${index + 1}`,
+    entity_type: "workflow_run",
+    entity_id: "run-1",
+    stage: "brief_intake",
+    diff: null,
+    metadata: {},
+    error_message: null,
+    created_at: "2026-03-20T12:00:05.000Z",
+    updated_at: "2026-03-20T12:00:05.000Z"
+  }));
+
+const createMockClient = (overrides = {}) => {
   const responses = {
     users: createQueryResult({ id: "operator-1" }),
     projects: createQueryResult({
@@ -143,24 +161,8 @@ const createMockClient = () => {
       created_at: "2026-03-20T12:00:04.000Z",
       updated_at: "2026-03-20T12:00:04.000Z"
     }),
-    audit_logs: createQueryResult([
-      {
-        id: "audit-1",
-        project_id: "project-1",
-        workflow_run_id: "run-1",
-        actor_user_id: "operator-1",
-        actor_type: "service",
-        action: "project.created",
-        entity_type: "project",
-        entity_id: "project-1",
-        stage: "brief_intake",
-        diff: null,
-        metadata: {},
-        error_message: null,
-        created_at: "2026-03-20T12:00:05.000Z",
-        updated_at: "2026-03-20T12:00:05.000Z"
-      }
-    ])
+    audit_logs: createQueryResult(buildAuditRows(1)),
+    ...overrides
   };
 
   const builder = (table) => ({
@@ -187,6 +189,9 @@ const createMockClient = () => {
     },
     maybeSingle() {
       return Promise.resolve(responses[table]);
+    },
+    then(onFulfilled, onRejected) {
+      return Promise.resolve(responses[table]).then(onFulfilled, onRejected);
     }
   });
 
@@ -216,16 +221,20 @@ test("createProjectWorkflow dual-writes canonical bootstrap records without chan
     audits: [],
     modelDecisions: []
   };
+  const client = createMockClient({
+    audit_logs: createQueryResult(buildAuditRows(4))
+  });
 
   const module = loadTsModule(projectWorkflowFile, {
     "@content-engine/shared": {
+      adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       projectBriefInputSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamModelDecisionSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
-    "./client.js": { createServiceSupabaseClient: () => createMockClient() },
+    "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
@@ -249,7 +258,7 @@ test("createProjectWorkflow dual-writes canonical bootstrap records without chan
       guardrails: ["Brand safe"]
     },
     {
-      client: createMockClient(),
+      client,
       operatorUserId: "operator-1"
     }
   );
@@ -258,19 +267,23 @@ test("createProjectWorkflow dual-writes canonical bootstrap records without chan
   assert.equal(canonicalCalls.runs.length, 1);
   assert.equal(canonicalCalls.artifacts.length, 4);
   assert.equal(canonicalCalls.modelDecisions.length, 1);
-  assert.equal(canonicalCalls.audits.length, 1);
+  assert.equal(canonicalCalls.audits.length, 4);
 });
 
 test("project-workflow canonical bootstrap failure stays fail-open", async () => {
+  const client = createMockClient({
+    audit_logs: createQueryResult(buildAuditRows(3))
+  });
   const module = loadTsModule(projectWorkflowFile, {
     "@content-engine/shared": {
+      adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       projectBriefInputSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamModelDecisionSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
-    "./client.js": { createServiceSupabaseClient: () => createMockClient() },
+    "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
     "./adam-write.js": {
       createAdamRunRecord: async () => {
@@ -302,7 +315,7 @@ test("project-workflow canonical bootstrap failure stays fail-open", async () =>
       guardrails: ["Brand safe"]
     },
     {
-      client: createMockClient(),
+      client,
       operatorUserId: "operator-1"
     }
   );
@@ -318,16 +331,20 @@ test("initializeAsyncProjectWorkflow only writes truthful canonical bootstrap re
     audits: [],
     modelDecisions: []
   };
+  const client = createMockClient({
+    audit_logs: createQueryResult(buildAuditRows(3))
+  });
 
   const module = loadTsModule(projectWorkflowFile, {
     "@content-engine/shared": {
+      adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       projectBriefInputSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamModelDecisionSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
-    "./client.js": { createServiceSupabaseClient: () => createMockClient() },
+    "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
@@ -351,7 +368,7 @@ test("initializeAsyncProjectWorkflow only writes truthful canonical bootstrap re
       guardrails: ["Brand safe"]
     },
     {
-      client: createMockClient(),
+      client,
       operatorUserId: "operator-1"
     }
   );
@@ -359,6 +376,6 @@ test("initializeAsyncProjectWorkflow only writes truthful canonical bootstrap re
   assert.equal(result.project.id, "project-1");
   assert.equal(canonicalCalls.runs.length, 1);
   assert.equal(canonicalCalls.artifacts.length, 1);
-  assert.equal(canonicalCalls.audits.length, 1);
+  assert.equal(canonicalCalls.audits.length, 3);
   assert.equal(canonicalCalls.modelDecisions.length, 0);
 });

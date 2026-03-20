@@ -1,4 +1,5 @@
 export * from "./constants.js";
+export * from "./config/adam.js";
 export * from "./schemas/adam.js";
 export * from "./schemas/project.js";
 export * from "./schemas/providers.js";

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  adamCompatibilityTenantId,
   adamArtifactSchema,
   adamLangGraphRuntimeStateSchema,
   adamModelDecisionSchema,
@@ -182,7 +183,6 @@ type AssetRow = {
 };
 
 const STAGE_COMPLETED: JobStatus = "completed";
-const ADAM_COMPAT_TENANT_ID = "00000000-0000-0000-0000-000000000000";
 const ADAM_STATE_VERSION = "adam.phase0.v1";
 const ADAM_WORKFLOW_KIND = "content_engine_x.fast_path";
 const ADAM_WORKFLOW_VERSION = "phase0";
@@ -374,7 +374,7 @@ const buildCanonicalBootstrapState = (input: {
     projectId: input.projectId,
     workflowRunId: input.workflowRunId,
     runId: input.workflowRunId,
-    tenantId: ADAM_COMPAT_TENANT_ID,
+    tenantId: adamCompatibilityTenantId,
     workflowKind: ADAM_WORKFLOW_KIND,
     workflowVersion: ADAM_WORKFLOW_VERSION,
     entrypoint: input.entrypoint,
@@ -419,7 +419,7 @@ const buildCanonicalRun = (input: {
 }): AdamRun =>
   adamRunSchema.parse({
     runId: input.workflowRunId,
-    tenantId: ADAM_COMPAT_TENANT_ID,
+    tenantId: adamCompatibilityTenantId,
     workflowKind: ADAM_WORKFLOW_KIND,
     workflowVersion: ADAM_WORKFLOW_VERSION,
     status: input.status,
@@ -450,7 +450,7 @@ const buildAdamArtifact = (input: {
 }): AdamArtifact =>
   adamArtifactSchema.parse({
     artifactId: input.artifactId,
-    tenantId: ADAM_COMPAT_TENANT_ID,
+    tenantId: adamCompatibilityTenantId,
     runId: input.runId,
     artifactType: input.artifactType,
     artifactRole: input.artifactRole,
@@ -478,7 +478,7 @@ const buildAdamModelDecision = (input: {
 }): AdamModelDecision =>
   adamModelDecisionSchema.parse({
     decisionId: input.decisionId,
-    tenantId: ADAM_COMPAT_TENANT_ID,
+    tenantId: adamCompatibilityTenantId,
     runId: input.runId,
     stage: input.stage,
     taskType: input.taskType,
@@ -1171,7 +1171,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
       {
         runId: input.workflowRun.id,
         projectId: input.project.id,
-        tenantId: ADAM_COMPAT_TENANT_ID,
+        tenantId: adamCompatibilityTenantId,
         actorType: event.actorType,
         actorId: event.actorUserId ?? null,
         eventType: event.action,
@@ -1282,7 +1282,7 @@ const persistCanonicalAsyncBootstrapRecords = async (input: {
       {
         runId: input.workflowRun.id,
         projectId: input.project.id,
-        tenantId: ADAM_COMPAT_TENANT_ID,
+        tenantId: adamCompatibilityTenantId,
         actorType: event.actorType,
         actorId: event.actorUserId ?? null,
         eventType: event.action,

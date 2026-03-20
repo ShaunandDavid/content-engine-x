@@ -4,13 +4,27 @@ import json
 from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Iterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from psycopg import connect
 from psycopg.rows import dict_row
 
+from .adam_contracts import (
+    ADAM_STATE_VERSION,
+    DEFAULT_ENTRYPOINT,
+    DEFAULT_TENANT_ID,
+    DEFAULT_WORKFLOW_KIND,
+    DEFAULT_WORKFLOW_VERSION,
+    ArtifactRole,
+)
+from .adam_persistence import (
+    AdamArtifactWriteRequest,
+    AdamAuditEventWriteRequest,
+    AdamModelDecisionWriteRequest,
+    AdamRunUpdateRequest,
+)
 from .config import load_settings
-from .models import JobStatus, WorkflowStage
+from .models import AdamArtifact, AdamModelDecision, JobStatus, WorkflowStage
 from .state import utc_now
 
 
@@ -66,6 +80,223 @@ def load_workflow_run_context(workflow_run_id: str) -> dict[str, Any]:
     return row
 
 
+def _safe_canonical_write(callback: Any) -> None:
+    try:
+        callback()
+    except Exception:
+        # Canonical Adam dual-write is additive during migration and must not
+        # compromise the existing workflow persistence path.
+        return
+
+
+def _build_adam_run_update_request(
+    workflow_run_id: str,
+    *,
+    state_snapshot: dict[str, Any],
+    status: str,
+    current_stage: str,
+    error_message: str | None = None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    output_refs: list[str] | None = None,
+) -> AdamRunUpdateRequest:
+    canonical_state = {
+        **state_snapshot,
+        "state_version": state_snapshot.get("state_version", ADAM_STATE_VERSION),
+        "workflow_run_id": state_snapshot.get("workflow_run_id", workflow_run_id),
+        "run_id": state_snapshot.get("run_id", workflow_run_id),
+        "tenant_id": state_snapshot.get("tenant_id", DEFAULT_TENANT_ID),
+        "workflow_kind": state_snapshot.get("workflow_kind", DEFAULT_WORKFLOW_KIND),
+        "workflow_version": state_snapshot.get("workflow_version", DEFAULT_WORKFLOW_VERSION),
+        "entrypoint": state_snapshot.get("entrypoint", DEFAULT_ENTRYPOINT),
+        "status": status,
+        "current_stage": current_stage,
+    }
+
+    return AdamRunUpdateRequest(
+        run_id=workflow_run_id,
+        status=status,
+        current_stage=current_stage,
+        graph_thread_id=canonical_state.get("graph_thread_id"),
+        state_version=canonical_state["state_version"],
+        state_snapshot=canonical_state,
+        error_message=error_message,
+        started_at=started_at,
+        completed_at=completed_at,
+        output_refs=output_refs,
+        metadata=canonical_state.get("metadata"),
+    )
+
+
+def _update_adam_run(
+    connection: Any,
+    request: AdamRunUpdateRequest,
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            update public.adam_runs
+            set
+              status = coalesce(%s, status),
+              current_stage = coalesce(%s, current_stage),
+              graph_thread_id = coalesce(%s, graph_thread_id),
+              state_version = coalesce(%s, state_version),
+              state_snapshot = coalesce(%s::jsonb, state_snapshot),
+              output_refs = coalesce(%s, output_refs),
+              error_message = %s,
+              started_at = coalesce(%s, started_at),
+              completed_at = %s,
+              metadata = coalesce(%s::jsonb, metadata),
+              updated_at = %s
+            where id = %s
+            """,
+            (
+                request.status,
+                request.current_stage,
+                request.graph_thread_id,
+                request.state_version,
+                to_jsonb(request.state_snapshot) if request.state_snapshot is not None else None,
+                request.output_refs,
+                request.error_message,
+                request.started_at,
+                request.completed_at,
+                to_jsonb(request.metadata) if request.metadata is not None else None,
+                utc_now(),
+                request.run_id,
+            ),
+        )
+
+
+def _create_adam_artifact(connection: Any, request: AdamArtifactWriteRequest) -> None:
+    artifact = request.artifact
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            insert into public.adam_artifacts (
+              id,
+              tenant_id,
+              run_id,
+              project_id,
+              artifact_type,
+              artifact_role,
+              status,
+              schema_name,
+              schema_version,
+              content_ref,
+              content_json,
+              storage_provider,
+              storage_bucket,
+              storage_key,
+              checksum,
+              error_message,
+              metadata
+            ) values (
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s::jsonb
+            )
+            on conflict (id) do nothing
+            """,
+            (
+                artifact.artifact_id,
+                artifact.tenant_id,
+                artifact.run_id,
+                request.project_id,
+                artifact.artifact_type,
+                artifact.artifact_role.value,
+                artifact.status.value if hasattr(artifact.status, "value") else artifact.status,
+                artifact.schema_name,
+                artifact.schema_version,
+                artifact.content_ref,
+                to_jsonb(artifact.content),
+                request.storage_provider,
+                request.storage_bucket,
+                request.storage_key,
+                artifact.checksum,
+                request.error_message,
+                to_jsonb(artifact.metadata),
+            ),
+        )
+
+
+def _append_adam_audit_event(connection: Any, request: AdamAuditEventWriteRequest) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            insert into public.adam_audit_events (
+              tenant_id,
+              run_id,
+              project_id,
+              actor_type,
+              actor_id,
+              event_type,
+              entity_type,
+              entity_id,
+              stage,
+              payload,
+              error_message
+            ) values (
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+            )
+            """,
+            (
+                request.tenant_id,
+                request.run_id,
+                request.project_id,
+                request.actor_type,
+                request.actor_id,
+                request.event_type,
+                request.entity_type,
+                request.entity_id,
+                request.stage,
+                to_jsonb(request.payload),
+                request.error_message,
+            ),
+        )
+
+
+def _create_adam_model_decision(connection: Any, request: AdamModelDecisionWriteRequest) -> None:
+    decision = request.decision
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            insert into public.adam_model_decisions (
+              id,
+              tenant_id,
+              run_id,
+              project_id,
+              stage,
+              task_type,
+              provider,
+              model,
+              selection_reason,
+              fallback_of,
+              metadata
+            ) values (
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb
+            )
+            on conflict (id) do nothing
+            """,
+            (
+                decision.decision_id,
+                decision.tenant_id,
+                decision.run_id,
+                request.project_id,
+                decision.stage.value,
+                decision.task_type,
+                decision.provider,
+                decision.model,
+                decision.selection_reason,
+                request.fallback_of,
+                to_jsonb(decision.metadata),
+            ),
+        )
+
+
+def _build_artifact_refs(artifact_ids: list[str]) -> list[str]:
+    return artifact_ids
+
+
 def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) -> dict[str, Any]:
     now = utc_now()
 
@@ -117,6 +348,41 @@ def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) 
             ),
         )
 
+        # Canonical Adam dual-write begins here. This update is additive and
+        # intentionally fail-open so the existing workflow persistence path
+        # remains the primary source of availability during migration.
+        _safe_canonical_write(
+            lambda: (
+                _update_adam_run(
+                    connection,
+                    _build_adam_run_update_request(
+                        workflow_run_id,
+                        state_snapshot={
+                            **state_snapshot,
+                            "graph_thread_id": workflow_run_id,
+                        },
+                        status=JobStatus.RUNNING.value,
+                        current_stage=WorkflowStage.BRIEF_INTAKE.value,
+                        started_at=now,
+                    ),
+                ),
+                _append_adam_audit_event(
+                    connection,
+                    AdamAuditEventWriteRequest(
+                        tenant_id=state_snapshot.get("tenant_id", DEFAULT_TENANT_ID),
+                        run_id=workflow_run_id,
+                        project_id=workflow_row["project_id"],
+                        actor_type="service",
+                        event_type="workflow.running",
+                        entity_type="workflow_run",
+                        entity_id=workflow_run_id,
+                        stage=WorkflowStage.BRIEF_INTAKE.value,
+                        payload={"source": "python_orchestrator_runtime"},
+                    ),
+                ),
+            )
+        )
+
         connection.commit()
         return workflow_row
 
@@ -124,6 +390,7 @@ def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) 
 def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> None:
     now = utc_now()
     project_id = state["project_id"]
+    concept = state.get("concept", {})
     scenes = state.get("scenes", [])
     prompts = state.get("prompt_versions", [])
     stage_attempts = state.get("stage_attempts", [])
@@ -274,6 +541,160 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
             ),
         )
 
+        def canonical_success_write() -> None:
+            output_artifact_ids: list[str] = []
+
+            if concept:
+                concept_artifact = AdamArtifact(
+                    artifact_id=str(uuid4()),
+                    tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                    run_id=workflow_run_id,
+                    artifact_type="concept",
+                    artifact_role=ArtifactRole.WORKING,
+                    status=JobStatus.COMPLETED,
+                    schema_name="content-engine-x.concept",
+                    schema_version=DEFAULT_WORKFLOW_VERSION,
+                    content_ref=None,
+                    content=concept,
+                    created_at=now,
+                    updated_at=now,
+                    metadata={"source": "python_orchestrator_runtime"},
+                )
+                _create_adam_artifact(
+                    connection,
+                    AdamArtifactWriteRequest(
+                        artifact=concept_artifact,
+                        project_id=project_id,
+                    ),
+                )
+                output_artifact_ids.append(concept_artifact.artifact_id)
+
+            if scenes:
+                scene_plan_artifact = AdamArtifact(
+                    artifact_id=str(uuid4()),
+                    tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                    run_id=workflow_run_id,
+                    artifact_type="scene_plan",
+                    artifact_role=ArtifactRole.OUTPUT,
+                    status=JobStatus.COMPLETED,
+                    schema_name="content-engine-x.scene-plan",
+                    schema_version=DEFAULT_WORKFLOW_VERSION,
+                    content_ref=None,
+                    content=scenes,
+                    created_at=now,
+                    updated_at=now,
+                    metadata={"source": "python_orchestrator_runtime", "count": len(scenes)},
+                )
+                _create_adam_artifact(
+                    connection,
+                    AdamArtifactWriteRequest(
+                        artifact=scene_plan_artifact,
+                        project_id=project_id,
+                    ),
+                )
+                output_artifact_ids.append(scene_plan_artifact.artifact_id)
+
+            if prompts:
+                prompt_bundle_artifact = AdamArtifact(
+                    artifact_id=str(uuid4()),
+                    tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                    run_id=workflow_run_id,
+                    artifact_type="prompt_bundle",
+                    artifact_role=ArtifactRole.OUTPUT,
+                    status=JobStatus.COMPLETED,
+                    schema_name="content-engine-x.prompt-bundle",
+                    schema_version=DEFAULT_WORKFLOW_VERSION,
+                    content_ref=None,
+                    content=prompts,
+                    created_at=now,
+                    updated_at=now,
+                    metadata={"source": "python_orchestrator_runtime", "count": len(prompts)},
+                )
+                _create_adam_artifact(
+                    connection,
+                    AdamArtifactWriteRequest(
+                        artifact=prompt_bundle_artifact,
+                        project_id=project_id,
+                    ),
+                )
+                output_artifact_ids.append(prompt_bundle_artifact.artifact_id)
+
+                provider_model_pairs = sorted(
+                    {
+                        (prompt["provider"], prompt["model"])
+                        for prompt in prompts
+                        if prompt.get("provider") and prompt.get("model")
+                    }
+                )
+                for provider, model in provider_model_pairs:
+                    _create_adam_model_decision(
+                        connection,
+                        AdamModelDecisionWriteRequest(
+                            decision=AdamModelDecision(
+                                decision_id=str(uuid4()),
+                                tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                                run_id=workflow_run_id,
+                                stage=WorkflowStage.PROMPT_CREATION,
+                                task_type="prompt_creation",
+                                provider=provider,
+                                model=model,
+                                selection_reason="Python orchestrator prompt creation persisted prompts using the selected provider/model pair.",
+                                created_at=now,
+                                metadata={"source": "python_orchestrator_runtime"},
+                            ),
+                            project_id=project_id,
+                        ),
+                    )
+
+            for event in audit_log:
+                _append_adam_audit_event(
+                    connection,
+                    AdamAuditEventWriteRequest(
+                        tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                        run_id=workflow_run_id,
+                        project_id=project_id,
+                        actor_type=event.get("actor_type", "service"),
+                        event_type=event["action"],
+                        entity_type=event["entity_type"],
+                        entity_id=event.get("entity_id"),
+                        stage=event.get("stage"),
+                        payload={
+                            "metadata": event.get("metadata", {}),
+                            "compatibility_source": "audit_log",
+                        },
+                        error_message=event.get("error_message"),
+                    ),
+                )
+
+            _append_adam_audit_event(
+                connection,
+                AdamAuditEventWriteRequest(
+                    tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
+                    run_id=workflow_run_id,
+                    project_id=project_id,
+                    actor_type="service",
+                    event_type="workflow.completed",
+                    entity_type="workflow_run",
+                    entity_id=workflow_run_id,
+                    stage=WorkflowStage.PROMPT_CREATION.value,
+                    payload={"source": "python_orchestrator_runtime"},
+                ),
+            )
+
+            _update_adam_run(
+                connection,
+                _build_adam_run_update_request(
+                    workflow_run_id,
+                    state_snapshot=state,
+                    status=JobStatus.COMPLETED.value,
+                    current_stage=WorkflowStage.PROMPT_CREATION.value,
+                    completed_at=now,
+                    output_refs=_build_artifact_refs(output_artifact_ids),
+                ),
+            )
+
+        _safe_canonical_write(canonical_success_write)
+
         connection.commit()
 
 
@@ -363,5 +784,35 @@ def persist_workflow_failure(
                 project_id,
             ),
         )
+
+        def canonical_failure_write() -> None:
+            _append_adam_audit_event(
+                connection,
+                AdamAuditEventWriteRequest(
+                    tenant_id=snapshot.get("tenant_id", DEFAULT_TENANT_ID),
+                    run_id=workflow_run_id,
+                    project_id=project_id,
+                    actor_type="service",
+                    event_type="workflow.failed",
+                    entity_type="workflow_run",
+                    entity_id=workflow_run_id,
+                    stage=current_stage,
+                    payload={"source": "python_orchestrator_runtime"},
+                    error_message=error_message,
+                ),
+            )
+
+            _update_adam_run(
+                connection,
+                _build_adam_run_update_request(
+                    workflow_run_id,
+                    state_snapshot=snapshot,
+                    status=JobStatus.FAILED.value,
+                    current_stage=current_stage,
+                    error_message=error_message,
+                ),
+            )
+
+        _safe_canonical_write(canonical_failure_write)
 
         connection.commit()

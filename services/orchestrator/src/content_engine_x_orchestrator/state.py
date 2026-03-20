@@ -2,40 +2,12 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from typing import Any
-from typing_extensions import TypedDict
 from uuid import UUID
 
+from .adam_contracts import LangGraphRuntimeState
 from .models import AuditEvent, JobStatus, StageAttempt, WorkflowStage
 
-
-class WorkflowState(TypedDict, total=False):
-    project_id: str
-    workflow_run_id: str
-    requested_start_stage: str
-    current_stage: str
-    status: str
-    brief: dict[str, Any]
-    project_config: dict[str, Any]
-    concept: dict[str, Any]
-    scenes: list[dict[str, Any]]
-    prompt_versions: list[dict[str, Any]]
-    clip_requests: list[dict[str, Any]]
-    approvals: list[dict[str, Any]]
-    stage_attempts: list[dict[str, Any]]
-    audit_log: list[dict[str, Any]]
-    render_plan: dict[str, Any]
-    publish_payload: dict[str, Any]
-    errors: list[str]
-    metadata: dict[str, Any]
-    # Trend research
-    trend_briefs: list[dict[str, Any]]
-    trend_source: str
-    trend_niche: str
-    # Script validation
-    script_score: dict[str, Any]
-    script_approved: bool
-    script_revision_count: int
-    script_revision_notes: str
+WorkflowState = LangGraphRuntimeState
 
 
 def utc_now() -> str:

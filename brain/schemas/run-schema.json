@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain/schemas/run-schema.json",
+  "title": "Adam Run",
+  "description": "Canonical execution record for Adam workflow runs.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "workflow_kind": { "type": "string", "minLength": 1 },
+    "workflow_version": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "queued", "running", "awaiting_approval", "approved", "completed", "failed", "cancelled"]
+    },
+    "current_stage": {
+      "type": "string",
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload"
+      ]
+    },
+    "requested_start_stage": {
+      "type": ["string", "null"],
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload",
+        null
+      ]
+    },
+    "entrypoint": { "type": "string", "minLength": 1 },
+    "graph_thread_id": { "type": ["string", "null"] },
+    "input_ref": { "type": ["string", "null"] },
+    "output_refs": { "type": "array", "items": { "type": "string" } },
+    "started_at": { "type": ["string", "null"], "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": [
+    "run_id",
+    "tenant_id",
+    "workflow_kind",
+    "workflow_version",
+    "status",
+    "current_stage",
+    "entrypoint",
+    "input_ref",
+    "output_refs",
+    "started_at",
+    "updated_at",
+    "metadata"
+  ]
+}

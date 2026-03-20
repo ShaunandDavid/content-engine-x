@@ -1,3 +1,5 @@
+import type { AdamArtifact, AdamJobStatus, AdamLangGraphRuntimeState, AdamRun, AdamWorkflowStage } from "./adam.js";
+
 export type ProviderName = "sora";
 
 export type Platform = "tiktok" | "instagram_reels" | "youtube_shorts" | "linkedin";
@@ -6,22 +8,11 @@ export type ProjectTone = "educational" | "authority" | "energetic" | "playful" 
 
 export type AspectRatio = "9:16" | "16:9";
 
-export type JobStatus = "pending" | "queued" | "running" | "awaiting_approval" | "approved" | "completed" | "failed" | "cancelled";
+export type JobStatus = AdamJobStatus;
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
-export type WorkflowStage =
-  | "brief_intake"
-  | "concept_generation"
-  | "trend_research"
-  | "scene_planning"
-  | "script_validation"
-  | "prompt_creation"
-  | "clip_generation"
-  | "qc_decision"
-  | "render_assembly"
-  | "asset_persistence"
-  | "publish_payload";
+export type WorkflowStage = AdamWorkflowStage;
 
 export interface BaseRecord {
   id: string;
@@ -86,6 +77,8 @@ export interface PromptRecord extends StatusRecord {
   compiledPrompt: string;
 }
 
+// Compatibility adapter for legacy `assets` rows while Adam artifacts become
+// the canonical substrate contract.
 export interface AssetRecord extends StatusRecord {
   projectId: string;
   sceneId?: string | null;
@@ -98,7 +91,7 @@ export interface AssetRecord extends StatusRecord {
   publicUrl?: string | null;
   mimeType: string;
   byteSize?: number | null;
-  checksum?: string | null;
+  checksum?: AdamArtifact["checksum"] | null;
 }
 
 export interface ClipRecord extends StatusRecord {
@@ -135,14 +128,16 @@ export interface PublishJobRecord extends StatusRecord {
   responsePayload?: Record<string, unknown> | null;
 }
 
+// Compatibility adapter for legacy `workflow_runs` rows projected from the
+// canonical Adam run and runtime-state contracts.
 export interface WorkflowRunRecord extends StatusRecord {
   projectId: string;
-  currentStage: WorkflowStage;
-  requestedStage?: WorkflowStage | null;
-  graphThreadId?: string | null;
-  rerunFromStage?: WorkflowStage | null;
+  currentStage: AdamRun["currentStage"];
+  requestedStage?: AdamRun["requestedStartStage"] | null;
+  graphThreadId?: AdamRun["graphThreadId"] | null;
+  rerunFromStage?: AdamWorkflowStage | null;
   retryCount: number;
-  stateSnapshot: Record<string, unknown>;
+  stateSnapshot: AdamLangGraphRuntimeState | Record<string, unknown>;
 }
 
 export interface AuditLogRecord extends BaseRecord {

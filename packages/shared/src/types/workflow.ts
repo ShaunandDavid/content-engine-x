@@ -5,7 +5,6 @@ import type {
   AuditLogRecord,
   BriefRecord,
   ClipRecord,
-  JobStatus,
   Platform,
   ProjectRecord,
   ProjectTone,
@@ -15,16 +14,12 @@ import type {
   WorkflowRunRecord,
   WorkflowStage
 } from "./core.js";
+import type { AdamGovernanceDecision, AdamLangGraphRuntimeState, AdamModelDecision, AdamStageHistoryEntry } from "./adam.js";
 
-export interface StageExecution {
-  stage: WorkflowStage;
-  status: JobStatus;
-  attempt: number;
-  startedAt: string;
-  completedAt?: string;
-  errorMessage?: string;
-}
+export type StageExecution = AdamStageHistoryEntry;
 
+// Compatibility adapter over canonical governance-decision semantics for the
+// current approval-oriented workflow surfaces.
 export interface ApprovalCheckpoint {
   stage: WorkflowStage;
   status: ApprovalStatus;
@@ -95,3 +90,7 @@ export interface CreateProjectWorkflowResult extends ProjectWorkspace {
   brief: BriefRecord;
   workflowRun: WorkflowRunRecord;
 }
+
+export type AdamRuntimeState = AdamLangGraphRuntimeState;
+export type GovernanceDecisionRecord = AdamGovernanceDecision;
+export type ModelDecisionRecord = AdamModelDecision;

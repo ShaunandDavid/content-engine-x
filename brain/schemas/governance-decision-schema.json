@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain/schemas/governance-decision-schema.json",
+  "title": "Adam Governance Decision",
+  "description": "Canonical governance, approval, or policy decision emitted during a run.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "run_id": { "type": "string", "format": "uuid" },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload"
+      ]
+    },
+    "decision_type": { "type": "string", "minLength": 1 },
+    "outcome": { "type": "string", "enum": ["pending", "approved", "rejected", "flagged"] },
+    "reason_codes": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": [
+    "decision_id",
+    "tenant_id",
+    "run_id",
+    "stage",
+    "decision_type",
+    "outcome",
+    "reason_codes",
+    "created_at",
+    "metadata"
+  ]
+}

@@ -2,9 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  adamArtifactSchema,
+  adamLangGraphRuntimeStateSchema,
+  adamModelDecisionSchema,
+  adamRunSchema,
   type AssetRecord,
   projectBriefInputSchema,
   type AuditLogRecord,
+  type AdamArtifact,
+  type AdamLangGraphRuntimeState,
+  type AdamModelDecision,
+  type AdamRun,
   type BriefRecord,
   type ClipRecord,
   type CreateProjectWorkflowResult,
@@ -20,6 +28,12 @@ import {
   type WorkflowStage
 } from "@content-engine/shared";
 
+import {
+  appendAdamAuditEvent,
+  createAdamArtifactRecord,
+  createAdamModelDecisionRecord,
+  createAdamRunRecord
+} from "./adam-write.js";
 import { createServiceSupabaseClient } from "./client.js";
 import { getSupabaseConfig } from "./config.js";
 
@@ -168,6 +182,10 @@ type AssetRow = {
 };
 
 const STAGE_COMPLETED: JobStatus = "completed";
+const ADAM_COMPAT_TENANT_ID = "00000000-0000-0000-0000-000000000000";
+const ADAM_STATE_VERSION = "adam.phase0.v1";
+const ADAM_WORKFLOW_KIND = "content_engine_x.fast_path";
+const ADAM_WORKFLOW_VERSION = "phase0";
 
 const toProjectRecord = (row: ProjectRow): ProjectRecord => ({
   id: row.id,
@@ -320,6 +338,163 @@ const assertData = <T>(data: T | null, error: { message: string } | null, contex
   }
 
   return data;
+};
+
+const toAdamStageHistory = (stageAttempts: StageExecution[]) =>
+  stageAttempts.map((attempt) => ({
+    stage: attempt.stage,
+    status: attempt.status,
+    attempt: attempt.attempt,
+    startedAt: attempt.startedAt,
+    completedAt: attempt.completedAt,
+    errorMessage: attempt.errorMessage
+  }));
+
+const buildCanonicalBootstrapState = (input: {
+  workflowRunId: string;
+  projectId: string;
+  currentStage: WorkflowStage;
+  status: JobStatus;
+  entrypoint: string;
+  requestedStartStage?: WorkflowStage | null;
+  graphThreadId?: string | null;
+  brief: Record<string, unknown>;
+  projectConfig: Record<string, unknown>;
+  concept?: Record<string, unknown>;
+  scenes?: Record<string, unknown>[];
+  promptVersions?: Record<string, unknown>[];
+  stageAttempts?: StageExecution[];
+  inputArtifactRefs?: string[];
+  outputArtifactRefs?: string[];
+  modelDecisionRefs?: string[];
+  metadata?: Record<string, unknown>;
+}): AdamLangGraphRuntimeState =>
+  adamLangGraphRuntimeStateSchema.parse({
+    stateVersion: ADAM_STATE_VERSION,
+    projectId: input.projectId,
+    workflowRunId: input.workflowRunId,
+    runId: input.workflowRunId,
+    tenantId: ADAM_COMPAT_TENANT_ID,
+    workflowKind: ADAM_WORKFLOW_KIND,
+    workflowVersion: ADAM_WORKFLOW_VERSION,
+    entrypoint: input.entrypoint,
+    status: input.status,
+    currentStage: input.currentStage,
+    requestedStartStage: input.requestedStartStage ?? undefined,
+    graphThreadId: input.graphThreadId ?? null,
+    stageHistory: toAdamStageHistory(input.stageAttempts ?? []),
+    stageAttempts: toAdamStageHistory(input.stageAttempts ?? []),
+    inputArtifactRefs: input.inputArtifactRefs ?? [],
+    outputArtifactRefs: input.outputArtifactRefs ?? [],
+    workingMemory: {},
+    governanceDecisionRefs: [],
+    modelDecisionRefs: input.modelDecisionRefs ?? [],
+    brief: input.brief,
+    projectConfig: input.projectConfig,
+    concept: input.concept ?? {},
+    scenes: input.scenes ?? [],
+    promptVersions: input.promptVersions ?? [],
+    clipRequests: [],
+    approvals: [],
+    auditLog: [],
+    renderPlan: {},
+    publishPayload: {},
+    errors: [],
+    metadata: input.metadata ?? {}
+  });
+
+const buildCanonicalRun = (input: {
+  workflowRunId: string;
+  currentStage: WorkflowStage;
+  status: JobStatus;
+  entrypoint: string;
+  requestedStartStage?: WorkflowStage | null;
+  graphThreadId?: string | null;
+  inputRef?: string | null;
+  outputRefs?: string[];
+  updatedAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  metadata?: Record<string, unknown>;
+}): AdamRun =>
+  adamRunSchema.parse({
+    runId: input.workflowRunId,
+    tenantId: ADAM_COMPAT_TENANT_ID,
+    workflowKind: ADAM_WORKFLOW_KIND,
+    workflowVersion: ADAM_WORKFLOW_VERSION,
+    status: input.status,
+    currentStage: input.currentStage,
+    requestedStartStage: input.requestedStartStage ?? undefined,
+    entrypoint: input.entrypoint,
+    graphThreadId: input.graphThreadId ?? null,
+    inputRef: input.inputRef ?? null,
+    outputRefs: input.outputRefs ?? [],
+    startedAt: input.startedAt ?? null,
+    completedAt: input.completedAt ?? null,
+    updatedAt: input.updatedAt,
+    metadata: input.metadata ?? {}
+  });
+
+const buildAdamArtifact = (input: {
+  artifactId: string;
+  runId: string;
+  artifactType: string;
+  artifactRole: AdamArtifact["artifactRole"];
+  status: JobStatus;
+  schemaName: string;
+  content: unknown;
+  metadata?: Record<string, unknown>;
+  checksum?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}): AdamArtifact =>
+  adamArtifactSchema.parse({
+    artifactId: input.artifactId,
+    tenantId: ADAM_COMPAT_TENANT_ID,
+    runId: input.runId,
+    artifactType: input.artifactType,
+    artifactRole: input.artifactRole,
+    status: input.status,
+    schemaName: input.schemaName,
+    schemaVersion: ADAM_WORKFLOW_VERSION,
+    contentRef: null,
+    content: input.content,
+    checksum: input.checksum ?? null,
+    createdAt: input.createdAt,
+    updatedAt: input.updatedAt ?? input.createdAt,
+    metadata: input.metadata ?? {}
+  });
+
+const buildAdamModelDecision = (input: {
+  decisionId: string;
+  runId: string;
+  stage: WorkflowStage;
+  taskType: string;
+  provider: string;
+  model: string;
+  selectionReason: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}): AdamModelDecision =>
+  adamModelDecisionSchema.parse({
+    decisionId: input.decisionId,
+    tenantId: ADAM_COMPAT_TENANT_ID,
+    runId: input.runId,
+    stage: input.stage,
+    taskType: input.taskType,
+    provider: input.provider,
+    model: input.model,
+    selectionReason: input.selectionReason,
+    createdAt: input.createdAt,
+    metadata: input.metadata ?? {}
+  });
+
+const safePersistCanonicalBootstrap = async (callback: () => Promise<void>) => {
+  try {
+    await callback();
+  } catch (error) {
+    console.error("Canonical Adam bootstrap dual-write failed without affecting legacy flow.", error);
+  }
 };
 
 const slugify = (value: string) =>
@@ -696,6 +871,25 @@ export const createProjectWorkflow = async (
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
   const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist audit logs");
 
+  // Canonical Adam bootstrap dual-write begins here. This path is additive and
+  // intentionally fail-open so the existing project workflow remains the
+  // primary source of availability during migration.
+  await safePersistCanonicalBootstrap(async () => {
+    await persistCanonicalSyncBootstrapRecords({
+      client,
+      project: toProjectRecord(projectRow),
+      brief: toBriefRecord(briefRow),
+      workflowRun: toWorkflowRunRecord(workflowRunRow),
+      stageAttempts,
+      concept,
+      scenes: sceneRows.map(toSceneRecord),
+      prompts: promptRows.map(toPromptRecord),
+      model: promptDrafts[0]?.model ?? (process.env.OPENAI_SORA_MODEL ?? "sora-2"),
+      provider: payload.provider,
+      auditEvents: auditRows.map(toAuditLogRecord)
+    });
+  });
+
   return {
     project: toProjectRecord(projectRow),
     brief: toBriefRecord(briefRow),
@@ -776,6 +970,335 @@ const buildAsyncInitializationAuditEvents = ({
       updated_at: now
     }
   ];
+};
+
+const persistCanonicalSyncBootstrapRecords = async (input: {
+  client: SupabaseClient;
+  project: ProjectRecord;
+  brief: BriefRecord;
+  workflowRun: WorkflowRunRecord;
+  stageAttempts: StageExecution[];
+  concept: Record<string, unknown>;
+  scenes: SceneRecord[];
+  prompts: PromptRecord[];
+  model: string;
+  provider: ProjectBriefInput["provider"];
+  auditEvents: AuditLogRecord[];
+}) => {
+  const briefArtifactId = randomUUID();
+  const conceptArtifactId = randomUUID();
+  const scenePlanArtifactId = randomUUID();
+  const promptBundleArtifactId = randomUUID();
+  const modelDecisionId = randomUUID();
+
+  const briefArtifact = buildAdamArtifact({
+    artifactId: briefArtifactId,
+    runId: input.workflowRun.id,
+    artifactType: "brief",
+    artifactRole: "input",
+    status: input.brief.status,
+    schemaName: "content-engine-x.brief",
+    content: {
+      briefId: input.brief.id,
+      rawBrief: input.brief.rawBrief,
+      objective: input.brief.objective,
+      audience: input.brief.audience,
+      guardrails: input.brief.guardrails
+    },
+    createdAt: input.brief.createdAt,
+    updatedAt: input.brief.updatedAt,
+    metadata: { source: "project_workflow_bootstrap" }
+  });
+
+  const conceptArtifact = buildAdamArtifact({
+    artifactId: conceptArtifactId,
+    runId: input.workflowRun.id,
+    artifactType: "concept",
+    artifactRole: "working",
+    status: "completed",
+    schemaName: "content-engine-x.concept",
+    content: input.concept,
+    createdAt: input.workflowRun.createdAt,
+    updatedAt: input.workflowRun.updatedAt,
+    metadata: { source: "project_workflow_bootstrap" }
+  });
+
+  const scenePlanArtifact = buildAdamArtifact({
+    artifactId: scenePlanArtifactId,
+    runId: input.workflowRun.id,
+    artifactType: "scene_plan",
+    artifactRole: "output",
+    status: "completed",
+    schemaName: "content-engine-x.scene-plan",
+    content: input.scenes.map((scene) => ({
+      sceneId: scene.id,
+      ordinal: scene.ordinal,
+      title: scene.title,
+      narration: scene.narration,
+      visualBeat: scene.visualBeat,
+      durationSeconds: scene.durationSeconds,
+      aspectRatio: scene.aspectRatio
+    })),
+    createdAt: input.workflowRun.createdAt,
+    updatedAt: input.workflowRun.updatedAt,
+    metadata: { source: "project_workflow_bootstrap", count: input.scenes.length }
+  });
+
+  const promptBundleArtifact = buildAdamArtifact({
+    artifactId: promptBundleArtifactId,
+    runId: input.workflowRun.id,
+    artifactType: "prompt_bundle",
+    artifactRole: "output",
+    status: "completed",
+    schemaName: "content-engine-x.prompt-bundle",
+    content: input.prompts.map((prompt) => ({
+      promptId: prompt.id,
+      sceneId: prompt.sceneId,
+      stage: prompt.stage,
+      version: prompt.version,
+      provider: prompt.provider,
+      model: prompt.model,
+      systemPrompt: prompt.systemPrompt,
+      userPrompt: prompt.userPrompt,
+      compiledPrompt: prompt.compiledPrompt
+    })),
+    createdAt: input.workflowRun.createdAt,
+    updatedAt: input.workflowRun.updatedAt,
+    metadata: { source: "project_workflow_bootstrap", count: input.prompts.length }
+  });
+
+  const modelDecision = buildAdamModelDecision({
+    decisionId: modelDecisionId,
+    runId: input.workflowRun.id,
+    stage: "prompt_creation",
+    taskType: "prompt_creation",
+    provider: input.provider,
+    model: input.model,
+    selectionReason: "Project bootstrap selected the configured prompt-generation model for persisted prompt creation.",
+    createdAt: input.workflowRun.createdAt,
+    metadata: { source: "project_workflow_bootstrap" }
+  });
+
+  const canonicalState = buildCanonicalBootstrapState({
+    workflowRunId: input.workflowRun.id,
+    projectId: input.project.id,
+    currentStage: input.workflowRun.currentStage,
+    status: input.workflowRun.status,
+    entrypoint: "create_project_workflow",
+    requestedStartStage: input.workflowRun.requestedStage,
+    graphThreadId: input.workflowRun.graphThreadId,
+    brief: {
+      briefId: input.brief.id,
+      rawBrief: input.brief.rawBrief,
+      objective: input.brief.objective,
+      audience: input.brief.audience,
+      guardrails: input.brief.guardrails
+    },
+    projectConfig: {
+      projectName: input.project.name,
+      tone: input.project.tone,
+      platforms: input.project.platforms,
+      durationSeconds: input.project.durationSeconds,
+      aspectRatio: input.project.aspectRatio,
+      provider: input.project.provider
+    },
+    concept: input.concept,
+    scenes: input.scenes.map((scene) => ({
+      sceneId: scene.id,
+      ordinal: scene.ordinal,
+      title: scene.title,
+      narration: scene.narration,
+      visualBeat: scene.visualBeat,
+      durationSeconds: scene.durationSeconds,
+      aspectRatio: scene.aspectRatio
+    })),
+    promptVersions: input.prompts.map((prompt) => ({
+      promptId: prompt.id,
+      sceneId: prompt.sceneId,
+      stage: prompt.stage,
+      version: prompt.version,
+      provider: prompt.provider,
+      model: prompt.model,
+      systemPrompt: prompt.systemPrompt,
+      userPrompt: prompt.userPrompt,
+      compiledPrompt: prompt.compiledPrompt
+    })),
+    stageAttempts: input.stageAttempts,
+    inputArtifactRefs: [briefArtifact.artifactId],
+    outputArtifactRefs: [conceptArtifact.artifactId, scenePlanArtifact.artifactId, promptBundleArtifact.artifactId],
+    modelDecisionRefs: [modelDecision.decisionId],
+    metadata: {
+      source: "project_workflow_bootstrap",
+      compatibility: "legacy_workflow_runs_dual_write"
+    }
+  });
+
+  const canonicalRun = buildCanonicalRun({
+    workflowRunId: input.workflowRun.id,
+    currentStage: input.workflowRun.currentStage,
+    status: input.workflowRun.status,
+    entrypoint: "create_project_workflow",
+    requestedStartStage: input.workflowRun.requestedStage,
+    graphThreadId: input.workflowRun.graphThreadId,
+    inputRef: briefArtifact.artifactId,
+    outputRefs: [conceptArtifact.artifactId, scenePlanArtifact.artifactId, promptBundleArtifact.artifactId],
+    updatedAt: input.workflowRun.updatedAt,
+    completedAt: input.workflowRun.updatedAt,
+    metadata: {
+      source: "project_workflow_bootstrap",
+      compatibility: "legacy_workflow_runs_dual_write"
+    }
+  });
+
+  await createAdamRunRecord(
+    {
+      ...canonicalRun,
+      projectId: input.project.id,
+      stateVersion: ADAM_STATE_VERSION,
+      stateSnapshot: canonicalState
+    },
+    { client: input.client }
+  );
+
+  await createAdamArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
+  await createAdamArtifactRecord({ ...conceptArtifact, projectId: input.project.id }, { client: input.client });
+  await createAdamArtifactRecord({ ...scenePlanArtifact, projectId: input.project.id }, { client: input.client });
+  await createAdamArtifactRecord({ ...promptBundleArtifact, projectId: input.project.id }, { client: input.client });
+  await createAdamModelDecisionRecord({ ...modelDecision, projectId: input.project.id }, { client: input.client });
+
+  for (const event of input.auditEvents) {
+    await appendAdamAuditEvent(
+      {
+        runId: input.workflowRun.id,
+        projectId: input.project.id,
+        tenantId: ADAM_COMPAT_TENANT_ID,
+        actorType: event.actorType,
+        actorId: event.actorUserId ?? null,
+        eventType: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId ?? null,
+        stage: event.stage ?? null,
+        payload: {
+          metadata: event.metadata ?? {},
+          diff: event.diff ?? null,
+          compatibilitySource: "audit_logs"
+        },
+        errorMessage: event.errorMessage ?? null
+      },
+      { client: input.client }
+    );
+  }
+};
+
+const persistCanonicalAsyncBootstrapRecords = async (input: {
+  client: SupabaseClient;
+  project: ProjectRecord;
+  brief: BriefRecord;
+  workflowRun: WorkflowRunRecord;
+  auditEvents: AuditLogRecord[];
+}) => {
+  const briefArtifactId = randomUUID();
+
+  const briefArtifact = buildAdamArtifact({
+    artifactId: briefArtifactId,
+    runId: input.workflowRun.id,
+    artifactType: "brief",
+    artifactRole: "input",
+    status: input.brief.status,
+    schemaName: "content-engine-x.brief",
+    content: {
+      briefId: input.brief.id,
+      rawBrief: input.brief.rawBrief,
+      objective: input.brief.objective,
+      audience: input.brief.audience,
+      guardrails: input.brief.guardrails
+    },
+    createdAt: input.brief.createdAt,
+    updatedAt: input.brief.updatedAt,
+    metadata: { source: "project_workflow_bootstrap" }
+  });
+
+  const canonicalState = buildCanonicalBootstrapState({
+    workflowRunId: input.workflowRun.id,
+    projectId: input.project.id,
+    currentStage: input.workflowRun.currentStage,
+    status: input.workflowRun.status,
+    entrypoint: "initialize_async_project_workflow",
+    requestedStartStage: input.workflowRun.requestedStage,
+    graphThreadId: input.workflowRun.graphThreadId,
+    brief: {
+      briefId: input.brief.id,
+      rawBrief: input.brief.rawBrief,
+      objective: input.brief.objective,
+      audience: input.brief.audience,
+      guardrails: input.brief.guardrails
+    },
+    projectConfig: {
+      projectName: input.project.name,
+      tone: input.project.tone,
+      platforms: input.project.platforms,
+      durationSeconds: input.project.durationSeconds,
+      aspectRatio: input.project.aspectRatio,
+      provider: input.project.provider
+    },
+    inputArtifactRefs: [briefArtifact.artifactId],
+    metadata: {
+      source: "project_workflow_bootstrap",
+      executionOwner: "python_orchestrator",
+      compatibility: "legacy_workflow_runs_dual_write"
+    }
+  });
+
+  const canonicalRun = buildCanonicalRun({
+    workflowRunId: input.workflowRun.id,
+    currentStage: input.workflowRun.currentStage,
+    status: input.workflowRun.status,
+    entrypoint: "initialize_async_project_workflow",
+    requestedStartStage: input.workflowRun.requestedStage,
+    graphThreadId: input.workflowRun.graphThreadId,
+    inputRef: briefArtifact.artifactId,
+    updatedAt: input.workflowRun.updatedAt,
+    metadata: {
+      source: "project_workflow_bootstrap",
+      executionOwner: "python_orchestrator",
+      compatibility: "legacy_workflow_runs_dual_write"
+    }
+  });
+
+  await createAdamRunRecord(
+    {
+      ...canonicalRun,
+      projectId: input.project.id,
+      stateVersion: ADAM_STATE_VERSION,
+      stateSnapshot: canonicalState
+    },
+    { client: input.client }
+  );
+
+  await createAdamArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
+
+  for (const event of input.auditEvents) {
+    await appendAdamAuditEvent(
+      {
+        runId: input.workflowRun.id,
+        projectId: input.project.id,
+        tenantId: ADAM_COMPAT_TENANT_ID,
+        actorType: event.actorType,
+        actorId: event.actorUserId ?? null,
+        eventType: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId ?? null,
+        stage: event.stage ?? null,
+        payload: {
+          metadata: event.metadata ?? {},
+          diff: event.diff ?? null,
+          compatibilitySource: "audit_logs"
+        },
+        errorMessage: event.errorMessage ?? null
+      },
+      { client: input.client }
+    );
+  }
 };
 
 export const initializeAsyncProjectWorkflow = async (
@@ -915,6 +1438,19 @@ export const initializeAsyncProjectWorkflow = async (
 
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
   const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist audit logs");
+
+  // Canonical Adam bootstrap dual-write begins here. This path is additive and
+  // intentionally fail-open so the existing project workflow remains the
+  // primary source of availability during migration.
+  await safePersistCanonicalBootstrap(async () => {
+    await persistCanonicalAsyncBootstrapRecords({
+      client,
+      project: toProjectRecord(projectRow),
+      brief: toBriefRecord(briefRow),
+      workflowRun: toWorkflowRunRecord(workflowRunRow),
+      auditEvents: auditRows.map(toAuditLogRecord)
+    });
+  });
 
   return {
     project: toProjectRecord(projectRow),

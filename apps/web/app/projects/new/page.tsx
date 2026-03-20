@@ -1,9 +1,9 @@
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { ProjectCreateForm } from "../../../components/project-create-form";
-import { runLiveRuntimePreflight } from "../../../lib/server/live-runtime-preflight";
+import { runProjectCreationPreflight } from "../../../lib/server/live-runtime-preflight";
 
 export default async function NewProjectPage() {
-  const readiness = await runLiveRuntimePreflight();
+  const readiness = await runProjectCreationPreflight();
 
   return (
     <DashboardShell
@@ -13,7 +13,7 @@ export default async function NewProjectPage() {
     >
       {!readiness.ok ? (
         <div className="error-banner" style={{ marginBottom: "20px" }}>
-          Live runtime preflight is failing. Real project creation is blocked until the runtime issues below are fixed.
+          Project creation preflight is failing. Real project creation is blocked until the runtime issues below are fixed.
           <ul className="list-reset" style={{ marginTop: "12px" }}>
             {readiness.blockingIssues.map((issue) => (
               <li key={issue}>{issue}</li>

@@ -18,6 +18,8 @@ services:
     env_file:
       - ../../.env.example
       - ../../services/orchestrator/.env.example
+    ports:
+      - "8000:8000"
 
   media:
     build:

@@ -26,6 +26,24 @@ async function ProjectDetailContent({
   }
 
   const isDemoProject = projectId === demoProject.id;
+  const planningStatusLabel =
+    workspace.project.status === "failed"
+      ? "Planning failed"
+      : workspace.project.status === "running"
+        ? "Python planning is running"
+        : workspace.project.status === "queued"
+          ? "Queued for Python planning"
+          : workspace.project.currentStage === "prompt_creation" && workspace.prompts.length > 0
+            ? "Ready for clip generation"
+            : "Planning state available";
+  const currentStageDescription =
+    workspace.project.status === "queued"
+      ? "The project has been initialized and is waiting for the Python orchestrator to claim the run."
+      : workspace.project.status === "running"
+        ? "Python is actively generating planning outputs and persisting stage progress into Supabase."
+        : workspace.project.status === "failed"
+          ? "Planning stopped before clip generation. Review the workflow error details below."
+          : "The persisted workflow state is ready for the TypeScript execution stages to continue.";
 
   return (
     <DashboardShell
@@ -52,9 +70,14 @@ async function ProjectDetailContent({
       ) : null}
       <div className="stats-grid">
         <div className="panel-card stat-block">
+          <p className="eyebrow">Planning State</p>
+          <strong>{planningStatusLabel}</strong>
+          <p className="muted">{currentStageDescription}</p>
+        </div>
+        <div className="panel-card stat-block">
           <p className="eyebrow">Current Stage</p>
           <strong>{stageLabels[workspace.project.currentStage]}</strong>
-          <p className="muted">The persisted workflow run keeps the last completed planning stage and state snapshot.</p>
+          <p className="muted">Supabase is the source of truth for the active stage across Python planning and TypeScript execution.</p>
         </div>
         <div className="panel-card stat-block">
           <p className="eyebrow">Duration</p>
@@ -64,7 +87,11 @@ async function ProjectDetailContent({
         <div className="panel-card stat-block">
           <p className="eyebrow">Prompts Persisted</p>
           <strong>{workspace.prompts.length}</strong>
-          <p className="muted">{workspace.scenes.length} scenes and prompt versions are available for clip generation.</p>
+          <p className="muted">
+            {workspace.prompts.length > 0
+              ? `${workspace.scenes.length} scenes and prompt versions are available for clip generation.`
+              : "Prompt rows will appear here once planning reaches prompt creation."}
+          </p>
         </div>
       </div>
 
@@ -100,7 +127,11 @@ async function ProjectDetailContent({
                 <strong>{label}</strong>
                 <p className="muted">
                   {stage === workspace.project.currentStage
-                    ? "Most recently completed stage for the active project workspace."
+                    ? workspace.project.status === "running"
+                      ? "Currently in progress for the active workflow run."
+                      : workspace.project.status === "queued"
+                        ? "Queued as the next planning stage to begin."
+                        : "Most recently persisted stage for the active project workspace."
                     : "Pending downstream execution or available for future reruns."}
                 </p>
               </li>

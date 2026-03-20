@@ -1,6 +1,8 @@
 import { createServiceSupabaseClient, supabaseConfigSchema } from "@content-engine/db";
 import { soraConfigSchema } from "@content-engine/sora-provider";
 
+import { assertPythonOrchestratorConfigured, isPythonOrchestratorEnabled } from "./python-orchestrator";
+
 export type LiveRuntimeReadinessCheck = {
   name: string;
   ok: boolean;
@@ -69,12 +71,12 @@ export const formatReadinessFailureMessage = (readiness: LiveRuntimeReadinessRes
     ? `Live runtime preflight failed: ${readiness.blockingIssues.join(" ")}`
     : "Live runtime preflight failed.";
 
-export const runLiveRuntimePreflight = async (): Promise<LiveRuntimeReadinessResult> => {
+const checkSupabaseAndOperator = async () => {
   const checks: LiveRuntimeReadinessCheck[] = [];
   const blockingIssues: string[] = [];
   const warnings: string[] = [];
-
   const supabaseConfigResult = supabaseConfigSchema.safeParse(process.env);
+
   pushCheck(checks, blockingIssues, {
     name: "supabase-env",
     ok: supabaseConfigResult.success && Boolean(supabaseConfigResult.data.SUPABASE_SERVICE_ROLE_KEY),
@@ -84,26 +86,6 @@ export const runLiveRuntimePreflight = async (): Promise<LiveRuntimeReadinessRes
         : "SUPABASE_SERVICE_ROLE_KEY is missing. Live service-side actions cannot access Supabase."
       : "Supabase env/config is invalid. Check NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, and CONTENT_ENGINE_OPERATOR_USER_ID."
   });
-
-  const soraConfigResult = soraConfigSchema.safeParse(process.env);
-  pushCheck(checks, blockingIssues, {
-    name: "sora-env",
-    ok: soraConfigResult.success,
-    message: soraConfigResult.success
-      ? "Sora/OpenAI video provider env/config is present."
-      : "Sora/OpenAI video provider env/config is invalid. Check OPENAI_API_KEY, OPENAI_VIDEO_BASE_URL, OPENAI_SORA_MODEL, and SORA_DEFAULT_POLL_INTERVAL_MS."
-  });
-
-  const r2ConfigResult = validateR2Config(process.env);
-  pushCheck(checks, blockingIssues, {
-    name: "r2-env",
-    ok: r2ConfigResult.ok,
-    message: r2ConfigResult.message
-  });
-
-  if (!process.env.R2_PUBLIC_BASE_URL?.trim()) {
-    warnings.push("R2_PUBLIC_BASE_URL is not set. Completed clips will persist, but the UI will only show bucket/object key instead of a public URL.");
-  }
 
   if (blockingIssues.length > 0) {
     return {
@@ -163,8 +145,84 @@ export const runLiveRuntimePreflight = async (): Promise<LiveRuntimeReadinessRes
   };
 };
 
+export const runLiveRuntimePreflight = async (): Promise<LiveRuntimeReadinessResult> => {
+  const { checks, blockingIssues, warnings } = await checkSupabaseAndOperator();
+
+  const soraConfigResult = soraConfigSchema.safeParse(process.env);
+  pushCheck(checks, blockingIssues, {
+    name: "sora-env",
+    ok: soraConfigResult.success,
+    message: soraConfigResult.success
+      ? "Sora/OpenAI video provider env/config is present."
+      : "Sora/OpenAI video provider env/config is invalid. Check OPENAI_API_KEY, OPENAI_VIDEO_BASE_URL, OPENAI_SORA_MODEL, and SORA_DEFAULT_POLL_INTERVAL_MS."
+  });
+
+  const r2ConfigResult = validateR2Config(process.env);
+  pushCheck(checks, blockingIssues, {
+    name: "r2-env",
+    ok: r2ConfigResult.ok,
+    message: r2ConfigResult.message
+  });
+
+  if (!process.env.R2_PUBLIC_BASE_URL?.trim()) {
+    warnings.push("R2_PUBLIC_BASE_URL is not set. Completed clips will persist, but the UI will only show bucket/object key instead of a public URL.");
+  }
+
+  if (blockingIssues.length > 0) {
+    return {
+      ok: false,
+      checks,
+      blockingIssues,
+      warnings
+    };
+  }
+
+  return {
+    ok: blockingIssues.length === 0,
+    checks,
+    blockingIssues,
+    warnings
+  };
+};
+
 export const assertLiveRuntimeReady = async () => {
   const readiness = await runLiveRuntimePreflight();
+
+  if (!readiness.ok) {
+    throw new LiveRuntimePreflightError(formatReadinessFailureMessage(readiness), readiness);
+  }
+
+  return readiness;
+};
+
+export const runProjectCreationPreflight = async (): Promise<LiveRuntimeReadinessResult> => {
+  const readiness = await checkSupabaseAndOperator();
+
+  if (isPythonOrchestratorEnabled()) {
+    try {
+      assertPythonOrchestratorConfigured();
+      readiness.checks.push({
+        name: "python-orchestrator-env",
+        ok: true,
+        message: "Python orchestrator env/config is present for async planning."
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Python orchestrator env/config is invalid.";
+      readiness.checks.push({
+        name: "python-orchestrator-env",
+        ok: false,
+        message
+      });
+      readiness.blockingIssues.push(message);
+      readiness.ok = false;
+    }
+  }
+
+  return readiness;
+};
+
+export const assertProjectCreationReady = async () => {
+  const readiness = await runProjectCreationPreflight();
 
   if (!readiness.ok) {
     throw new LiveRuntimePreflightError(formatReadinessFailureMessage(readiness), readiness);

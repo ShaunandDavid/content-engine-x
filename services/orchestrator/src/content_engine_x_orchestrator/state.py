@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from typing_extensions import TypedDict
+from uuid import UUID
 
 from .models import AuditEvent, JobStatus, StageAttempt, WorkflowStage
 
@@ -41,6 +42,25 @@ def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _normalize_audit_value(value: Any) -> Any:
+    if isinstance(value, UUID):
+        return str(value)
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {key: _normalize_audit_value(nested_value) for key, nested_value in value.items()}
+
+    if isinstance(value, list):
+        return [_normalize_audit_value(item) for item in value]
+
+    if isinstance(value, tuple):
+        return [_normalize_audit_value(item) for item in value]
+
+    return value
+
+
 def next_attempt(state: WorkflowState, stage: WorkflowStage) -> int:
     attempts = state.get("stage_attempts", [])
     return len([attempt for attempt in attempts if attempt["stage"] == stage.value]) + 1
@@ -71,17 +91,17 @@ def append_audit_event(
     action: str,
     entity_type: str,
     stage: WorkflowStage | None,
-    entity_id: str | None = None,
+    entity_id: Any | None = None,
     metadata: dict[str, Any] | None = None,
     error_message: str | None = None,
 ) -> list[dict[str, Any]]:
     event = AuditEvent(
         action=action,
         entity_type=entity_type,
-        entity_id=entity_id,
+        entity_id=_normalize_audit_value(entity_id),
         stage=stage,
         created_at=utc_now(),
-        metadata=metadata or {},
+        metadata=_normalize_audit_value(metadata or {}),
         error_message=error_message,
     )
     return [*state.get("audit_log", []), event.model_dump(mode="json")]

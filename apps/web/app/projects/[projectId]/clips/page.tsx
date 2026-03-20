@@ -95,7 +95,11 @@ async function ClipReviewContent({
             })}
           </div>
         ) : (
-          <div className="empty-state">No clip records exist yet. Start generation to create provider jobs and persisted assets.</div>
+          <div className="empty-state">
+            {workspace.project.currentStage === "prompt_creation" && workspace.prompts.length > 0
+              ? "Planning is ready. Start generation to create provider jobs and persisted assets."
+              : "No clip records exist yet. Planning must finish and prompts must be persisted before generation can start."}
+          </div>
         )}
       </FormCard>
     </DashboardShell>

@@ -57,7 +57,11 @@ async function SceneReviewContent({
             })}
           </div>
         ) : (
-          <div className="empty-state">No scenes are available for this project yet.</div>
+          <div className="empty-state">
+            {workspace.project.status === "queued" || workspace.project.status === "running"
+              ? "Scene rows will appear here once Python planning persists them to Supabase."
+              : "No scenes are available for this project yet."}
+          </div>
         )}
       </FormCard>
     </DashboardShell>

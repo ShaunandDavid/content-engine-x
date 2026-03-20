@@ -708,6 +708,222 @@ export const createProjectWorkflow = async (
   };
 };
 
+const buildAsyncInitializationAuditEvents = ({
+  projectId,
+  workflowRunId,
+  actorUserId,
+  briefId
+}: {
+  projectId: string;
+  workflowRunId: string;
+  actorUserId: string;
+  briefId: string;
+}) => {
+  const now = new Date().toISOString();
+
+  return [
+    {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "project.created",
+      entity_type: "project",
+      entity_id: projectId,
+      stage: "brief_intake",
+      diff: null,
+      metadata: {
+        orchestration: "python_orchestrator",
+        handoff_mode: "supabase_queue"
+      },
+      error_message: null,
+      created_at: now,
+      updated_at: now
+    },
+    {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "brief.persisted",
+      entity_type: "brief",
+      entity_id: briefId,
+      stage: "brief_intake",
+      diff: null,
+      metadata: {
+        source: "dashboard"
+      },
+      error_message: null,
+      created_at: now,
+      updated_at: now
+    },
+    {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "workflow.queued_for_python",
+      entity_type: "workflow_run",
+      entity_id: workflowRunId,
+      stage: "brief_intake",
+      diff: null,
+      metadata: {
+        execution_owner: "python_orchestrator",
+        requested_start_stage: "brief_intake"
+      },
+      error_message: null,
+      created_at: now,
+      updated_at: now
+    }
+  ];
+};
+
+export const initializeAsyncProjectWorkflow = async (
+  input: ProjectBriefInput,
+  options?: {
+    client?: SupabaseClient;
+    operatorUserId?: string;
+  }
+): Promise<{
+  project: ProjectRecord;
+  brief: BriefRecord;
+  workflowRun: WorkflowRunRecord;
+  auditLogs: AuditLogRecord[];
+}> => {
+  const payload = projectBriefInputSchema.parse(input);
+  const client = options?.client ?? createServiceSupabaseClient();
+  const config = getSupabaseConfig();
+  const operatorUserId = await resolveOperatorUserId(client, options?.operatorUserId ?? config.CONTENT_ENGINE_OPERATOR_USER_ID);
+  const workflowRunId = randomUUID();
+  const stateSnapshot: Record<string, unknown> & { project_id: string | null } = {
+    project_id: null,
+    workflow_run_id: workflowRunId,
+    requested_start_stage: "brief_intake",
+    current_stage: "brief_intake",
+    status: "queued",
+    brief: {
+      objective: payload.objective,
+      audience: payload.audience,
+      raw_brief: payload.rawBrief,
+      guardrails: payload.guardrails
+    },
+    project_config: {
+      project_name: payload.projectName,
+      tone: payload.tone,
+      platforms: payload.platforms,
+      duration_seconds: payload.durationSeconds,
+      aspect_ratio: payload.aspectRatio,
+      provider: payload.provider
+    },
+    concept: {},
+    scenes: [],
+    prompt_versions: [],
+    clip_requests: [],
+    approvals: [],
+    stage_attempts: [],
+    audit_log: [],
+    render_plan: {},
+    publish_payload: {},
+    errors: [],
+    metadata: {
+      source: "web_dashboard",
+      execution_owner: "python_orchestrator",
+      handoff_mode: "supabase_queue"
+    }
+  };
+
+  const slugSeed = slugify(payload.projectName) || "project";
+  const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
+
+  const { data: projectRowData, error: projectError } = await client
+    .from("projects")
+    .insert({
+      owner_user_id: operatorUserId,
+      name: payload.projectName,
+      slug,
+      status: "queued",
+      current_stage: "brief_intake",
+      tone: payload.tone,
+      duration_seconds: payload.durationSeconds,
+      aspect_ratio: payload.aspectRatio,
+      provider: payload.provider,
+      platform_targets: payload.platforms,
+      metadata: {
+        source: "dashboard",
+        orchestration: "python_orchestrator",
+        handoffMode: "supabase_queue"
+      }
+    })
+    .select("*")
+    .single();
+
+  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
+  stateSnapshot.project_id = projectRow.id;
+
+  const { data: briefRowData, error: briefError } = await client
+    .from("briefs")
+    .insert({
+      project_id: projectRow.id,
+      author_user_id: operatorUserId,
+      status: "completed",
+      raw_brief: payload.rawBrief,
+      objective: payload.objective,
+      audience: payload.audience,
+      constraints: {
+        guardrails: payload.guardrails
+      },
+      metadata: {
+        source: "dashboard",
+        execution_owner: "python_orchestrator"
+      }
+    })
+    .select("*")
+    .single();
+
+  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
+
+  const { data: workflowRunData, error: workflowError } = await client
+    .from("workflow_runs")
+    .insert({
+      id: workflowRunId,
+      project_id: projectRow.id,
+      status: "queued",
+      current_stage: "brief_intake",
+      requested_stage: "brief_intake",
+      graph_thread_id: null,
+      rerun_from_stage: null,
+      retry_count: 0,
+      state_snapshot: stateSnapshot,
+      stage_attempts: [],
+      metadata: {
+        source: "dashboard",
+        execution_owner: "python_orchestrator",
+        handoff_mode: "supabase_queue"
+      }
+    })
+    .select("*")
+    .single();
+
+  const workflowRunRow = assertData(workflowRunData as WorkflowRunRow | null, workflowError, "Failed to persist workflow run");
+
+  const auditEventRows = buildAsyncInitializationAuditEvents({
+    projectId: projectRow.id,
+    workflowRunId,
+    actorUserId: operatorUserId,
+    briefId: briefRow.id
+  });
+
+  const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
+  const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist audit logs");
+
+  return {
+    project: toProjectRecord(projectRow),
+    brief: toBriefRecord(briefRow),
+    workflowRun: toWorkflowRunRecord(workflowRunRow),
+    auditLogs: auditRows.map(toAuditLogRecord)
+  };
+};
+
 export const getProjectWorkspace = async (
   projectId: string,
   options?: {

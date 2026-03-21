@@ -75,6 +75,12 @@ test("brain canonical schema files load and expose required top-level fields", (
   assert.ok(runtimeSchema.required.includes("run_id"));
   assert.ok(runtimeSchema.required.includes("state_version"));
   assert.ok(runtimeSchema.properties.stage_history);
+
+  const planningSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "planning-artifact-schema.json"), "utf8"));
+  assert.ok(planningSchema.required.includes("planId"));
+  assert.ok(planningSchema.required.includes("projectId"));
+  assert.ok(planningSchema.required.includes("workflowRunId"));
+  assert.ok(planningSchema.properties.normalizedUserGoal);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {

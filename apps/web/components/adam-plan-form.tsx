@@ -21,6 +21,10 @@ type FormState = {
 };
 
 type LookupMode = "projectId" | "runId";
+type PlanningResultMeta = {
+  projectId: string | null;
+  runId: string;
+};
 
 const initialState: FormState = {
   projectName: "",
@@ -51,6 +55,7 @@ export const AdamPlanForm = () => {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
   const [planningArtifact, setPlanningArtifact] = useState<AdamPlanningArtifact | null>(null);
+  const [planningResultMeta, setPlanningResultMeta] = useState<PlanningResultMeta | null>(null);
 
   const togglePlatform = (platform: FormState["platforms"][number]) => {
     setForm((current) => ({
@@ -102,16 +107,23 @@ export const AdamPlanForm = () => {
 
       const result = (await response.json()) as {
         message?: string;
+        project?: { id: string };
+        workflowRun?: { id: string };
         planningArtifact?: AdamPlanningArtifact;
       };
 
-      if (!response.ok || !result.planningArtifact) {
+      if (!response.ok || !result.planningArtifact || !result.workflowRun?.id) {
         throw new Error(result.message ?? "Failed to generate Adam planning artifact.");
       }
 
       const artifact = result.planningArtifact;
+      const runId = result.workflowRun.id;
       startTransition(() => {
         setPlanningArtifact(artifact);
+        setPlanningResultMeta({
+          projectId: result.project?.id ?? artifact.projectId ?? null,
+          runId
+        });
         setLoadedFrom("new plan");
       });
     } catch (submitError) {
@@ -156,6 +168,10 @@ export const AdamPlanForm = () => {
       const artifact = result.planningArtifact;
       startTransition(() => {
         setPlanningArtifact(artifact);
+        setPlanningResultMeta({
+          projectId: result.projectId ?? artifact.projectId ?? null,
+          runId: result.runId ?? artifact.workflowRunId
+        });
         setLoadedFrom(lookupMode === "projectId" ? `project ${trimmedLookup}` : `run ${trimmedLookup}`);
       });
     } catch (lookupFailure) {
@@ -372,6 +388,15 @@ export const AdamPlanForm = () => {
         <div className="panel-card__body">
           {planningArtifact ? (
             <div className="adam-plan-grid">
+              <article className="payload-card">
+                <strong>Reopen IDs</strong>
+                <p>
+                  Project ID: <code>{planningResultMeta?.projectId ?? planningArtifact.projectId}</code>
+                </p>
+                <p>
+                  Run ID: <code>{planningResultMeta?.runId ?? planningArtifact.workflowRunId}</code>
+                </p>
+              </article>
               <article className="payload-card">
                 <strong>Normalized User Goal</strong>
                 <p>{planningArtifact.normalizedUserGoal}</p>

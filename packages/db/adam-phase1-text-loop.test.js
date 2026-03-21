@@ -101,7 +101,7 @@ const buildAuditRows = () => [
   }
 ];
 
-const createMockClient = () => {
+const createMockClient = (options = {}) => {
   const responses = {
     users: createQueryResult({ id: "operator-1" }),
     projects: createQueryResult({
@@ -181,17 +181,28 @@ const createMockClient = () => {
     })
   };
 
+  const deletes = [];
+
   const builder = (table) => ({
+    _filters: [],
+    _mode: "select",
     insert() {
+      this._mode = "insert";
+      return this;
+    },
+    delete() {
+      this._mode = "delete";
       return this;
     },
     select() {
+      this._mode = "select";
       return this;
     },
     single() {
       return Promise.resolve(responses[table]);
     },
     eq() {
+      this._filters.push(Array.from(arguments));
       return this;
     },
     order() {
@@ -204,11 +215,22 @@ const createMockClient = () => {
       return Promise.resolve(responses[table]);
     },
     then(onFulfilled, onRejected) {
+      if (this._mode === "delete") {
+        deletes.push({
+          table,
+          filters: this._filters
+        });
+
+        const deleteError = options.deleteErrors?.[table] ?? null;
+        return Promise.resolve({ data: null, error: deleteError }).then(onFulfilled, onRejected);
+      }
+
       return Promise.resolve(responses[table]).then(onFulfilled, onRejected);
     }
   });
 
   return {
+    deletes,
     from(table) {
       return builder(table);
     }
@@ -269,6 +291,64 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
   assert.equal(canonicalCalls.audits.length, 3);
   assert.equal(canonicalCalls.runs[0].workflowKind, "adam.text_planning");
   assert.equal(canonicalCalls.artifacts[1].artifactType, "planning_output");
+});
+
+test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonical persistence fails", async () => {
+  const canonicalCalls = {
+    runs: [],
+    artifacts: [],
+    audits: []
+  };
+  const client = createMockClient();
+
+  const module = loadTsModule(textLoopFile, {
+    "@content-engine/shared": {
+      adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
+      adamTextPlanningInputSchema: { parse: (value) => value },
+      adamPlanningArtifactSchema: { parse: (value) => value },
+      adamArtifactSchema: { parse: (value) => value },
+      adamLangGraphRuntimeStateSchema: { parse: (value) => value },
+      adamRunSchema: { parse: (value) => value }
+    },
+    "./client.js": { createServiceSupabaseClient: () => client },
+    "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-write.js": {
+      createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
+      createAdamArtifactRecord: async (input) => {
+        canonicalCalls.artifacts.push(input);
+        if (input.artifactType === "planning_output") {
+          throw new Error("canonical artifact write failed");
+        }
+      },
+      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input)
+    }
+  });
+
+  await assert.rejects(
+    module.createAdamTextPlanningLoop(
+      {
+        projectName: "Operator Plan",
+        idea: "Build a text-first Adam planning loop that turns rough ideas into a clear operator-ready campaign direction.",
+        audience: "Performance marketers",
+        constraints: ["Keep it brand safe"],
+        platforms: ["linkedin"],
+        tone: "authority",
+        durationSeconds: 30,
+        aspectRatio: "9:16",
+        provider: "sora"
+      },
+      {
+        client,
+        operatorUserId: "operator-1"
+      }
+    ),
+    /canonical artifact write failed/
+  );
+
+  assert.deepEqual(
+    client.deletes.map((entry) => entry.table),
+    ["adam_audit_events", "adam_artifacts", "adam_runs", "audit_logs", "workflow_runs", "briefs", "projects"]
+  );
 });
 
 test("getAdamTextPlanningLoop reopens a stored planning artifact by project id", async () => {

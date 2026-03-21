@@ -113,6 +113,12 @@ const ADAM_TEXT_WORKFLOW_VERSION = "phase1-step1";
 const ADAM_TEXT_ENTRYPOINT = "adam_text_plan";
 const PLANNING_STAGE: WorkflowStage = "concept_generation";
 
+type RollbackContext = {
+  projectId: string | null;
+  briefId: string | null;
+  workflowRunId: string | null;
+};
+
 const assertData = <T>(data: T | null, error: { message: string } | null, context: string): T => {
   if (error) {
     throw new Error(`${context}: ${error.message}`);
@@ -123,6 +129,73 @@ const assertData = <T>(data: T | null, error: { message: string } | null, contex
   }
 
   return data;
+};
+
+const cleanupAdamTextPlanningCreate = async (client: SupabaseClient, rollback: RollbackContext) => {
+  if (!rollback.workflowRunId && !rollback.projectId && !rollback.briefId) {
+    return;
+  }
+
+  const cleanupSteps: Array<() => Promise<void>> = [];
+
+  if (rollback.workflowRunId) {
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("adam_audit_events").delete().eq("run_id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete Adam audit events during rollback: ${error.message}`);
+      }
+    });
+
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("adam_artifacts").delete().eq("run_id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete Adam artifacts during rollback: ${error.message}`);
+      }
+    });
+
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("adam_runs").delete().eq("id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete Adam run during rollback: ${error.message}`);
+      }
+    });
+
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("audit_logs").delete().eq("workflow_run_id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete audit logs during rollback: ${error.message}`);
+      }
+    });
+
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("workflow_runs").delete().eq("id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete workflow run during rollback: ${error.message}`);
+      }
+    });
+  }
+
+  if (rollback.briefId) {
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("briefs").delete().eq("id", rollback.briefId);
+      if (error) {
+        throw new Error(`Failed to delete brief during rollback: ${error.message}`);
+      }
+    });
+  }
+
+  if (rollback.projectId) {
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("projects").delete().eq("id", rollback.projectId);
+      if (error) {
+        throw new Error(`Failed to delete project during rollback: ${error.message}`);
+      }
+    });
+  }
+
+  for (const step of cleanupSteps) {
+    await step();
+  }
 };
 
 const slugify = (value: string) =>
@@ -613,178 +686,205 @@ export const createAdamTextPlanningLoop = async (
   const now = new Date().toISOString();
   const slugSeed = slugify(payload.projectName) || "adam-plan";
   const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
-
-  const normalizedGoal = normalizeGoal(payload);
-  const offerOrConcept = buildOfferOrConcept(payload);
-  const rawBrief = buildRawBrief(payload, normalizedGoal, offerOrConcept);
-
-  const { data: projectRowData, error: projectError } = await client
-    .from("projects")
-    .insert({
-      owner_user_id: operatorUserId,
-      name: payload.projectName,
-      slug,
-      status: "completed",
-      current_stage: PLANNING_STAGE,
-      tone: payload.tone,
-      duration_seconds: payload.durationSeconds,
-      aspect_ratio: payload.aspectRatio,
-      provider: payload.provider,
-      platform_targets: payload.platforms,
-      metadata: {
-        source: "adam_text_loop",
-        planningMode: "text_first"
-      }
-    })
-    .select("*")
-    .single();
-
-  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create Adam text planning project");
-  const planningArtifact = buildPlanningArtifact({
-    planId,
-    projectId: projectRow.id,
-    workflowRunId,
-    payload,
-    createdAt: now
-  });
-
-  const { data: briefRowData, error: briefError } = await client
-    .from("briefs")
-    .insert({
-      project_id: projectRow.id,
-      author_user_id: operatorUserId,
-      status: "completed",
-      raw_brief: rawBrief,
-      objective: planningArtifact.normalizedUserGoal,
-      audience: planningArtifact.audience,
-      constraints: {
-        guardrails: planningArtifact.constraints
-      },
-      metadata: {
-        source: "adam_text_loop",
-        planId: planningArtifact.planId
-      }
-    })
-    .select("*")
-    .single();
-
-  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist Adam text planning brief");
-
-  const canonicalState = buildCanonicalRuntimeState({
-    projectId: projectRow.id,
-    workflowRunId,
-    payload,
-    briefId: briefRow.id,
-    inputArtifactId,
-    outputArtifactId,
-    planningArtifact,
-    createdAt: now
-  });
-
-  const legacyStateSnapshot = buildLegacyStateSnapshot({
-    projectId: projectRow.id,
-    workflowRunId,
-    payload,
-    planningArtifact,
-    createdAt: now,
-    inputArtifactId,
-    outputArtifactId
-  });
-
-  const { data: workflowRunData, error: workflowError } = await client
-    .from("workflow_runs")
-    .insert({
-      id: workflowRunId,
-      project_id: projectRow.id,
-      status: "completed",
-      current_stage: PLANNING_STAGE,
-      requested_stage: "brief_intake",
-      graph_thread_id: null,
-      rerun_from_stage: null,
-      retry_count: 0,
-      state_snapshot: legacyStateSnapshot,
-      stage_attempts: legacyStateSnapshot.stage_attempts,
-      metadata: {
-        source: "adam_text_loop",
-        planningMode: "text_first"
-      }
-    })
-    .select("*")
-    .single();
-
-  const workflowRunRow = assertData(
-    workflowRunData as WorkflowRunRow | null,
-    workflowError,
-    "Failed to persist Adam text planning workflow run"
-  );
-
-  const auditEventRows = buildAuditEvents({
-    projectId: projectRow.id,
-    workflowRunId,
-    actorUserId: operatorUserId,
-    briefId: briefRow.id,
-    createdAt: now
-  });
-
-  const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
-  const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist Adam text planning audit logs");
-
-  const inputArtifact = buildInputArtifact({
-    artifactId: inputArtifactId,
-    workflowRunId,
-    payload,
-    createdAt: now
-  });
-  const outputArtifact = buildOutputArtifact({
-    artifactId: outputArtifactId,
-    workflowRunId,
-    planningArtifact,
-    createdAt: now
-  });
-
-  await persistCanonicalRun({
-    workflowRunId,
-    inputArtifactId,
-    outputArtifactId,
-    state: canonicalState,
-    createdAt: now,
-    projectId: projectRow.id,
-    client
-  });
-
-  await createAdamArtifactRecord({ ...inputArtifact, projectId: projectRow.id }, { client });
-  await createAdamArtifactRecord({ ...outputArtifact, projectId: projectRow.id }, { client });
-
-  for (const event of auditRows.map(toAuditLogRecord)) {
-    await appendAdamAuditEvent(
-      {
-        runId: workflowRunId,
-        projectId: projectRow.id,
-        tenantId: adamCompatibilityTenantId,
-        actorType: event.actorType,
-        actorId: event.actorUserId ?? null,
-        eventType: event.action,
-        entityType: event.entityType,
-        entityId: event.entityId ?? null,
-        stage: event.stage ?? null,
-        payload: {
-          metadata: event.metadata ?? {},
-          diff: event.diff ?? null,
-          compatibilitySource: "audit_logs"
-        },
-        errorMessage: event.errorMessage ?? null
-      },
-      { client }
-    );
-  }
-
-  return {
-    project: toProjectRecord(projectRow),
-    brief: toBriefRecord(briefRow),
-    workflowRun: toWorkflowRunRecord(workflowRunRow),
-    auditLogs: auditRows.map(toAuditLogRecord),
-    planningArtifact
+  const rollback: RollbackContext = {
+    projectId: null,
+    briefId: null,
+    workflowRunId: null
   };
+
+  try {
+    const normalizedGoal = normalizeGoal(payload);
+    const offerOrConcept = buildOfferOrConcept(payload);
+    const rawBrief = buildRawBrief(payload, normalizedGoal, offerOrConcept);
+
+    const { data: projectRowData, error: projectError } = await client
+      .from("projects")
+      .insert({
+        owner_user_id: operatorUserId,
+        name: payload.projectName,
+        slug,
+        status: "completed",
+        current_stage: PLANNING_STAGE,
+        tone: payload.tone,
+        duration_seconds: payload.durationSeconds,
+        aspect_ratio: payload.aspectRatio,
+        provider: payload.provider,
+        platform_targets: payload.platforms,
+        metadata: {
+          source: "adam_text_loop",
+          planningMode: "text_first"
+        }
+      })
+      .select("*")
+      .single();
+
+    const projectRow = assertData(
+      projectRowData as ProjectRow | null,
+      projectError,
+      "Failed to create Adam text planning project"
+    );
+    rollback.projectId = projectRow.id;
+
+    const planningArtifact = buildPlanningArtifact({
+      planId,
+      projectId: projectRow.id,
+      workflowRunId,
+      payload,
+      createdAt: now
+    });
+
+    const { data: briefRowData, error: briefError } = await client
+      .from("briefs")
+      .insert({
+        project_id: projectRow.id,
+        author_user_id: operatorUserId,
+        status: "completed",
+        raw_brief: rawBrief,
+        objective: planningArtifact.normalizedUserGoal,
+        audience: planningArtifact.audience,
+        constraints: {
+          guardrails: planningArtifact.constraints
+        },
+        metadata: {
+          source: "adam_text_loop",
+          planId: planningArtifact.planId
+        }
+      })
+      .select("*")
+      .single();
+
+    const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist Adam text planning brief");
+    rollback.briefId = briefRow.id;
+
+    const canonicalState = buildCanonicalRuntimeState({
+      projectId: projectRow.id,
+      workflowRunId,
+      payload,
+      briefId: briefRow.id,
+      inputArtifactId,
+      outputArtifactId,
+      planningArtifact,
+      createdAt: now
+    });
+
+    const legacyStateSnapshot = buildLegacyStateSnapshot({
+      projectId: projectRow.id,
+      workflowRunId,
+      payload,
+      planningArtifact,
+      createdAt: now,
+      inputArtifactId,
+      outputArtifactId
+    });
+
+    const { data: workflowRunData, error: workflowError } = await client
+      .from("workflow_runs")
+      .insert({
+        id: workflowRunId,
+        project_id: projectRow.id,
+        status: "completed",
+        current_stage: PLANNING_STAGE,
+        requested_stage: "brief_intake",
+        graph_thread_id: null,
+        rerun_from_stage: null,
+        retry_count: 0,
+        state_snapshot: legacyStateSnapshot,
+        stage_attempts: legacyStateSnapshot.stage_attempts,
+        metadata: {
+          source: "adam_text_loop",
+          planningMode: "text_first"
+        }
+      })
+      .select("*")
+      .single();
+
+    const workflowRunRow = assertData(
+      workflowRunData as WorkflowRunRow | null,
+      workflowError,
+      "Failed to persist Adam text planning workflow run"
+    );
+    rollback.workflowRunId = workflowRunRow.id;
+
+    const auditEventRows = buildAuditEvents({
+      projectId: projectRow.id,
+      workflowRunId,
+      actorUserId: operatorUserId,
+      briefId: briefRow.id,
+      createdAt: now
+    });
+
+    const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
+    const auditRows = assertData(
+      auditRowsData as AuditLogRow[] | null,
+      auditError,
+      "Failed to persist Adam text planning audit logs"
+    );
+
+    const inputArtifact = buildInputArtifact({
+      artifactId: inputArtifactId,
+      workflowRunId,
+      payload,
+      createdAt: now
+    });
+    const outputArtifact = buildOutputArtifact({
+      artifactId: outputArtifactId,
+      workflowRunId,
+      planningArtifact,
+      createdAt: now
+    });
+
+    await persistCanonicalRun({
+      workflowRunId,
+      inputArtifactId,
+      outputArtifactId,
+      state: canonicalState,
+      createdAt: now,
+      projectId: projectRow.id,
+      client
+    });
+
+    await createAdamArtifactRecord({ ...inputArtifact, projectId: projectRow.id }, { client });
+    await createAdamArtifactRecord({ ...outputArtifact, projectId: projectRow.id }, { client });
+
+    for (const event of auditRows.map(toAuditLogRecord)) {
+      await appendAdamAuditEvent(
+        {
+          runId: workflowRunId,
+          projectId: projectRow.id,
+          tenantId: adamCompatibilityTenantId,
+          actorType: event.actorType,
+          actorId: event.actorUserId ?? null,
+          eventType: event.action,
+          entityType: event.entityType,
+          entityId: event.entityId ?? null,
+          stage: event.stage ?? null,
+          payload: {
+            metadata: event.metadata ?? {},
+            diff: event.diff ?? null,
+            compatibilitySource: "audit_logs"
+          },
+          errorMessage: event.errorMessage ?? null
+        },
+        { client }
+      );
+    }
+
+    return {
+      project: toProjectRecord(projectRow),
+      brief: toBriefRecord(briefRow),
+      workflowRun: toWorkflowRunRecord(workflowRunRow),
+      auditLogs: auditRows.map(toAuditLogRecord),
+      planningArtifact
+    };
+  } catch (error) {
+    try {
+      await cleanupAdamTextPlanningCreate(client, rollback);
+    } catch (cleanupError) {
+      console.error("Adam text planning rollback failed.", cleanupError);
+    }
+
+    throw error;
+  }
 };
 
 export const getAdamTextPlanningLoop = async (

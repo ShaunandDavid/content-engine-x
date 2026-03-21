@@ -6,11 +6,14 @@ import {
   adamCompatibilityTenantId,
   adamLangGraphRuntimeStateSchema,
   adamPlanningArtifactSchema,
+  adamReasoningArtifactSchema,
   adamRunSchema,
   adamTextPlanningInputSchema,
   type AdamArtifact,
   type AdamLangGraphRuntimeState,
   type AdamPlanningArtifact,
+  type AdamReasoningArtifact,
+  type AdamReasoningBlock,
   type AdamTextPlanningInput,
   type AuditLogRecord,
   type BriefRecord,
@@ -98,18 +101,20 @@ export type CreateAdamTextPlanningResult = {
   brief: BriefRecord;
   workflowRun: WorkflowRunRecord;
   auditLogs: AuditLogRecord[];
+  reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
 };
 
 export type GetAdamTextPlanningResult = {
   runId: string;
   projectId: string | null;
+  reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
 };
 
-const ADAM_TEXT_STATE_VERSION = "adam.phase1.text_loop.v1";
+const ADAM_TEXT_STATE_VERSION = "adam.phase2.reasoning_mvp.v1";
 const ADAM_TEXT_WORKFLOW_KIND = "adam.text_planning";
-const ADAM_TEXT_WORKFLOW_VERSION = "phase1-step1";
+const ADAM_TEXT_WORKFLOW_VERSION = "phase2-step1";
 const ADAM_TEXT_ENTRYPOINT = "adam_text_plan";
 const PLANNING_STAGE: WorkflowStage = "concept_generation";
 
@@ -294,11 +299,75 @@ const buildOfferOrConcept = (input: AdamTextPlanningInput) => {
   return compactIdea.length <= 120 ? compactIdea : `${compactIdea.slice(0, 117).trim()}...`;
 };
 
+const classifyRequest = (input: AdamTextPlanningInput) => {
+  const classifierSource = [input.idea, input.goal ?? "", input.offer ?? ""].join(" ").toLowerCase();
+
+  if (/(campaign|launch|brief|funnel|position)/.test(classifierSource)) {
+    return "campaign_planning";
+  }
+
+  if (/(offer|product|service|pricing|solution)/.test(classifierSource)) {
+    return "offer_positioning";
+  }
+
+  if (/(audience|buyer|customer|persona|segment)/.test(classifierSource)) {
+    return "audience_strategy";
+  }
+
+  return "content_direction";
+};
+
+const buildAssumptionsOrUnknowns = (input: AdamTextPlanningInput) => {
+  const assumptions: string[] = [];
+
+  if (!input.goal?.trim()) {
+    assumptions.push("The core operator goal is inferred from the idea because no explicit goal was provided.");
+  }
+
+  if (!input.offer?.trim()) {
+    assumptions.push("The offer or concept is inferred from the idea because no explicit offer was supplied.");
+  }
+
+  if (input.constraints.length === 0) {
+    assumptions.push("No explicit constraints were supplied, so brand and approval guardrails may need confirmation.");
+  }
+
+  if (/general audience/i.test(input.audience)) {
+    assumptions.push("The audience is broad and may need tighter segmentation before execution.");
+  }
+
+  if (input.platforms.length === 1) {
+    assumptions.push(`The plan is optimized around ${input.platforms[0]} first and may need adaptation for additional channels.`);
+  }
+
+  return assumptions;
+};
+
+const buildReasoningBlock = (input: AdamTextPlanningInput): AdamReasoningBlock => {
+  const coreUserGoal = normalizeGoal(input);
+  const explicitConstraints = input.constraints;
+  const assumptionsOrUnknowns = buildAssumptionsOrUnknowns(input);
+  const requestClassification = classifyRequest(input);
+  const offerOrConcept = buildOfferOrConcept(input);
+
+  return {
+    requestClassification,
+    coreUserGoal,
+    explicitConstraints,
+    assumptionsOrUnknowns,
+    reasoningSummary: `Treat this as ${requestClassification.replace(/_/g, " ")} work: anchor on ${coreUserGoal.toLowerCase()}, use ${offerOrConcept.toLowerCase()} as the working concept, and pressure-test assumptions before turning it into channel execution.`
+  };
+};
+
 const buildRecommendedAngle = (input: AdamTextPlanningInput, normalizedGoal: string, offerOrConcept: string) =>
   `${input.tone} operator brief that frames ${offerOrConcept.toLowerCase()} as the clearest path to ${normalizedGoal.toLowerCase()} for ${input.audience.toLowerCase()}.`;
 
-const buildNextStepPlanningSummary = (input: AdamTextPlanningInput, recommendedAngle: string) =>
-  `Turn this into a campaign brief with one primary promise, three proof points, and one channel-first execution path for ${input.platforms.join(", ")}. Lead with ${recommendedAngle}`;
+const buildNextStepPlanningSummary = (
+  input: AdamTextPlanningInput,
+  recommendedAngle: string,
+  reasoning: AdamReasoningBlock
+) =>
+  `Turn this into a campaign brief with one primary promise, three proof points, and one channel-first execution path for ${input.platforms.join(", ")}. Lead with ${recommendedAngle} Resolve the key unknowns first: ${reasoning.assumptionsOrUnknowns.length > 0 ? reasoning.assumptionsOrUnknowns.join(" ") : "No major unknowns were identified in the intake."}`;
 
 const buildRawBrief = (input: AdamTextPlanningInput, normalizedGoal: string, offerOrConcept: string) =>
   [
@@ -314,9 +383,10 @@ const buildPlanningArtifact = (input: {
   projectId: string;
   workflowRunId: string;
   payload: AdamTextPlanningInput;
+  reasoning: AdamReasoningBlock;
   createdAt: string;
 }): AdamPlanningArtifact => {
-  const normalizedUserGoal = normalizeGoal(input.payload);
+  const normalizedUserGoal = input.reasoning.coreUserGoal;
   const offerOrConcept = buildOfferOrConcept(input.payload);
   const recommendedAngle = buildRecommendedAngle(input.payload, normalizedUserGoal, offerOrConcept);
 
@@ -331,7 +401,8 @@ const buildPlanningArtifact = (input: {
     offerOrConcept,
     constraints: input.payload.constraints,
     recommendedAngle,
-    nextStepPlanningSummary: buildNextStepPlanningSummary(input.payload, recommendedAngle),
+    nextStepPlanningSummary: buildNextStepPlanningSummary(input.payload, recommendedAngle, input.reasoning),
+    reasoning: input.reasoning,
     createdAt: input.createdAt,
     metadata: {
       source: "adam_text_loop",
@@ -340,13 +411,43 @@ const buildPlanningArtifact = (input: {
   });
 };
 
+const buildReasoningArtifact = (input: {
+  reasoningId: string;
+  projectId: string;
+  workflowRunId: string;
+  reasoning: AdamReasoningBlock;
+  createdAt: string;
+}): AdamReasoningArtifact =>
+  adamReasoningArtifactSchema.parse({
+    reasoningId: input.reasoningId,
+    projectId: input.projectId,
+    workflowRunId: input.workflowRunId,
+    createdAt: input.createdAt,
+    metadata: {
+      source: "adam_text_loop",
+      workflowKind: ADAM_TEXT_WORKFLOW_KIND
+    },
+    reasoning: input.reasoning
+  });
+
+const applyReasoningToPlanningArtifact = (input: {
+  planningArtifact: AdamPlanningArtifact;
+  reasoningArtifact: AdamReasoningArtifact;
+}): AdamPlanningArtifact =>
+  adamPlanningArtifactSchema.parse({
+    ...input.planningArtifact,
+    reasoning: input.reasoningArtifact.reasoning
+  });
+
 const buildCanonicalRuntimeState = (input: {
   projectId: string;
   workflowRunId: string;
   payload: AdamTextPlanningInput;
   briefId: string;
   inputArtifactId: string;
+  reasoningArtifactId: string;
   outputArtifactId: string;
+  reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
   createdAt: string;
 }): AdamLangGraphRuntimeState =>
@@ -396,8 +497,9 @@ const buildCanonicalRuntimeState = (input: {
       }
     ],
     inputArtifactRefs: [input.inputArtifactId],
-    outputArtifactRefs: [input.outputArtifactId],
+    outputArtifactRefs: [input.reasoningArtifactId, input.outputArtifactId],
     workingMemory: {
+      reasoningPass: input.reasoningArtifact.reasoning,
       adamPlan: input.planningArtifact
     },
     governanceDecisionRefs: [],
@@ -435,7 +537,8 @@ const buildCanonicalRuntimeState = (input: {
     errors: [],
     metadata: {
       source: "adam_text_loop",
-      planningMode: "text_first"
+      planningMode: "text_first",
+      reasoningMode: "heuristic_mvp"
     }
   });
 
@@ -443,9 +546,11 @@ const buildLegacyStateSnapshot = (input: {
   projectId: string;
   workflowRunId: string;
   payload: AdamTextPlanningInput;
+  reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
   createdAt: string;
   inputArtifactId: string;
+  reasoningArtifactId: string;
   outputArtifactId: string;
 }) => ({
   project_id: input.projectId,
@@ -475,7 +580,7 @@ const buildLegacyStateSnapshot = (input: {
     }
   ],
   input_artifact_refs: [input.inputArtifactId],
-  output_artifact_refs: [input.outputArtifactId],
+  output_artifact_refs: [input.reasoningArtifactId, input.outputArtifactId],
   brief: {
     objective: input.planningArtifact.normalizedUserGoal,
     audience: input.payload.audience,
@@ -498,6 +603,7 @@ const buildLegacyStateSnapshot = (input: {
     offer_or_concept: input.planningArtifact.offerOrConcept,
     recommended_angle: input.planningArtifact.recommendedAngle
   },
+  adam_reasoning: input.reasoningArtifact.reasoning,
   scenes: [],
   prompt_versions: [],
   clip_requests: [],
@@ -509,13 +615,15 @@ const buildLegacyStateSnapshot = (input: {
   errors: [],
   metadata: {
     source: "adam_text_loop",
-    planning_mode: "text_first"
+    planning_mode: "text_first",
+    reasoning_mode: "heuristic_mvp"
   }
 });
 
 const persistCanonicalRun = async (input: {
   workflowRunId: string;
   inputArtifactId: string;
+  reasoningArtifactId: string;
   outputArtifactId: string;
   state: AdamLangGraphRuntimeState;
   createdAt: string;
@@ -533,7 +641,7 @@ const persistCanonicalRun = async (input: {
     entrypoint: ADAM_TEXT_ENTRYPOINT,
     graphThreadId: null,
     inputRef: input.inputArtifactId,
-    outputRefs: [input.outputArtifactId],
+    outputRefs: [input.reasoningArtifactId, input.outputArtifactId],
     startedAt: input.createdAt,
     completedAt: input.createdAt,
     updatedAt: input.createdAt,
@@ -604,6 +712,31 @@ const buildOutputArtifact = (input: {
     }
   });
 
+const buildReasoningOutputArtifact = (input: {
+  artifactId: string;
+  workflowRunId: string;
+  reasoningArtifact: AdamReasoningArtifact;
+  createdAt: string;
+}): AdamArtifact =>
+  adamArtifactSchema.parse({
+    artifactId: input.artifactId,
+    tenantId: adamCompatibilityTenantId,
+    runId: input.workflowRunId,
+    artifactType: "reasoning_output",
+    artifactRole: "output",
+    status: "completed",
+    schemaName: "adam.reasoning-artifact",
+    schemaVersion: ADAM_TEXT_WORKFLOW_VERSION,
+    contentRef: null,
+    content: input.reasoningArtifact,
+    checksum: null,
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    metadata: {
+      source: "adam_text_loop"
+    }
+  });
+
 const buildAuditEvents = (input: {
   projectId: string;
   workflowRunId: string;
@@ -620,6 +753,21 @@ const buildAuditEvents = (input: {
     entity_type: "project",
     entity_id: input.projectId,
     stage: "brief_intake",
+    diff: null,
+    metadata: { source: "adam_text_loop" },
+    error_message: null,
+    created_at: input.createdAt,
+    updated_at: input.createdAt
+  },
+  {
+    project_id: input.projectId,
+    workflow_run_id: input.workflowRunId,
+    actor_user_id: input.actorUserId,
+    actor_type: "service",
+    action: "adam.reasoning.completed",
+    entity_type: "adam_reasoning",
+    entity_id: input.workflowRunId,
+    stage: PLANNING_STAGE,
     diff: null,
     metadata: { source: "adam_text_loop" },
     error_message: null,
@@ -682,6 +830,7 @@ export const createAdamTextPlanningLoop = async (
   const workflowRunId = randomUUID();
   const planId = randomUUID();
   const inputArtifactId = randomUUID();
+  const reasoningArtifactId = randomUUID();
   const outputArtifactId = randomUUID();
   const now = new Date().toISOString();
   const slugSeed = slugify(payload.projectName) || "adam-plan";
@@ -693,9 +842,8 @@ export const createAdamTextPlanningLoop = async (
   };
 
   try {
-    const normalizedGoal = normalizeGoal(payload);
-    const offerOrConcept = buildOfferOrConcept(payload);
-    const rawBrief = buildRawBrief(payload, normalizedGoal, offerOrConcept);
+    const reasoning = buildReasoningBlock(payload);
+    const rawBrief = buildRawBrief(payload, reasoning.coreUserGoal, buildOfferOrConcept(payload));
 
     const { data: projectRowData, error: projectError } = await client
       .from("projects")
@@ -730,6 +878,14 @@ export const createAdamTextPlanningLoop = async (
       projectId: projectRow.id,
       workflowRunId,
       payload,
+      reasoning,
+      createdAt: now
+    });
+    const reasoningArtifact = buildReasoningArtifact({
+      reasoningId: reasoningArtifactId,
+      projectId: projectRow.id,
+      workflowRunId,
+      reasoning,
       createdAt: now
     });
 
@@ -762,7 +918,9 @@ export const createAdamTextPlanningLoop = async (
       payload,
       briefId: briefRow.id,
       inputArtifactId,
+      reasoningArtifactId,
       outputArtifactId,
+      reasoningArtifact,
       planningArtifact,
       createdAt: now
     });
@@ -771,9 +929,11 @@ export const createAdamTextPlanningLoop = async (
       projectId: projectRow.id,
       workflowRunId,
       payload,
+      reasoningArtifact,
       planningArtifact,
       createdAt: now,
       inputArtifactId,
+      reasoningArtifactId,
       outputArtifactId
     });
 
@@ -832,10 +992,17 @@ export const createAdamTextPlanningLoop = async (
       planningArtifact,
       createdAt: now
     });
+    const reasoningOutputArtifact = buildReasoningOutputArtifact({
+      artifactId: reasoningArtifactId,
+      workflowRunId,
+      reasoningArtifact,
+      createdAt: now
+    });
 
     await persistCanonicalRun({
       workflowRunId,
       inputArtifactId,
+      reasoningArtifactId,
       outputArtifactId,
       state: canonicalState,
       createdAt: now,
@@ -844,6 +1011,7 @@ export const createAdamTextPlanningLoop = async (
     });
 
     await createAdamArtifactRecord({ ...inputArtifact, projectId: projectRow.id }, { client });
+    await createAdamArtifactRecord({ ...reasoningOutputArtifact, projectId: projectRow.id }, { client });
     await createAdamArtifactRecord({ ...outputArtifact, projectId: projectRow.id }, { client });
 
     for (const event of auditRows.map(toAuditLogRecord)) {
@@ -874,6 +1042,7 @@ export const createAdamTextPlanningLoop = async (
       brief: toBriefRecord(briefRow),
       workflowRun: toWorkflowRunRecord(workflowRunRow),
       auditLogs: auditRows.map(toAuditLogRecord),
+      reasoningArtifact,
       planningArtifact
     };
   } catch (error) {
@@ -949,11 +1118,34 @@ export const getAdamTextPlanningLoop = async (
     return null;
   }
 
-  const planningArtifact = adamPlanningArtifactSchema.parse(artifactData.content_json);
+  const { data: reasoningArtifactData, error: reasoningArtifactError } = await client
+    .from("adam_artifacts")
+    .select("id, run_id, project_id, content_json")
+    .eq("run_id", runData.id)
+    .eq("artifact_type", "reasoning_output")
+    .eq("schema_name", "adam.reasoning-artifact")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reasoningArtifactError) {
+    throw new Error(`Failed to load Adam reasoning artifact: ${reasoningArtifactError.message}`);
+  }
+
+  if (!reasoningArtifactData?.content_json) {
+    return null;
+  }
+
+  const reasoningArtifact = adamReasoningArtifactSchema.parse(reasoningArtifactData.content_json);
+  const planningArtifact = applyReasoningToPlanningArtifact({
+    planningArtifact: adamPlanningArtifactSchema.parse(artifactData.content_json),
+    reasoningArtifact
+  });
 
   return {
     runId: runData.id,
     projectId: runData.project_id,
+    reasoningArtifact,
     planningArtifact
   };
 };

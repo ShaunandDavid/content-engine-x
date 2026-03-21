@@ -89,6 +89,22 @@ const buildAuditRows = () => [
     workflow_run_id: "run-1",
     actor_user_id: "operator-1",
     actor_type: "service",
+    action: "adam.reasoning.completed",
+    entity_type: "adam_reasoning",
+    entity_id: "run-1",
+    stage: "concept_generation",
+    diff: null,
+    metadata: { source: "adam_text_loop" },
+    error_message: null,
+    created_at: "2026-03-20T12:00:05.000Z",
+    updated_at: "2026-03-20T12:00:05.000Z"
+  },
+  {
+    id: "audit-4",
+    project_id: "project-1",
+    workflow_run_id: "run-1",
+    actor_user_id: "operator-1",
+    actor_type: "service",
     action: "adam.plan.generated",
     entity_type: "adam_plan",
     entity_id: "run-1",
@@ -175,6 +191,13 @@ const createMockClient = (options = {}) => {
         recommendedAngle:
           "Authority operator brief that frames the text-first loop as the fastest route to campaign clarity.",
         nextStepPlanningSummary: "Turn this into a campaign brief with one promise and three proof points.",
+        reasoning: {
+          requestClassification: "stale_embedded_reasoning",
+          coreUserGoal: "Stale embedded goal",
+          explicitConstraints: [],
+          assumptionsOrUnknowns: [],
+          reasoningSummary: "This stale reasoning block should be replaced by the canonical reasoning artifact."
+        },
         createdAt: "2026-03-20T12:00:00.000Z",
         metadata: {}
       }
@@ -212,6 +235,37 @@ const createMockClient = (options = {}) => {
       return this;
     },
     maybeSingle() {
+      if (table === "adam_artifacts") {
+        const artifactType = this._filters.find(([column]) => column === "artifact_type")?.[1];
+
+        if (artifactType === "reasoning_output") {
+          return Promise.resolve(
+            createQueryResult({
+              id: "artifact-2",
+              run_id: "run-1",
+              project_id: "project-1",
+              content_json: {
+                reasoningId: "77777777-7777-7777-7777-777777777777",
+                projectId: "project-1",
+                workflowRunId: "run-1",
+                createdAt: "2026-03-20T12:00:00.000Z",
+                metadata: {},
+                reasoning: {
+                  requestClassification: "campaign_planning",
+                  coreUserGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+                  explicitConstraints: ["Keep it brand safe"],
+                  assumptionsOrUnknowns: [
+                    "The exact offer is inferred from the idea because no explicit offer was supplied."
+                  ],
+                  reasoningSummary:
+                    "Treat this as campaign planning work: anchor on the operator goal, use the text-first loop as the working concept, and pressure-test assumptions before turning it into channel execution."
+                }
+              }
+            })
+          );
+        }
+      }
+
       return Promise.resolve(responses[table]);
     },
     then(onFulfilled, onRejected) {
@@ -249,6 +303,7 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
     "@content-engine/shared": {
       adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       adamTextPlanningInputSchema: { parse: (value) => value },
+      adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
@@ -285,12 +340,15 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
   assert.equal(result.workflowRun.currentStage, "concept_generation");
   assert.equal(result.planningArtifact.audience, "Performance marketers");
   assert.match(result.planningArtifact.recommendedAngle, /authority/i);
+  assert.equal(result.planningArtifact.reasoning.requestClassification, "campaign_planning");
 
   assert.equal(canonicalCalls.runs.length, 1);
-  assert.equal(canonicalCalls.artifacts.length, 2);
-  assert.equal(canonicalCalls.audits.length, 3);
+  assert.equal(canonicalCalls.artifacts.length, 3);
+  assert.equal(canonicalCalls.audits.length, 4);
   assert.equal(canonicalCalls.runs[0].workflowKind, "adam.text_planning");
-  assert.equal(canonicalCalls.artifacts[1].artifactType, "planning_output");
+  assert.equal(canonicalCalls.artifacts[1].artifactType, "reasoning_output");
+  assert.equal(canonicalCalls.artifacts[2].artifactType, "planning_output");
+  assert.equal(canonicalCalls.runs[0].stateSnapshot.workingMemory.reasoningPass.requestClassification, "campaign_planning");
 });
 
 test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonical persistence fails", async () => {
@@ -305,6 +363,7 @@ test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonic
     "@content-engine/shared": {
       adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       adamTextPlanningInputSchema: { parse: (value) => value },
+      adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
@@ -358,6 +417,7 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by project id",
     "@content-engine/shared": {
       adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       adamTextPlanningInputSchema: { parse: (value) => value },
+      adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
@@ -377,6 +437,9 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by project id",
   assert.equal(result.projectId, "project-1");
   assert.equal(result.runId, "run-1");
   assert.equal(result.planningArtifact.offerOrConcept, "Text-first Adam planning loop");
+  assert.equal(result.reasoningArtifact.reasoning.requestClassification, "campaign_planning");
+  assert.equal(result.planningArtifact.reasoning.requestClassification, "campaign_planning");
+  assert.equal(result.planningArtifact.reasoning.coreUserGoal, "Turn rough ideas into a clear operator-ready campaign direction.");
 });
 
 test("getAdamTextPlanningLoop reopens a stored planning artifact by run id", async () => {
@@ -386,6 +449,7 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by run id", asy
     "@content-engine/shared": {
       adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
       adamTextPlanningInputSchema: { parse: (value) => value },
+      adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
@@ -404,5 +468,7 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by run id", asy
 
   assert.equal(result.projectId, "project-1");
   assert.equal(result.runId, "run-1");
+  assert.equal(result.reasoningArtifact.reasoning.requestClassification, "campaign_planning");
   assert.equal(result.planningArtifact.normalizedUserGoal, "Turn rough ideas into a clear operator-ready campaign direction.");
+  assert.equal(result.planningArtifact.reasoning.requestClassification, "campaign_planning");
 });

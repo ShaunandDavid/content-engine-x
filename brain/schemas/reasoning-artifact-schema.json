@@ -1,23 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AdamPlanningArtifact",
+  "title": "AdamReasoningArtifact",
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "planId": { "type": "string", "format": "uuid" },
+    "reasoningId": { "type": "string", "format": "uuid" },
     "projectId": { "type": "string", "format": "uuid" },
     "workflowRunId": { "type": "string", "format": "uuid" },
-    "projectName": { "type": "string", "minLength": 3 },
-    "sourceIdea": { "type": "string", "minLength": 20 },
-    "normalizedUserGoal": { "type": "string", "minLength": 5 },
-    "audience": { "type": "string", "minLength": 3 },
-    "offerOrConcept": { "type": "string", "minLength": 3 },
-    "constraints": {
-      "type": "array",
-      "items": { "type": "string" }
+    "createdAt": { "type": "string", "format": "date-time" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
     },
-    "recommendedAngle": { "type": "string", "minLength": 10 },
-    "nextStepPlanningSummary": { "type": "string", "minLength": 10 },
     "reasoning": {
       "type": "object",
       "additionalProperties": false,
@@ -41,27 +35,14 @@
         "assumptionsOrUnknowns",
         "reasoningSummary"
       ]
-    },
-    "createdAt": { "type": "string", "format": "date-time" },
-    "metadata": {
-      "type": "object",
-      "additionalProperties": true
     }
   },
   "required": [
-    "planId",
+    "reasoningId",
     "projectId",
     "workflowRunId",
-    "projectName",
-    "sourceIdea",
-    "normalizedUserGoal",
-    "audience",
-    "offerOrConcept",
-    "constraints",
-    "recommendedAngle",
-    "nextStepPlanningSummary",
-    "reasoning",
     "createdAt",
-    "metadata"
+    "metadata",
+    "reasoning"
   ]
 }

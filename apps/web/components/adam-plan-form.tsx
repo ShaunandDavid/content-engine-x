@@ -4,7 +4,7 @@ import { startTransition, useState, type FormEvent } from "react";
 
 import { FormCard } from "./form-card";
 import { DashboardShell } from "./dashboard-shell";
-import { adamTextPlanningInputSchema, type AdamPlanningArtifact } from "@content-engine/shared";
+import { adamTextPlanningInputSchema, type AdamPlanningArtifact, type AdamReasoningArtifact } from "@content-engine/shared";
 
 type FormState = {
   projectName: string;
@@ -55,6 +55,7 @@ export const AdamPlanForm = () => {
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
   const [planningArtifact, setPlanningArtifact] = useState<AdamPlanningArtifact | null>(null);
+  const [reasoningArtifact, setReasoningArtifact] = useState<AdamReasoningArtifact | null>(null);
   const [planningResultMeta, setPlanningResultMeta] = useState<PlanningResultMeta | null>(null);
 
   const togglePlatform = (platform: FormState["platforms"][number]) => {
@@ -109,6 +110,7 @@ export const AdamPlanForm = () => {
         message?: string;
         project?: { id: string };
         workflowRun?: { id: string };
+        reasoningArtifact?: AdamReasoningArtifact;
         planningArtifact?: AdamPlanningArtifact;
       };
 
@@ -120,6 +122,7 @@ export const AdamPlanForm = () => {
       const runId = result.workflowRun.id;
       startTransition(() => {
         setPlanningArtifact(artifact);
+        setReasoningArtifact(result.reasoningArtifact ?? null);
         setPlanningResultMeta({
           projectId: result.project?.id ?? artifact.projectId ?? null,
           runId
@@ -158,6 +161,7 @@ export const AdamPlanForm = () => {
         message?: string;
         projectId?: string | null;
         runId?: string;
+        reasoningArtifact?: AdamReasoningArtifact;
         planningArtifact?: AdamPlanningArtifact;
       };
 
@@ -168,6 +172,7 @@ export const AdamPlanForm = () => {
       const artifact = result.planningArtifact;
       startTransition(() => {
         setPlanningArtifact(artifact);
+        setReasoningArtifact(result.reasoningArtifact ?? null);
         setPlanningResultMeta({
           projectId: result.projectId ?? artifact.projectId ?? null,
           runId: result.runId ?? artifact.workflowRunId
@@ -180,6 +185,8 @@ export const AdamPlanForm = () => {
       setIsLoadingExisting(false);
     }
   };
+
+  const displayedReasoning = reasoningArtifact?.reasoning ?? planningArtifact?.reasoning ?? null;
 
   return (
     <DashboardShell
@@ -402,6 +409,10 @@ export const AdamPlanForm = () => {
                 <p>{planningArtifact.normalizedUserGoal}</p>
               </article>
               <article className="payload-card">
+                <strong>Core User Goal</strong>
+                <p>{displayedReasoning?.coreUserGoal ?? planningArtifact.normalizedUserGoal}</p>
+              </article>
+              <article className="payload-card">
                 <strong>Audience</strong>
                 <p>{planningArtifact.audience}</p>
               </article>
@@ -414,14 +425,34 @@ export const AdamPlanForm = () => {
                 <p>{planningArtifact.recommendedAngle}</p>
               </article>
               <article className="payload-card">
+                <strong>Request Classification</strong>
+                <p>{displayedReasoning?.requestClassification ?? "Not available"}</p>
+              </article>
+              <article className="payload-card">
                 <strong>Constraints</strong>
                 <ul className="list-reset">
-                  {planningArtifact.constraints.length > 0 ? (
-                    planningArtifact.constraints.map((constraint: string) => <li key={constraint}>{constraint}</li>)
+                  {(displayedReasoning?.explicitConstraints ?? planningArtifact.constraints).length > 0 ? (
+                    (displayedReasoning?.explicitConstraints ?? planningArtifact.constraints).map((constraint: string) => (
+                      <li key={constraint}>{constraint}</li>
+                    ))
                   ) : (
                     <li>No explicit constraints provided.</li>
                   )}
                 </ul>
+              </article>
+              <article className="payload-card">
+                <strong>Assumptions or Unknowns</strong>
+                <ul className="list-reset">
+                  {displayedReasoning && displayedReasoning.assumptionsOrUnknowns.length > 0 ? (
+                    displayedReasoning.assumptionsOrUnknowns.map((item: string) => <li key={item}>{item}</li>)
+                  ) : (
+                    <li>No major assumptions were identified.</li>
+                  )}
+                </ul>
+              </article>
+              <article className="payload-card">
+                <strong>Reasoning Summary</strong>
+                <p>{displayedReasoning?.reasoningSummary ?? "Not available"}</p>
               </article>
               <article className="payload-card">
                 <strong>Next-Step Planning Summary</strong>

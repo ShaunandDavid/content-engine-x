@@ -57,6 +57,7 @@ test("brain canonical schema files load and expose required top-level fields", (
     "governance-decision-schema.json",
     "model-decision-schema.json",
     "langgraph-runtime-state-schema.json",
+    "reasoning-artifact-schema.json",
     "planning-artifact-schema.json"
   ];
 
@@ -81,6 +82,11 @@ test("brain canonical schema files load and expose required top-level fields", (
   assert.ok(planningSchema.required.includes("projectId"));
   assert.ok(planningSchema.required.includes("workflowRunId"));
   assert.ok(planningSchema.properties.normalizedUserGoal);
+  assert.ok(planningSchema.properties.reasoning);
+
+  const reasoningSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "reasoning-artifact-schema.json"), "utf8"));
+  assert.ok(reasoningSchema.required.includes("reasoningId"));
+  assert.ok(reasoningSchema.properties.reasoning);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {
@@ -169,8 +175,31 @@ test("shared adam zod contracts accept canonical sample payloads", () => {
     constraints: ["Keep it brand safe"],
     recommendedAngle: "Authority operator brief that frames the text-first loop as the fastest route to campaign clarity.",
     nextStepPlanningSummary: "Turn this into a campaign brief with one promise and three proof points.",
+    reasoning: {
+      requestClassification: "campaign_planning",
+      coreUserGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+      explicitConstraints: ["Keep it brand safe"],
+      assumptionsOrUnknowns: ["The exact offer is inferred from the idea because no explicit offer was supplied."],
+      reasoningSummary: "Clarify the operator goal first, then shape the offer into a channel-aware campaign direction."
+    },
     createdAt: "2026-03-20T12:00:00.000Z",
     metadata: {}
   });
   assert.equal(parsedPlanningArtifact.offerOrConcept, "Text-first Adam planning loop");
+
+  const parsedReasoningArtifact = contracts.adamReasoningArtifactSchema.parse({
+    reasoningId: "66666666-6666-6666-6666-666666666666",
+    projectId: "33333333-3333-3333-3333-333333333333",
+    workflowRunId: "11111111-1111-1111-1111-111111111111",
+    createdAt: "2026-03-20T12:00:00.000Z",
+    metadata: {},
+    reasoning: {
+      requestClassification: "campaign_planning",
+      coreUserGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+      explicitConstraints: ["Keep it brand safe"],
+      assumptionsOrUnknowns: ["The exact offer is inferred from the idea because no explicit offer was supplied."],
+      reasoningSummary: "Clarify the operator goal first, then shape the offer into a channel-aware campaign direction."
+    }
+  });
+  assert.equal(parsedReasoningArtifact.reasoning.requestClassification, "campaign_planning");
 });

@@ -103,6 +103,36 @@ export const adamModelDecisionSchema = z.object({
   metadata: z.record(z.string(), z.unknown())
 });
 
+export const adamTextPlanningInputSchema = z.object({
+  projectName: z.string().min(3).max(120),
+  idea: z.string().min(20).max(5000),
+  goal: z.string().min(5).max(300).optional(),
+  audience: z.string().min(3).max(200).default("General audience"),
+  offer: z.string().min(3).max(300).optional(),
+  constraints: z.array(z.string().min(1)).default([]),
+  tone: z.enum(["educational", "authority", "energetic", "playful", "cinematic"]).default("authority"),
+  platforms: z.array(z.enum(["tiktok", "instagram_reels", "youtube_shorts", "linkedin"])).min(1).default(["linkedin"]),
+  durationSeconds: z.union([z.literal(15), z.literal(20), z.literal(30)]).default(30),
+  aspectRatio: z.enum(["9:16", "16:9"]).default("9:16"),
+  provider: z.enum(["sora"]).default("sora")
+});
+
+export const adamPlanningArtifactSchema = z.object({
+  planId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  workflowRunId: z.string().uuid(),
+  projectName: z.string().min(3),
+  sourceIdea: z.string().min(20),
+  normalizedUserGoal: z.string().min(5),
+  audience: z.string().min(3),
+  offerOrConcept: z.string().min(3),
+  constraints: z.array(z.string()),
+  recommendedAngle: z.string().min(10),
+  nextStepPlanningSummary: z.string().min(10),
+  createdAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown())
+});
+
 // This is the canonical Adam runtime contract for LangGraph state.
 // Existing workflow state types should adapt to this shape instead of
 // redefining the same substrate semantics independently.

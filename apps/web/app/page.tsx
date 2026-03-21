@@ -24,6 +24,9 @@ export default function HomePage() {
           <Link className="button" href="/projects/new">
             Create Project
           </Link>
+          <Link className="button button--secondary" href="/adam/plan">
+            Adam Text Plan
+          </Link>
           <Link className="button button--secondary" href={projectRoute(demoProject.id)}>
             Open Demo Project (Sample Data)
           </Link>

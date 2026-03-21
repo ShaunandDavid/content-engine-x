@@ -2,6 +2,8 @@ import type { z } from "zod";
 
 import type {
   adamArtifactSchema,
+  adamReasoningArtifactSchema,
+  adamReasoningBlockSchema,
   adamGovernanceDecisionSchema,
   adamGovernanceOutcomeSchema,
   adamJobStatusSchema,
@@ -21,6 +23,8 @@ export type AdamStageHistoryEntry = z.infer<typeof stageHistoryEntrySchema>;
 
 export type AdamRun = z.infer<typeof adamRunSchema>;
 export type AdamArtifact = z.infer<typeof adamArtifactSchema>;
+export type AdamReasoningBlock = z.infer<typeof adamReasoningBlockSchema>;
+export type AdamReasoningArtifact = z.infer<typeof adamReasoningArtifactSchema>;
 export type AdamGovernanceDecision = z.infer<typeof adamGovernanceDecisionSchema>;
 export type AdamModelDecision = z.infer<typeof adamModelDecisionSchema>;
 export type AdamLangGraphRuntimeState = z.infer<typeof adamLangGraphRuntimeStateSchema>;

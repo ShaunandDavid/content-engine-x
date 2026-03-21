@@ -117,6 +117,23 @@ export const adamTextPlanningInputSchema = z.object({
   provider: z.enum(["sora"]).default("sora")
 });
 
+export const adamReasoningBlockSchema = z.object({
+  requestClassification: z.string().min(3),
+  coreUserGoal: z.string().min(5),
+  explicitConstraints: z.array(z.string()),
+  assumptionsOrUnknowns: z.array(z.string()),
+  reasoningSummary: z.string().min(10)
+});
+
+export const adamReasoningArtifactSchema = z.object({
+  reasoningId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  workflowRunId: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown()),
+  reasoning: adamReasoningBlockSchema
+});
+
 export const adamPlanningArtifactSchema = z.object({
   planId: z.string().uuid(),
   projectId: z.string().uuid(),
@@ -129,6 +146,7 @@ export const adamPlanningArtifactSchema = z.object({
   constraints: z.array(z.string()),
   recommendedAngle: z.string().min(10),
   nextStepPlanningSummary: z.string().min(10),
+  reasoning: adamReasoningBlockSchema,
   createdAt: z.string().datetime(),
   metadata: z.record(z.string(), z.unknown())
 });

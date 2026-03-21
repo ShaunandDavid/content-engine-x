@@ -1,5 +1,6 @@
-import { getAdamContentEngineBridge } from "@content-engine/db";
+import { getAdamContentEngineBridge, listAdamContentEngineArtifacts } from "@content-engine/db";
 import type { AdamPlanningArtifact, AdamReasoningArtifact, ProjectWorkspace } from "@content-engine/shared";
+import type { AdamContentEngineArtifactSummary } from "@content-engine/db";
 
 type AdamPreplanLink = {
   status?: string;
@@ -31,6 +32,7 @@ export type AdamWorkspaceDetail = {
   summary: AdamWorkspaceSummary;
   planningArtifact: AdamPlanningArtifact | null;
   reasoningArtifact: AdamReasoningArtifact | null;
+  artifacts: AdamContentEngineArtifactSummary[];
   lookupError: string | null;
 };
 
@@ -92,18 +94,23 @@ export const getAdamWorkspaceDetail = async (workspace: ProjectWorkspace): Promi
       summary,
       planningArtifact: null,
       reasoningArtifact: null,
+      artifacts: [],
       lookupError: null
     };
   }
 
   try {
-    const result = await getAdamContentEngineBridge({ projectId: workspace.project.id });
+    const [result, artifacts] = await Promise.all([
+      getAdamContentEngineBridge({ projectId: workspace.project.id }),
+      listAdamContentEngineArtifacts({ projectId: workspace.project.id })
+    ]);
 
     if (!result) {
       return {
         summary,
         planningArtifact: null,
         reasoningArtifact: null,
+        artifacts,
         lookupError: "No stored Adam planning detail was found for this project."
       };
     }
@@ -112,6 +119,7 @@ export const getAdamWorkspaceDetail = async (workspace: ProjectWorkspace): Promi
       summary,
       planningArtifact: result.planningArtifact,
       reasoningArtifact: result.reasoningArtifact,
+      artifacts,
       lookupError: null
     };
   } catch (error) {
@@ -119,6 +127,7 @@ export const getAdamWorkspaceDetail = async (workspace: ProjectWorkspace): Promi
       summary,
       planningArtifact: null,
       reasoningArtifact: null,
+      artifacts: [],
       lookupError: error instanceof Error ? error.message : "Failed to load Adam planning detail."
     };
   }

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain/schemas/model-decision-schema.json",
+  "title": "Adam Model Decision",
+  "description": "Canonical routing and model selection record for Adam.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "run_id": { "type": "string", "format": "uuid" },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload"
+      ]
+    },
+    "task_type": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "selection_reason": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object" }
+  },
+  "required": [
+    "decision_id",
+    "tenant_id",
+    "run_id",
+    "stage",
+    "task_type",
+    "provider",
+    "model",
+    "selection_reason",
+    "created_at",
+    "metadata"
+  ]
+}

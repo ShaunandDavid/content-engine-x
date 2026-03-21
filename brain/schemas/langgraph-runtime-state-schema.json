@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain/schemas/langgraph-runtime-state-schema.json",
+  "title": "Adam LangGraph Runtime State",
+  "description": "Canonical versioned runtime state contract for Adam LangGraph workflows.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state_version": { "type": "string", "minLength": 1 },
+    "project_id": { "type": ["string", "null"], "format": "uuid" },
+    "workflow_run_id": { "type": ["string", "null"], "format": "uuid" },
+    "run_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "workflow_kind": { "type": "string", "minLength": 1 },
+    "workflow_version": { "type": "string", "minLength": 1 },
+    "entrypoint": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "queued", "running", "awaiting_approval", "approved", "completed", "failed", "cancelled"]
+    },
+    "current_stage": {
+      "type": "string",
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload"
+      ]
+    },
+    "requested_start_stage": {
+      "type": ["string", "null"],
+      "enum": [
+        "brief_intake",
+        "concept_generation",
+        "trend_research",
+        "scene_planning",
+        "script_validation",
+        "prompt_creation",
+        "clip_generation",
+        "qc_decision",
+        "render_assembly",
+        "asset_persistence",
+        "publish_payload",
+        null
+      ]
+    },
+    "graph_thread_id": { "type": ["string", "null"] },
+    "stage_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stage": { "type": "string" },
+          "status": { "type": "string" },
+          "attempt": { "type": "integer", "minimum": 1 },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "error_message": { "type": ["string", "null"] }
+        },
+        "required": ["stage", "status", "attempt", "started_at"]
+      }
+    },
+    "stage_attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stage": { "type": "string" },
+          "status": { "type": "string" },
+          "attempt": { "type": "integer", "minimum": 1 },
+          "started_at": { "type": "string", "format": "date-time" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "error_message": { "type": ["string", "null"] }
+        },
+        "required": ["stage", "status", "attempt", "started_at"]
+      }
+    },
+    "input_artifact_refs": { "type": "array", "items": { "type": "string" } },
+    "output_artifact_refs": { "type": "array", "items": { "type": "string" } },
+    "working_memory": { "type": "object" },
+    "governance_decision_refs": { "type": "array", "items": { "type": "string" } },
+    "model_decision_refs": { "type": "array", "items": { "type": "string" } },
+    "brief": { "type": "object" },
+    "project_config": { "type": "object" },
+    "concept": { "type": "object" },
+    "scenes": { "type": "array", "items": { "type": "object" } },
+    "prompt_versions": { "type": "array", "items": { "type": "object" } },
+    "clip_requests": { "type": "array", "items": { "type": "object" } },
+    "approvals": { "type": "array", "items": { "type": "object" } },
+    "audit_log": { "type": "array", "items": { "type": "object" } },
+    "render_plan": { "type": "object" },
+    "publish_payload": { "type": "object" },
+    "trend_briefs": { "type": "array", "items": { "type": "object" } },
+    "trend_source": { "type": ["string", "null"] },
+    "trend_niche": { "type": ["string", "null"] },
+    "script_score": { "type": "object" },
+    "script_approved": { "type": ["boolean", "null"] },
+    "script_revision_count": { "type": "integer", "minimum": 0 },
+    "script_revision_notes": { "type": ["string", "null"] },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object" }
+  },
+  "required": [
+    "state_version",
+    "run_id",
+    "tenant_id",
+    "workflow_kind",
+    "workflow_version",
+    "entrypoint",
+    "status",
+    "current_stage",
+    "stage_history",
+    "input_artifact_refs",
+    "output_artifact_refs",
+    "working_memory",
+    "governance_decision_refs",
+    "model_decision_refs",
+    "errors",
+    "metadata"
+  ]
+}

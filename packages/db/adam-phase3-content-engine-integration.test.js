@@ -309,6 +309,103 @@ test("getAdamContentEngineBridge reopens stored bridge artifacts using the bridg
   assert.equal(result.reasoningArtifact.reasoning.requestClassification, "campaign_planning");
 });
 
+test("listAdamContentEngineArtifacts returns canonical artifact summaries for a bridge-backed project", async () => {
+  const runRows = [{ id: "adam-run-1" }];
+
+  const builder = (table) => ({
+    _filters: [],
+    select() {
+      return this;
+    },
+    eq() {
+      this._filters.push(Array.from(arguments));
+      return this;
+    },
+    in() {
+      this._filters.push(Array.from(arguments));
+      return this;
+    },
+    order() {
+      return this;
+    },
+    limit() {
+      return this;
+    },
+    then(onFulfilled, onRejected) {
+      if (table === "adam_runs") {
+        return Promise.resolve(createQueryResult(runRows)).then(onFulfilled, onRejected);
+      }
+
+      return Promise.resolve(
+        createQueryResult([
+          {
+            id: "artifact-input-1",
+            run_id: "adam-run-1",
+            project_id: "project-1",
+            artifact_type: "text_planning_input",
+            artifact_role: "input",
+            status: "completed",
+            schema_name: "adam.text-planning-input",
+            schema_version: "phase3-step1",
+            content_json: {
+              projectName: "Bridge Project",
+              idea: "Bridge Adam planning into Content Engine X before downstream generation."
+            },
+            created_at: "2026-03-21T12:00:00.000Z"
+          },
+          {
+            id: "artifact-plan-1",
+            run_id: "adam-run-1",
+            project_id: "project-1",
+            artifact_type: "planning_output",
+            artifact_role: "output",
+            status: "completed",
+            schema_name: "adam.planning-artifact",
+            schema_version: "phase3-step1",
+            content_json: {
+              normalizedUserGoal: "Bridge Adam planning into Content Engine X.",
+              audience: "Operators",
+              constraints: ["Brand safe"],
+              recommendedAngle: "Authority operator brief that frames the Adam handoff as the clearest route to execution."
+            },
+            created_at: "2026-03-21T12:00:01.000Z"
+          }
+        ])
+      ).then(onFulfilled, onRejected);
+    }
+  });
+
+  const client = {
+    from(table) {
+      return builder(table);
+    }
+  };
+
+  const module = loadTsModule(bridgeFile, {
+    "@content-engine/shared": sharedSchemaMocks,
+    "./client.js": { createServiceSupabaseClient: () => client },
+    "./adam-write.js": {
+      createAdamRunRecord: async () => undefined,
+      createAdamArtifactRecord: async () => undefined,
+      appendAdamAuditEvent: async () => undefined
+    }
+  });
+
+  const result = await module.listAdamContentEngineArtifacts({ projectId: "project-1" }, { client });
+
+  assert.equal(result.length, 2);
+  assert.equal(result[0].artifactType, "text_planning_input");
+  assert.equal(result[0].previewLabel, "Bridge Project");
+  assert.equal(result[0].previewSections[0].label, "Project Name");
+  assert.equal(result[1].artifactType, "planning_output");
+  assert.equal(result[1].artifactRole, "output");
+  assert.match(result[1].previewText, /Authority operator brief/i);
+  assert.equal(
+    result[1].previewSections.map((section) => section.label).join("|"),
+    "Normalized Goal|Audience|Constraints|Recommended Angle"
+  );
+});
+
 const buildProjectWorkflowClient = () => {
   const inserts = {
     projects: [],

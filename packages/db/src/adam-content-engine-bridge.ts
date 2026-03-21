@@ -54,6 +54,24 @@ export type GetAdamContentEngineBridgeResult = {
   planningArtifact: AdamPlanningArtifact;
 };
 
+export type AdamContentEngineArtifactSummary = {
+  artifactId: string;
+  runId: string;
+  projectId: string | null;
+  artifactType: string;
+  artifactRole: AdamArtifact["artifactRole"];
+  status: AdamArtifact["status"];
+  schemaName: string;
+  schemaVersion: string;
+  createdAt: string;
+  previewLabel: string;
+  previewText: string | null;
+  previewSections: Array<{
+    label: string;
+    value: string;
+  }>;
+};
+
 type RollbackContext = {
   runId: string | null;
 };
@@ -326,6 +344,108 @@ const buildPlanningOutputArtifact = (input: {
       source: "content_engine_x_adam_bridge"
     }
   });
+
+const buildArtifactPreview = (input: {
+  artifactType: string;
+  content: unknown;
+}): {
+  previewLabel: string;
+  previewText: string | null;
+  previewSections: Array<{
+    label: string;
+    value: string;
+  }>;
+} => {
+  if (input.artifactType === "text_planning_input") {
+    const content = input.content as { projectName?: string; idea?: string } | null;
+    return {
+      previewLabel: content?.projectName ?? "Text planning input",
+      previewText: typeof content?.idea === "string" ? content.idea.slice(0, 140) : null,
+      previewSections: [
+        ...(typeof content?.projectName === "string" && content.projectName.trim()
+          ? [{ label: "Project Name", value: content.projectName }]
+          : []),
+        ...(typeof content?.idea === "string" && content.idea.trim()
+          ? [{ label: "Idea", value: content.idea }]
+          : [])
+      ]
+    };
+  }
+
+  if (input.artifactType === "reasoning_output") {
+    const content = input.content as {
+      reasoning?: {
+        requestClassification?: string;
+        coreUserGoal?: string;
+        explicitConstraints?: string[];
+        assumptionsOrUnknowns?: string[];
+        reasoningSummary?: string;
+      };
+    } | null;
+    return {
+      previewLabel: content?.reasoning?.requestClassification ?? "Reasoning output",
+      previewText: content?.reasoning?.reasoningSummary ?? null,
+      previewSections: [
+        ...(typeof content?.reasoning?.requestClassification === "string" && content.reasoning.requestClassification.trim()
+          ? [{ label: "Request Classification", value: content.reasoning.requestClassification }]
+          : []),
+        ...(typeof content?.reasoning?.coreUserGoal === "string" && content.reasoning.coreUserGoal.trim()
+          ? [{ label: "Core User Goal", value: content.reasoning.coreUserGoal }]
+          : []),
+        ...(Array.isArray(content?.reasoning?.explicitConstraints) && content.reasoning.explicitConstraints.length > 0
+          ? [{ label: "Constraints", value: content.reasoning.explicitConstraints.join(", ") }]
+          : []),
+        ...(Array.isArray(content?.reasoning?.assumptionsOrUnknowns) && content.reasoning.assumptionsOrUnknowns.length > 0
+          ? [{ label: "Assumptions Or Unknowns", value: content.reasoning.assumptionsOrUnknowns.join(" ") }]
+          : []),
+        ...(typeof content?.reasoning?.reasoningSummary === "string" && content.reasoning.reasoningSummary.trim()
+          ? [{ label: "Reasoning Summary", value: content.reasoning.reasoningSummary }]
+          : [])
+      ]
+    };
+  }
+
+  if (input.artifactType === "planning_output") {
+    const content = input.content as {
+      normalizedUserGoal?: string;
+      audience?: string;
+      offerOrConcept?: string;
+      constraints?: string[];
+      recommendedAngle?: string;
+      nextStepPlanningSummary?: string;
+    } | null;
+    return {
+      previewLabel: content?.normalizedUserGoal ?? "Planning output",
+      previewText: content?.recommendedAngle ?? null,
+      previewSections: [
+        ...(typeof content?.normalizedUserGoal === "string" && content.normalizedUserGoal.trim()
+          ? [{ label: "Normalized Goal", value: content.normalizedUserGoal }]
+          : []),
+        ...(typeof content?.audience === "string" && content.audience.trim()
+          ? [{ label: "Audience", value: content.audience }]
+          : []),
+        ...(typeof content?.offerOrConcept === "string" && content.offerOrConcept.trim()
+          ? [{ label: "Offer Or Concept", value: content.offerOrConcept }]
+          : []),
+        ...(Array.isArray(content?.constraints) && content.constraints.length > 0
+          ? [{ label: "Constraints", value: content.constraints.join(", ") }]
+          : []),
+        ...(typeof content?.recommendedAngle === "string" && content.recommendedAngle.trim()
+          ? [{ label: "Recommended Angle", value: content.recommendedAngle }]
+          : []),
+        ...(typeof content?.nextStepPlanningSummary === "string" && content.nextStepPlanningSummary.trim()
+          ? [{ label: "Next Step Summary", value: content.nextStepPlanningSummary }]
+          : [])
+      ]
+    };
+  }
+
+  return {
+    previewLabel: input.artifactType,
+    previewText: null,
+    previewSections: []
+  };
+};
 
 export const createAdamContentEngineBridge = async (
   input: {
@@ -683,4 +803,96 @@ export const getAdamContentEngineBridge = async (
     reasoningArtifact: adamReasoningArtifactSchema.parse(reasoningArtifactData.content_json),
     planningArtifact: adamPlanningArtifactSchema.parse(artifactData.content_json)
   };
+};
+
+export const listAdamContentEngineArtifacts = async (
+  input: {
+    projectId?: string;
+    runId?: string;
+  },
+  options?: {
+    client?: SupabaseClient;
+  }
+): Promise<AdamContentEngineArtifactSummary[]> => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const projectId = input.projectId?.trim();
+  const runId = input.runId?.trim();
+
+  if (!projectId && !runId) {
+    throw new Error("Provide either projectId or runId to list Adam Content Engine bridge artifacts.");
+  }
+
+  if (projectId && runId) {
+    throw new Error("Provide only one lookup key for Adam Content Engine bridge artifact listing.");
+  }
+
+  let runIds: string[] = [];
+
+  if (runId) {
+    runIds = [runId];
+  } else {
+    const { data: runRows, error: runError } = await client
+      .from("adam_runs")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("workflow_kind", ADAM_PREPLAN_WORKFLOW_KIND)
+      .order("created_at", { ascending: false });
+
+    if (runError) {
+      throw new Error(`Failed to list Adam Content Engine bridge runs: ${runError.message}`);
+    }
+
+    runIds = (runRows ?? []).map((row: { id: string }) => row.id);
+  }
+
+  if (runIds.length === 0) {
+    return [];
+  }
+
+  const { data: artifactRows, error: artifactError } = await client
+    .from("adam_artifacts")
+    .select(
+      "id, run_id, project_id, artifact_type, artifact_role, status, schema_name, schema_version, content_json, created_at"
+    )
+    .in("run_id", runIds)
+    .order("created_at", { ascending: true });
+
+  if (artifactError) {
+    throw new Error(`Failed to list Adam Content Engine bridge artifacts: ${artifactError.message}`);
+  }
+
+  return (artifactRows ?? []).map(
+    (row: {
+      id: string;
+      run_id: string;
+      project_id: string | null;
+      artifact_type: string;
+      artifact_role: AdamArtifact["artifactRole"];
+      status: AdamArtifact["status"];
+      schema_name: string;
+      schema_version: string;
+      content_json: unknown;
+      created_at: string;
+    }) => {
+      const preview = buildArtifactPreview({
+        artifactType: row.artifact_type,
+        content: row.content_json
+      });
+
+      return {
+        artifactId: row.id,
+        runId: row.run_id,
+        projectId: row.project_id,
+        artifactType: row.artifact_type,
+        artifactRole: row.artifact_role,
+        status: row.status,
+        schemaName: row.schema_name,
+        schemaVersion: row.schema_version,
+        createdAt: row.created_at,
+        previewLabel: preview.previewLabel,
+        previewText: preview.previewText,
+        previewSections: preview.previewSections
+      };
+    }
+  );
 };

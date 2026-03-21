@@ -3,12 +3,19 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
-import { getAdamWorkspaceDetail } from "../../../../lib/server/adam-project-data";
+import { getAdamWorkspaceDetail, resolveSelectedAdamArtifact } from "../../../../lib/server/adam-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { projectRoute } from "../../../../lib/routes";
 
-export default async function ProjectAdamDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function ProjectAdamDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams?: Promise<{ artifactId?: string }>;
+}) {
   const { projectId } = await params;
+  const selectedArtifactId = (await searchParams)?.artifactId?.trim();
   const workspace = await getProjectWorkspaceOrDemo(projectId);
 
   if (!workspace) {
@@ -16,6 +23,18 @@ export default async function ProjectAdamDetailPage({ params }: { params: Promis
   }
 
   const adamDetail = await getAdamWorkspaceDetail(workspace);
+  const formatArtifactTime = (value: string) =>
+    new Date(value).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  const { selectedArtifact, requestedArtifactMissing } = resolveSelectedAdamArtifact(
+    adamDetail.artifacts,
+    selectedArtifactId
+  );
 
   return (
     <DashboardShell
@@ -75,9 +94,7 @@ export default async function ProjectAdamDetailPage({ params }: { params: Promis
               </div>
             </div>
           ) : (
-            <div className="empty-state">
-              No stored Adam planning detail is available for this project yet.
-            </div>
+            <div className="empty-state">No stored Adam planning detail is available for this project yet.</div>
           )}
         </FormCard>
       </div>
@@ -119,6 +136,96 @@ export default async function ProjectAdamDetailPage({ params }: { params: Promis
             Adam reasoning detail is not available for this project. The bridge may have been skipped or the canonical
             records could not be loaded.
           </div>
+        )}
+      </FormCard>
+
+      <FormCard title="Artifacts" description="Canonical Adam artifacts captured for this project bridge run.">
+        {adamDetail.artifacts.length ? (
+          <div className="stack">
+            <div className="adam-preplan-detail-grid">
+              {adamDetail.artifacts.map((artifact, index) => {
+                const isSelected = selectedArtifact?.artifactId === artifact.artifactId;
+                const artifactHref = `${projectRoute(projectId)}/adam?artifactId=${encodeURIComponent(artifact.artifactId)}`;
+
+                return (
+                  <article className="payload-card" key={artifact.artifactId}>
+                    <p className="eyebrow">Artifact {index + 1}</p>
+                    <strong>{artifact.artifactType}</strong>
+                    <p className="muted">
+                      {artifact.artifactRole} / {artifact.schemaName} / {artifact.status}
+                    </p>
+                    <p className="muted">Created {formatArtifactTime(artifact.createdAt)}</p>
+                    <p>{artifact.previewLabel}</p>
+                    <p className="muted">{artifact.previewText ?? "No preview is available for this artifact yet."}</p>
+                    <div className="button-row">
+                      <Link
+                        className={isSelected ? "button" : "button button--secondary"}
+                        href={artifactHref}
+                        scroll={false}
+                      >
+                        {isSelected ? "Viewing Artifact" : "View Artifact"}
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <article className="payload-card">
+              <p className="eyebrow">Selected Artifact Preview</p>
+              {selectedArtifact ? (
+                <div className="stack">
+                  {requestedArtifactMissing ? (
+                    <p className="error-banner">
+                      The requested artifact preview is no longer available. Showing the most recent stored artifact instead.
+                    </p>
+                  ) : null}
+                  <div className="two-up">
+                    <div>
+                      <p className="eyebrow">Artifact Type</p>
+                      <p>{selectedArtifact.artifactType}</p>
+                    </div>
+                    <div>
+                      <p className="eyebrow">Created</p>
+                      <p>{formatArtifactTime(selectedArtifact.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="two-up">
+                    <div>
+                      <p className="eyebrow">Role</p>
+                      <p>{selectedArtifact.artifactRole}</p>
+                    </div>
+                    <div>
+                      <p className="eyebrow">Schema</p>
+                      <p>{selectedArtifact.schemaName}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="eyebrow">Preview Label</p>
+                    <p>{selectedArtifact.previewLabel}</p>
+                  </div>
+                  {selectedArtifact.previewSections.length ? (
+                    <div className="adam-preplan-detail-grid">
+                      {selectedArtifact.previewSections.map((section) => (
+                        <article className="payload-card" key={`${selectedArtifact.artifactId}-${section.label}`}>
+                          <p className="eyebrow">{section.label}</p>
+                          <strong>{section.value}</strong>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-state">No safe structured preview is available for this artifact yet.</div>
+                  )}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  No artifact preview is available because this project does not have stored canonical Adam artifacts yet.
+                </div>
+              )}
+            </article>
+          </div>
+        ) : (
+          <div className="empty-state">No canonical Adam artifacts are available for this project yet.</div>
         )}
       </FormCard>
     </DashboardShell>

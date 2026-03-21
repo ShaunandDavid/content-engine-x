@@ -1,4 +1,4 @@
-import { getAdamTextPlanningLoop } from "@content-engine/db";
+import { getAdamContentEngineBridge } from "@content-engine/db";
 import type { AdamPlanningArtifact, AdamReasoningArtifact, ProjectWorkspace } from "@content-engine/shared";
 
 type AdamPreplanLink = {
@@ -97,7 +97,7 @@ export const getAdamWorkspaceDetail = async (workspace: ProjectWorkspace): Promi
   }
 
   try {
-    const result = await getAdamTextPlanningLoop({ projectId: workspace.project.id });
+    const result = await getAdamContentEngineBridge({ projectId: workspace.project.id });
 
     if (!result) {
       return {
@@ -108,14 +108,10 @@ export const getAdamWorkspaceDetail = async (workspace: ProjectWorkspace): Promi
       };
     }
 
-    const detailedResult = result as typeof result & {
-      reasoningArtifact?: AdamReasoningArtifact;
-    };
-
     return {
       summary,
       planningArtifact: result.planningArtifact,
-      reasoningArtifact: detailedResult.reasoningArtifact ?? null,
+      reasoningArtifact: result.reasoningArtifact,
       lookupError: null
     };
   } catch (error) {

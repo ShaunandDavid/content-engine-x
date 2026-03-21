@@ -47,6 +47,13 @@ export type AdamContentEngineBridgeResult = {
   legacyLink: AdamContentEnginePreplanLink;
 };
 
+export type GetAdamContentEngineBridgeResult = {
+  runId: string;
+  projectId: string | null;
+  reasoningArtifact: AdamReasoningArtifact;
+  planningArtifact: AdamPlanningArtifact;
+};
+
 type RollbackContext = {
   runId: string | null;
 };
@@ -588,4 +595,92 @@ export const createAdamContentEngineBridge = async (
 
     throw error;
   }
+};
+
+export const getAdamContentEngineBridge = async (
+  input: {
+    projectId?: string;
+    runId?: string;
+  },
+  options?: {
+    client?: SupabaseClient;
+  }
+): Promise<GetAdamContentEngineBridgeResult | null> => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const projectId = input.projectId?.trim();
+  const runId = input.runId?.trim();
+
+  if (!projectId && !runId) {
+    throw new Error("Provide either projectId or runId to load an Adam Content Engine bridge artifact.");
+  }
+
+  if (projectId && runId) {
+    throw new Error("Provide only one lookup key for Adam Content Engine bridge retrieval.");
+  }
+
+  let runQuery = client
+    .from("adam_runs")
+    .select("id, project_id, workflow_kind, current_stage, status")
+    .eq("workflow_kind", ADAM_PREPLAN_WORKFLOW_KIND)
+    .eq("current_stage", ADAM_PREPLAN_STAGE)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (projectId) {
+    runQuery = runQuery.eq("project_id", projectId);
+  } else if (runId) {
+    runQuery = runQuery.eq("id", runId);
+  }
+
+  const { data: runData, error: runError } = await runQuery.maybeSingle();
+  if (runError) {
+    throw new Error(`Failed to load Adam Content Engine bridge run: ${runError.message}`);
+  }
+
+  if (!runData) {
+    return null;
+  }
+
+  const { data: artifactData, error: artifactError } = await client
+    .from("adam_artifacts")
+    .select("id, run_id, project_id, content_json")
+    .eq("run_id", runData.id)
+    .eq("artifact_type", "planning_output")
+    .eq("schema_name", "adam.planning-artifact")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (artifactError) {
+    throw new Error(`Failed to load Adam Content Engine bridge planning artifact: ${artifactError.message}`);
+  }
+
+  if (!artifactData?.content_json) {
+    return null;
+  }
+
+  const { data: reasoningArtifactData, error: reasoningArtifactError } = await client
+    .from("adam_artifacts")
+    .select("id, run_id, project_id, content_json")
+    .eq("run_id", runData.id)
+    .eq("artifact_type", "reasoning_output")
+    .eq("schema_name", "adam.reasoning-artifact")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (reasoningArtifactError) {
+    throw new Error(`Failed to load Adam Content Engine bridge reasoning artifact: ${reasoningArtifactError.message}`);
+  }
+
+  if (!reasoningArtifactData?.content_json) {
+    return null;
+  }
+
+  return {
+    runId: runData.id,
+    projectId: runData.project_id,
+    reasoningArtifact: adamReasoningArtifactSchema.parse(reasoningArtifactData.content_json),
+    planningArtifact: adamPlanningArtifactSchema.parse(artifactData.content_json)
+  };
 };

@@ -196,6 +196,119 @@ test("createAdamContentEngineBridge rolls back canonical bridge rows if persiste
   );
 });
 
+test("getAdamContentEngineBridge reopens stored bridge artifacts using the bridge workflow kind", async () => {
+  const responses = {
+    adam_runs: createQueryResult({
+      id: "adam-run-1",
+      project_id: "project-1",
+      workflow_kind: "adam.content_engine_x_preplan",
+      current_stage: "concept_generation",
+      status: "completed"
+    })
+  };
+
+  const builder = (table) => ({
+    _filters: [],
+    select() {
+      return this;
+    },
+    eq() {
+      this._filters.push(Array.from(arguments));
+      return this;
+    },
+    order() {
+      return this;
+    },
+    limit() {
+      return this;
+    },
+    maybeSingle() {
+      if (table === "adam_artifacts") {
+        const artifactType = this._filters.find(([column]) => column === "artifact_type")?.[1];
+
+        if (artifactType === "planning_output") {
+          return Promise.resolve(
+            createQueryResult({
+              id: "artifact-plan-1",
+              run_id: "adam-run-1",
+              project_id: "project-1",
+              content_json: {
+                planId: "55555555-5555-5555-5555-555555555555",
+                projectId: "project-1",
+                workflowRunId: "workflow-run-1",
+                projectName: "Bridge Project",
+                sourceIdea: "Bridge Adam planning into Content Engine X before downstream generation.",
+                normalizedUserGoal: "Bridge Adam planning into Content Engine X.",
+                audience: "Operators",
+                offerOrConcept: "Adam-guided planning handoff",
+                constraints: ["Brand safe"],
+                recommendedAngle: "Authority operator brief that frames the Adam handoff as the clearest route to execution.",
+                nextStepPlanningSummary: "Build one operator-ready concept, then expand it into scenes and prompts.",
+                reasoning: {
+                  requestClassification: "campaign_planning",
+                  coreUserGoal: "Bridge Adam planning into Content Engine X.",
+                  explicitConstraints: ["Brand safe"],
+                  assumptionsOrUnknowns: ["The exact offer is inferred from the brief."],
+                  reasoningSummary: "Use the Adam plan to sharpen the first concept before scene generation."
+                },
+                createdAt: "2026-03-21T12:00:00.000Z",
+                metadata: {}
+              }
+            })
+          );
+        }
+
+        return Promise.resolve(
+          createQueryResult({
+            id: "artifact-reasoning-1",
+            run_id: "adam-run-1",
+            project_id: "project-1",
+            content_json: {
+              reasoningId: "77777777-7777-7777-7777-777777777777",
+              projectId: "project-1",
+              workflowRunId: "workflow-run-1",
+              createdAt: "2026-03-21T12:00:00.000Z",
+              metadata: {},
+              reasoning: {
+                requestClassification: "campaign_planning",
+                coreUserGoal: "Bridge Adam planning into Content Engine X.",
+                explicitConstraints: ["Brand safe"],
+                assumptionsOrUnknowns: ["The exact offer is inferred from the brief."],
+                reasoningSummary: "Use the Adam plan to sharpen the first concept before scene generation."
+              }
+            }
+          })
+        );
+      }
+
+      return Promise.resolve(responses[table]);
+    }
+  });
+
+  const client = {
+    from(table) {
+      return builder(table);
+    }
+  };
+
+  const module = loadTsModule(bridgeFile, {
+    "@content-engine/shared": sharedSchemaMocks,
+    "./client.js": { createServiceSupabaseClient: () => client },
+    "./adam-write.js": {
+      createAdamRunRecord: async () => undefined,
+      createAdamArtifactRecord: async () => undefined,
+      appendAdamAuditEvent: async () => undefined
+    }
+  });
+
+  const result = await module.getAdamContentEngineBridge({ projectId: "project-1" }, { client });
+
+  assert.equal(result.runId, "adam-run-1");
+  assert.equal(result.projectId, "project-1");
+  assert.equal(result.planningArtifact.projectName, "Bridge Project");
+  assert.equal(result.reasoningArtifact.reasoning.requestClassification, "campaign_planning");
+});
+
 const buildProjectWorkflowClient = () => {
   const inserts = {
     projects: [],

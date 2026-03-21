@@ -35,6 +35,7 @@ import {
   createAdamModelDecisionRecord,
   createAdamRunRecord
 } from "./adam-write.js";
+import { createAdamContentEngineBridge, type AdamContentEngineBridgeResult } from "./adam-content-engine-bridge.js";
 import { createServiceSupabaseClient } from "./client.js";
 import { getSupabaseConfig } from "./config.js";
 
@@ -137,6 +138,8 @@ type AuditLogRow = {
   created_at: string;
   updated_at: string;
 };
+
+type AuditLogInsertRow = Omit<AuditLogRow, "id">;
 
 type UserRow = {
   id: string;
@@ -504,12 +507,65 @@ const slugify = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 50);
 
-const buildConcept = (input: ProjectBriefInput) => ({
-  title: `${input.projectName}: ${input.objective}`,
-  hook: `Stop scrolling: ${input.objective.charAt(0).toLowerCase()}${input.objective.slice(1)}.`,
-  thesis: `Deliver one high-conviction point for ${input.audience}.`,
-  visualDirection: `${input.tone} pacing, high-contrast frames, clear motion hierarchy.`,
-  cta: `Save this and send it to someone working on ${input.objective.toLowerCase()}.`
+type AdamPreplanOutcome = {
+  result: AdamContentEngineBridgeResult | null;
+  errorMessage: string | null;
+};
+
+const runAdamPreplanBridge = async (input: {
+  client: SupabaseClient;
+  projectId: string;
+  workflowRunId: string;
+  briefId: string;
+  payload: ProjectBriefInput;
+}): Promise<AdamPreplanOutcome> => {
+  try {
+    const result = await createAdamContentEngineBridge(
+      {
+        projectId: input.projectId,
+        workflowRunId: input.workflowRunId,
+        briefId: input.briefId,
+        payload: input.payload
+      },
+      { client: input.client }
+    );
+
+    return { result, errorMessage: null };
+  } catch (error) {
+    const message =
+      typeof error === "object" && error && "message" in error && typeof error.message === "string"
+        ? error.message
+        : "Adam preplan integration failed.";
+    console.error("Adam preplan integration failed without affecting legacy Content Engine X flow.", error);
+    return { result: null, errorMessage: message };
+  }
+};
+
+const buildAdamPreplanLegacyLink = (result: AdamContentEngineBridgeResult | null, errorMessage?: string | null) =>
+  result
+    ? {
+        status: "completed" as const,
+        run_id: result.runId,
+        planning_artifact_id: result.planningArtifactId,
+        reasoning_artifact_id: result.reasoningArtifactId,
+        workflow_kind: result.legacyLink.workflowKind,
+        workflow_version: result.legacyLink.workflowVersion
+      }
+    : {
+        status: "skipped" as const,
+        error_message: errorMessage ?? "Adam preplan integration was not available."
+      };
+
+const buildConcept = (input: ProjectBriefInput, adamPlanningArtifact?: { normalizedUserGoal: string; recommendedAngle: string; nextStepPlanningSummary: string; offerOrConcept: string }) => ({
+  title: `${input.projectName}: ${adamPlanningArtifact?.normalizedUserGoal ?? input.objective}`,
+  hook: adamPlanningArtifact
+    ? `Stop scrolling: ${adamPlanningArtifact.recommendedAngle}`
+    : `Stop scrolling: ${input.objective.charAt(0).toLowerCase()}${input.objective.slice(1)}.`,
+  thesis: adamPlanningArtifact?.nextStepPlanningSummary ?? `Deliver one high-conviction point for ${input.audience}.`,
+  visualDirection: adamPlanningArtifact
+    ? `${input.tone} pacing, high-contrast frames, clear motion hierarchy. Build around ${adamPlanningArtifact.offerOrConcept.toLowerCase()} and keep the angle operator-ready.`
+    : `${input.tone} pacing, high-contrast frames, clear motion hierarchy.`,
+  cta: `Save this and send it to someone working on ${(adamPlanningArtifact?.normalizedUserGoal ?? input.objective).toLowerCase()}.`
 });
 
 const getSceneDurations = (durationSeconds: number) => {
@@ -586,7 +642,8 @@ const buildAuditEvents = ({
   actorUserId,
   briefId,
   sceneIds,
-  promptIds
+  promptIds,
+  adamPreplan
 }: {
   projectId: string;
   workflowRunId: string;
@@ -594,10 +651,11 @@ const buildAuditEvents = ({
   briefId: string;
   sceneIds: string[];
   promptIds: string[];
-}) => {
+  adamPreplan?: AdamPreplanOutcome;
+}): AuditLogInsertRow[] => {
   const now = new Date().toISOString();
 
-  return [
+  const events: AuditLogInsertRow[] = [
     {
       project_id: projectId,
       workflow_run_id: workflowRunId,
@@ -659,6 +717,49 @@ const buildAuditEvents = ({
       updated_at: now
     }
   ];
+
+  if (adamPreplan?.result) {
+    events.splice(2, 0, {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "adam.preplan.completed",
+      entity_type: "adam_run",
+      entity_id: adamPreplan.result.runId,
+      stage: "concept_generation",
+      diff: null,
+      metadata: {
+        source: "content_engine_x_adam_bridge",
+        planning_artifact_id: adamPreplan.result.planningArtifactId,
+        reasoning_artifact_id: adamPreplan.result.reasoningArtifactId
+      },
+      error_message: null,
+      created_at: now,
+      updated_at: now
+    });
+  } else if (adamPreplan?.errorMessage) {
+    events.splice(2, 0, {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "adam.preplan.skipped",
+      entity_type: "workflow_run",
+      entity_id: workflowRunId,
+      stage: "concept_generation",
+      diff: null,
+      metadata: {
+        source: "content_engine_x_adam_bridge",
+        fallback: "legacy_concept_generation"
+      },
+      error_message: adamPreplan.errorMessage,
+      created_at: now,
+      updated_at: now
+    });
+  }
+
+  return events;
 };
 
 const resolveOperatorUserId = async (client: SupabaseClient, preferredUserId?: string) => {
@@ -694,12 +795,68 @@ export const createProjectWorkflow = async (
   const config = getSupabaseConfig();
   const operatorUserId = await resolveOperatorUserId(client, options?.operatorUserId ?? config.CONTENT_ENGINE_OPERATOR_USER_ID);
   const workflowRunId = randomUUID();
-  const concept = buildConcept(payload);
+  const plannedSceneCount = getSceneDurations(payload.durationSeconds).length;
+  const slugSeed = slugify(payload.projectName) || "project";
+  const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
+
+  const { data: projectRowData, error: projectError } = await client
+    .from("projects")
+    .insert({
+      owner_user_id: operatorUserId,
+      name: payload.projectName,
+      slug,
+      status: "pending",
+      current_stage: "prompt_creation",
+      tone: payload.tone,
+      duration_seconds: payload.durationSeconds,
+      aspect_ratio: payload.aspectRatio,
+      provider: payload.provider,
+      platform_targets: payload.platforms,
+      metadata: {
+        source: "dashboard",
+        sceneCount: plannedSceneCount
+      }
+    })
+    .select("*")
+    .single();
+
+  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
+
+  const { data: briefRowData, error: briefError } = await client
+    .from("briefs")
+    .insert({
+      project_id: projectRow.id,
+      author_user_id: operatorUserId,
+      status: "completed",
+      raw_brief: payload.rawBrief,
+      objective: payload.objective,
+      audience: payload.audience,
+      constraints: {
+        guardrails: payload.guardrails
+      },
+      metadata: {
+        source: "dashboard"
+      }
+    })
+    .select("*")
+    .single();
+
+  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
+
+  const adamPreplan = await runAdamPreplanBridge({
+    client,
+    projectId: projectRow.id,
+    workflowRunId,
+    briefId: briefRow.id,
+    payload
+  });
+
+  const concept = buildConcept(payload, adamPreplan.result?.planningArtifact);
   const scenes = buildScenes(payload, concept);
   const promptDrafts = buildPromptDrafts(payload, concept, scenes, process.env.OPENAI_SORA_MODEL ?? "sora-2");
   const stageAttempts = buildStageAttempts();
   const stateSnapshot: Record<string, unknown> & { project_id: string | null } = {
-    project_id: null,
+    project_id: projectRow.id,
     workflow_run_id: workflowRunId,
     current_stage: "prompt_creation",
     status: "completed",
@@ -738,57 +895,17 @@ export const createProjectWorkflow = async (
     publish_payload: {},
     errors: [],
     metadata: {
-      source: "web_dashboard"
-    }
+      source: "web_dashboard",
+      adam_preplan_status: adamPreplan.result ? "completed" : "skipped"
+    },
+    adam_preplan: buildAdamPreplanLegacyLink(adamPreplan.result, adamPreplan.errorMessage),
+    ...(adamPreplan.result
+      ? {
+          adam_reasoning: adamPreplan.result.reasoningArtifact.reasoning,
+          adam_plan: adamPreplan.result.planningArtifact
+        }
+      : {})
   };
-
-  const slugSeed = slugify(payload.projectName) || "project";
-  const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
-
-  const { data: projectRowData, error: projectError } = await client
-    .from("projects")
-    .insert({
-      owner_user_id: operatorUserId,
-      name: payload.projectName,
-      slug,
-      status: "pending",
-      current_stage: "prompt_creation",
-      tone: payload.tone,
-      duration_seconds: payload.durationSeconds,
-      aspect_ratio: payload.aspectRatio,
-      provider: payload.provider,
-      platform_targets: payload.platforms,
-      metadata: {
-        source: "dashboard",
-        sceneCount: scenes.length
-      }
-    })
-    .select("*")
-    .single();
-
-  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
-  stateSnapshot.project_id = projectRow.id;
-
-  const { data: briefRowData, error: briefError } = await client
-    .from("briefs")
-    .insert({
-      project_id: projectRow.id,
-      author_user_id: operatorUserId,
-      status: "completed",
-      raw_brief: payload.rawBrief,
-      objective: payload.objective,
-      audience: payload.audience,
-      constraints: {
-        guardrails: payload.guardrails
-      },
-      metadata: {
-        source: "dashboard"
-      }
-    })
-    .select("*")
-    .single();
-
-  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
 
   const { data: sceneRowsData, error: scenesError } = await client
     .from("scenes")
@@ -865,7 +982,8 @@ export const createProjectWorkflow = async (
     actorUserId: operatorUserId,
     briefId: briefRow.id,
     sceneIds: sceneRows.map((scene) => scene.id),
-    promptIds: promptRows.map((prompt) => prompt.id)
+    promptIds: promptRows.map((prompt) => prompt.id),
+    adamPreplan
   });
 
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
@@ -906,16 +1024,18 @@ const buildAsyncInitializationAuditEvents = ({
   projectId,
   workflowRunId,
   actorUserId,
-  briefId
+  briefId,
+  adamPreplan
 }: {
   projectId: string;
   workflowRunId: string;
   actorUserId: string;
   briefId: string;
-}) => {
+  adamPreplan?: AdamPreplanOutcome;
+}): AuditLogInsertRow[] => {
   const now = new Date().toISOString();
 
-  return [
+  const events: AuditLogInsertRow[] = [
     {
       project_id: projectId,
       workflow_run_id: workflowRunId,
@@ -970,6 +1090,49 @@ const buildAsyncInitializationAuditEvents = ({
       updated_at: now
     }
   ];
+
+  if (adamPreplan?.result) {
+    events.splice(2, 0, {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "adam.preplan.completed",
+      entity_type: "adam_run",
+      entity_id: adamPreplan.result.runId,
+      stage: "concept_generation",
+      diff: null,
+      metadata: {
+        source: "content_engine_x_adam_bridge",
+        planning_artifact_id: adamPreplan.result.planningArtifactId,
+        reasoning_artifact_id: adamPreplan.result.reasoningArtifactId
+      },
+      error_message: null,
+      created_at: now,
+      updated_at: now
+    });
+  } else if (adamPreplan?.errorMessage) {
+    events.splice(2, 0, {
+      project_id: projectId,
+      workflow_run_id: workflowRunId,
+      actor_user_id: actorUserId,
+      actor_type: "service",
+      action: "adam.preplan.skipped",
+      entity_type: "workflow_run",
+      entity_id: workflowRunId,
+      stage: "concept_generation",
+      diff: null,
+      metadata: {
+        source: "content_engine_x_adam_bridge",
+        fallback: "python_orchestrator_handoff"
+      },
+      error_message: adamPreplan.errorMessage,
+      created_at: now,
+      updated_at: now
+    });
+  }
+
+  return events;
 };
 
 const persistCanonicalSyncBootstrapRecords = async (input: {
@@ -1318,8 +1481,65 @@ export const initializeAsyncProjectWorkflow = async (
   const config = getSupabaseConfig();
   const operatorUserId = await resolveOperatorUserId(client, options?.operatorUserId ?? config.CONTENT_ENGINE_OPERATOR_USER_ID);
   const workflowRunId = randomUUID();
+  const slugSeed = slugify(payload.projectName) || "project";
+  const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
+
+  const { data: projectRowData, error: projectError } = await client
+    .from("projects")
+    .insert({
+      owner_user_id: operatorUserId,
+      name: payload.projectName,
+      slug,
+      status: "queued",
+      current_stage: "brief_intake",
+      tone: payload.tone,
+      duration_seconds: payload.durationSeconds,
+      aspect_ratio: payload.aspectRatio,
+      provider: payload.provider,
+      platform_targets: payload.platforms,
+      metadata: {
+        source: "dashboard",
+        orchestration: "python_orchestrator",
+        handoffMode: "supabase_queue"
+      }
+    })
+    .select("*")
+    .single();
+
+  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
+
+  const { data: briefRowData, error: briefError } = await client
+    .from("briefs")
+    .insert({
+      project_id: projectRow.id,
+      author_user_id: operatorUserId,
+      status: "completed",
+      raw_brief: payload.rawBrief,
+      objective: payload.objective,
+      audience: payload.audience,
+      constraints: {
+        guardrails: payload.guardrails
+      },
+      metadata: {
+        source: "dashboard",
+        execution_owner: "python_orchestrator"
+      }
+    })
+    .select("*")
+    .single();
+
+  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
+
+  const adamPreplan = await runAdamPreplanBridge({
+    client,
+    projectId: projectRow.id,
+    workflowRunId,
+    briefId: briefRow.id,
+    payload
+  });
+
   const stateSnapshot: Record<string, unknown> & { project_id: string | null } = {
-    project_id: null,
+    project_id: projectRow.id,
     workflow_run_id: workflowRunId,
     requested_start_stage: "brief_intake",
     current_stage: "brief_intake",
@@ -1351,59 +1571,17 @@ export const initializeAsyncProjectWorkflow = async (
     metadata: {
       source: "web_dashboard",
       execution_owner: "python_orchestrator",
-      handoff_mode: "supabase_queue"
-    }
+      handoff_mode: "supabase_queue",
+      adam_preplan_status: adamPreplan.result ? "completed" : "skipped"
+    },
+    adam_preplan: buildAdamPreplanLegacyLink(adamPreplan.result, adamPreplan.errorMessage),
+    ...(adamPreplan.result
+      ? {
+          adam_reasoning: adamPreplan.result.reasoningArtifact.reasoning,
+          adam_plan: adamPreplan.result.planningArtifact
+        }
+      : {})
   };
-
-  const slugSeed = slugify(payload.projectName) || "project";
-  const slug = `${slugSeed}-${workflowRunId.slice(0, 8)}`;
-
-  const { data: projectRowData, error: projectError } = await client
-    .from("projects")
-    .insert({
-      owner_user_id: operatorUserId,
-      name: payload.projectName,
-      slug,
-      status: "queued",
-      current_stage: "brief_intake",
-      tone: payload.tone,
-      duration_seconds: payload.durationSeconds,
-      aspect_ratio: payload.aspectRatio,
-      provider: payload.provider,
-      platform_targets: payload.platforms,
-      metadata: {
-        source: "dashboard",
-        orchestration: "python_orchestrator",
-        handoffMode: "supabase_queue"
-      }
-    })
-    .select("*")
-    .single();
-
-  const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
-  stateSnapshot.project_id = projectRow.id;
-
-  const { data: briefRowData, error: briefError } = await client
-    .from("briefs")
-    .insert({
-      project_id: projectRow.id,
-      author_user_id: operatorUserId,
-      status: "completed",
-      raw_brief: payload.rawBrief,
-      objective: payload.objective,
-      audience: payload.audience,
-      constraints: {
-        guardrails: payload.guardrails
-      },
-      metadata: {
-        source: "dashboard",
-        execution_owner: "python_orchestrator"
-      }
-    })
-    .select("*")
-    .single();
-
-  const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
 
   const { data: workflowRunData, error: workflowError } = await client
     .from("workflow_runs")
@@ -1433,7 +1611,8 @@ export const initializeAsyncProjectWorkflow = async (
     projectId: projectRow.id,
     workflowRunId,
     actorUserId: operatorUserId,
-    briefId: briefRow.id
+    briefId: briefRow.id,
+    adamPreplan
   });
 
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");

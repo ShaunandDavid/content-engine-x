@@ -58,6 +58,35 @@ const loadTsModule = (filePath, mocks = {}) => {
 
 const createQueryResult = (data, error = null) => ({ data, error });
 
+const bridgeModuleMock = {
+  createAdamContentEngineBridge: async () => ({
+    runId: "adam-run-1",
+    inputArtifactId: "adam-input-1",
+    reasoningArtifactId: "adam-reasoning-1",
+    planningArtifactId: "adam-plan-1",
+    reasoningArtifact: {
+      reasoning: {
+        requestClassification: "campaign_planning",
+        coreUserGoal: "Validate canonical bootstrap writes.",
+        explicitConstraints: ["Brand safe"],
+        assumptionsOrUnknowns: [],
+        reasoningSummary: "Use the Adam preplan as additive context before downstream generation."
+      }
+    },
+    planningArtifact: {
+      normalizedUserGoal: "Validate canonical bootstrap writes.",
+      recommendedAngle: "Authority operator brief that frames the work clearly for operators.",
+      nextStepPlanningSummary: "Turn the brief into a clear scene and prompt plan.",
+      offerOrConcept: "Canonical bootstrap validation"
+    },
+    runtimeState: {},
+    legacyLink: {
+      workflowKind: "adam.content_engine_x_preplan",
+      workflowVersion: "phase3-step1"
+    }
+  })
+};
+
 const buildAuditRows = (count) =>
   Array.from({ length: count }, (_, index) => ({
     id: `audit-${index + 1}`,
@@ -236,6 +265,7 @@ test("createProjectWorkflow dual-writes canonical bootstrap records without chan
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-content-engine-bridge.js": bridgeModuleMock,
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
       createAdamArtifactRecord: async (input) => canonicalCalls.artifacts.push(input),
@@ -285,6 +315,7 @@ test("project-workflow canonical bootstrap failure stays fail-open", async () =>
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-content-engine-bridge.js": bridgeModuleMock,
     "./adam-write.js": {
       createAdamRunRecord: async () => {
         throw new Error("canonical write failed");
@@ -346,6 +377,7 @@ test("initializeAsyncProjectWorkflow only writes truthful canonical bootstrap re
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-content-engine-bridge.js": bridgeModuleMock,
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
       createAdamArtifactRecord: async (input) => canonicalCalls.artifacts.push(input),

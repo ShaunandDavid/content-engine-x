@@ -1,4 +1,5 @@
 export * from "./adam.js";
+export * from "./adam-content-engine-bridge.js";
 export * from "./adam-text-loop.js";
 export * from "./adam-write.js";
 export * from "./client.js";

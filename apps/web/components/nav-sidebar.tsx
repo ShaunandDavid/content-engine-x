@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-import { clipReviewRoute, projectRoute, publishRoute, renderRoute, sceneReviewRoute } from "../lib/routes";
+import { clipReviewRoute, projectAdamRoute, projectRoute, publishRoute, renderRoute, sceneReviewRoute } from "../lib/routes";
 
 const navItems = (projectId?: string) => [
   { href: "/projects/new", label: "New Project" },
   ...(projectId
     ? [
         { href: projectRoute(projectId), label: "Overview" },
+        { href: projectAdamRoute(projectId), label: "Adam" },
         { href: sceneReviewRoute(projectId), label: "Scenes" },
         { href: clipReviewRoute(projectId), label: "Clips" },
         { href: renderRoute(projectId), label: "Render" },

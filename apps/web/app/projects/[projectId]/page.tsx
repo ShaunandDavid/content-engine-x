@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { FormCard } from "../../../components/form-card";
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { demoProject, stageLabels } from "../../../lib/dashboard-data";
+import { getAdamWorkspaceSummary } from "../../../lib/server/adam-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
+import { projectAdamRoute } from "../../../lib/routes";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -26,6 +29,7 @@ async function ProjectDetailContent({
   }
 
   const isDemoProject = projectId === demoProject.id;
+  const adamSummary = getAdamWorkspaceSummary(workspace);
   const planningStatusLabel =
     workspace.project.status === "failed"
       ? "Planning failed"
@@ -139,6 +143,47 @@ async function ProjectDetailContent({
           </ul>
         </FormCard>
       </div>
+
+      <FormCard
+        title="Adam Preplan"
+        description="Additive Adam reasoning and planning context linked to this project before downstream generation."
+      >
+        {adamSummary.status === "completed" ? (
+          <div className="stack">
+            <div className="adam-preplan-summary-grid">
+              <article className="payload-card">
+                <p className="eyebrow">Core Goal</p>
+                <strong>{adamSummary.coreGoal}</strong>
+              </article>
+              <article className="payload-card">
+                <p className="eyebrow">Audience</p>
+                <strong>{adamSummary.audience}</strong>
+              </article>
+              <article className="payload-card">
+                <p className="eyebrow">Recommended Angle</p>
+                <strong>{adamSummary.recommendedAngle}</strong>
+              </article>
+              <article className="payload-card">
+                <p className="eyebrow">Reasoning Summary</p>
+                <strong>{adamSummary.reasoningSummary}</strong>
+              </article>
+            </div>
+            <div className="button-row">
+              <Link className="button button--secondary" href={projectAdamRoute(projectId)}>
+                Open Adam Detail
+              </Link>
+            </div>
+          </div>
+        ) : adamSummary.status === "skipped" ? (
+          <div className="empty-state">
+            Adam preplanning was skipped for this project. {adamSummary.errorMessage ?? "Legacy planning remained active."}
+          </div>
+        ) : (
+          <div className="empty-state">
+            No Adam preplanning is linked to this project yet. The current Content Engine X planning flow remains available.
+          </div>
+        )}
+      </FormCard>
     </DashboardShell>
   );
 }

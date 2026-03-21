@@ -6,8 +6,10 @@ import type {
   adamGovernanceOutcomeSchema,
   adamJobStatusSchema,
   adamLangGraphRuntimeStateSchema,
+  adamPlanningArtifactSchema,
   adamModelDecisionSchema,
   adamRunSchema,
+  adamTextPlanningInputSchema,
   adamWorkflowStageSchema,
   stageHistoryEntrySchema
 } from "../schemas/adam.js";
@@ -22,3 +24,5 @@ export type AdamArtifact = z.infer<typeof adamArtifactSchema>;
 export type AdamGovernanceDecision = z.infer<typeof adamGovernanceDecisionSchema>;
 export type AdamModelDecision = z.infer<typeof adamModelDecisionSchema>;
 export type AdamLangGraphRuntimeState = z.infer<typeof adamLangGraphRuntimeStateSchema>;
+export type AdamTextPlanningInput = z.infer<typeof adamTextPlanningInputSchema>;
+export type AdamPlanningArtifact = z.infer<typeof adamPlanningArtifactSchema>;

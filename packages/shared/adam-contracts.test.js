@@ -56,7 +56,8 @@ test("brain canonical schema files load and expose required top-level fields", (
     "artifact-schema.json",
     "governance-decision-schema.json",
     "model-decision-schema.json",
-    "langgraph-runtime-state-schema.json"
+    "langgraph-runtime-state-schema.json",
+    "planning-artifact-schema.json"
   ];
 
   for (const filename of expectedFiles) {
@@ -140,4 +141,30 @@ test("shared adam zod contracts accept canonical sample payloads", () => {
     metadata: {}
   });
   assert.equal(parsedRuntime.stateVersion, "adam.phase0.v1");
+
+  const parsedPlanningInput = contracts.adamTextPlanningInputSchema.parse({
+    projectName: "Operator Plan",
+    idea: "Build a text-first Adam planning loop that turns rough ideas into a clear operator-ready campaign direction.",
+    audience: "Performance marketers",
+    constraints: ["Keep it brand safe"],
+    platforms: ["linkedin"]
+  });
+  assert.equal(parsedPlanningInput.projectName, "Operator Plan");
+
+  const parsedPlanningArtifact = contracts.adamPlanningArtifactSchema.parse({
+    planId: "44444444-4444-4444-4444-444444444444",
+    projectId: "33333333-3333-3333-3333-333333333333",
+    workflowRunId: "11111111-1111-1111-1111-111111111111",
+    projectName: "Operator Plan",
+    sourceIdea: "Build a text-first Adam planning loop that turns rough ideas into a clear operator-ready campaign direction.",
+    normalizedUserGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+    audience: "Performance marketers",
+    offerOrConcept: "Text-first Adam planning loop",
+    constraints: ["Keep it brand safe"],
+    recommendedAngle: "Authority operator brief that frames the text-first loop as the fastest route to campaign clarity.",
+    nextStepPlanningSummary: "Turn this into a campaign brief with one promise and three proof points.",
+    createdAt: "2026-03-20T12:00:00.000Z",
+    metadata: {}
+  });
+  assert.equal(parsedPlanningArtifact.offerOrConcept, "Text-first Adam planning loop");
 });

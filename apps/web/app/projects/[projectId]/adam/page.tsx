@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
-import { getAdamWorkspaceDetail } from "../../../../lib/server/adam-project-data";
+import { getAdamWorkspaceDetail, resolveSelectedAdamArtifact } from "../../../../lib/server/adam-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { projectRoute } from "../../../../lib/routes";
 
@@ -31,9 +31,10 @@ export default async function ProjectAdamDetailPage({
       hour: "numeric",
       minute: "2-digit"
     });
-  const selectedArtifact =
-    adamDetail.artifacts.find((artifact) => artifact.artifactId === selectedArtifactId) ?? adamDetail.artifacts[0] ?? null;
-  const selectedArtifactMissing = Boolean(selectedArtifactId) && !selectedArtifact;
+  const { selectedArtifact, requestedArtifactMissing } = resolveSelectedAdamArtifact(
+    adamDetail.artifacts,
+    selectedArtifactId
+  );
 
   return (
     <DashboardShell
@@ -174,7 +175,7 @@ export default async function ProjectAdamDetailPage({
               <p className="eyebrow">Selected Artifact Preview</p>
               {selectedArtifact ? (
                 <div className="stack">
-                  {selectedArtifactMissing ? (
+                  {requestedArtifactMissing ? (
                     <p className="error-banner">
                       The requested artifact preview is no longer available. Showing the most recent stored artifact instead.
                     </p>

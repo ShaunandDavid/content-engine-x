@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdamVoiceTestPanel } from "../../../../components/adam-voice-test-panel";
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
 import {
+  getAdamReviewDetails,
   getAdamReviewReadiness,
   getAdamWorkspaceDetail,
   resolveSelectedAdamArtifact
@@ -40,6 +42,7 @@ export default async function ProjectAdamDetailPage({
     selectedArtifactId
   );
   const reviewReadiness = getAdamReviewReadiness(adamDetail);
+  const reviewDetails = getAdamReviewDetails(adamDetail);
 
   return (
     <DashboardShell
@@ -89,6 +92,30 @@ export default async function ProjectAdamDetailPage({
           </div>
         </div>
       </FormCard>
+
+      <FormCard
+        title="Readiness Details"
+        description="A passive breakdown of which expected Adam review categories are available, missing, or incomplete."
+      >
+        <div className="stack">
+          <div className="adam-preplan-detail-grid">
+            {reviewDetails.items.map((item) => (
+              <article className="payload-card" key={item.category}>
+                <p className="eyebrow">{item.title}</p>
+                <strong>{item.state}</strong>
+                <p>{item.message}</p>
+                <p className="muted">{item.detail ?? "No additional detail is available for this category."}</p>
+              </article>
+            ))}
+          </div>
+          <div>
+            <p className="eyebrow">Review Gaps Summary</p>
+            <p>{reviewDetails.summaryText}</p>
+          </div>
+        </div>
+      </FormCard>
+
+      <AdamVoiceTestPanel projectId={projectId} initialRunId={reviewReadiness.runId} />
 
       <div className="page-grid">
         <FormCard title="Bridge Status" description="The stored Adam linkage for this project workspace.">

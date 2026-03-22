@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Adam Voice Session State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "state",
+    "inputMode",
+    "outputMode",
+    "lastUpdatedAt",
+    "metadata"
+  ],
+  "properties": {
+    "sessionId": { "type": "string", "format": "uuid" },
+    "projectId": { "type": ["string", "null"], "format": "uuid" },
+    "runId": { "type": ["string", "null"], "format": "uuid" },
+    "turnId": { "type": ["string", "null"], "format": "uuid" },
+    "state": {
+      "type": "string",
+      "enum": ["idle", "listening", "thinking", "speaking", "error"]
+    },
+    "inputMode": {
+      "type": "string",
+      "enum": ["text", "speech_text"]
+    },
+    "outputMode": {
+      "type": "string",
+      "enum": ["text", "speech"]
+    },
+    "transcript": { "type": ["string", "null"] },
+    "lastUserMessage": { "type": ["string", "null"] },
+    "responseText": { "type": ["string", "null"] },
+    "errorMessage": { "type": ["string", "null"] },
+    "lastUpdatedAt": { "type": "string", "format": "date-time" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

@@ -27,11 +27,17 @@ export const adamWorkflowStageValues = [
 
 export const adamGovernanceOutcomeValues = ["pending", "approved", "rejected", "flagged"] as const;
 export const adamArtifactRoleValues = ["input", "working", "output"] as const;
+export const adamVoiceTurnStateValues = ["idle", "listening", "thinking", "speaking", "error"] as const;
+export const adamVoiceInputModeValues = ["text", "speech_text"] as const;
+export const adamVoiceOutputModeValues = ["text", "speech"] as const;
 
 export const adamJobStatusSchema = z.enum(adamJobStatusValues);
 export const adamWorkflowStageSchema = z.enum(adamWorkflowStageValues);
 export const adamGovernanceOutcomeSchema = z.enum(adamGovernanceOutcomeValues);
 export const adamArtifactRoleSchema = z.enum(adamArtifactRoleValues);
+export const adamVoiceTurnStateSchema = z.enum(adamVoiceTurnStateValues);
+export const adamVoiceInputModeSchema = z.enum(adamVoiceInputModeValues);
+export const adamVoiceOutputModeSchema = z.enum(adamVoiceOutputModeValues);
 
 export const stageHistoryEntrySchema = z.object({
   stage: adamWorkflowStageSchema,
@@ -148,6 +154,38 @@ export const adamPlanningArtifactSchema = z.object({
   nextStepPlanningSummary: z.string().min(10),
   reasoning: adamReasoningBlockSchema,
   createdAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const adamVoiceSessionStateSchema = z.object({
+  sessionId: z.string().uuid(),
+  projectId: z.string().uuid().nullish(),
+  runId: z.string().uuid().nullish(),
+  turnId: z.string().uuid().nullish(),
+  state: adamVoiceTurnStateSchema,
+  inputMode: adamVoiceInputModeSchema,
+  outputMode: adamVoiceOutputModeSchema,
+  transcript: z.string().nullish(),
+  lastUserMessage: z.string().nullish(),
+  responseText: z.string().nullish(),
+  errorMessage: z.string().nullish(),
+  lastUpdatedAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const adamVoiceRequestSchema = z.object({
+  sessionId: z.string().uuid().optional(),
+  turnId: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
+  inputMode: adamVoiceInputModeSchema.default("text"),
+  currentState: adamVoiceTurnStateSchema.optional(),
+  utterance: z.string().min(1).max(4000),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export const adamVoiceResponseSchema = z.object({
+  session: adamVoiceSessionStateSchema,
+  replyText: z.string().min(1),
   metadata: z.record(z.string(), z.unknown())
 });
 

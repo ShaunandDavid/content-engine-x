@@ -57,6 +57,7 @@ test("brain canonical schema files load and expose required top-level fields", (
     "governance-decision-schema.json",
     "model-decision-schema.json",
     "langgraph-runtime-state-schema.json",
+    "voice-session-state-schema.json",
     "reasoning-artifact-schema.json",
     "planning-artifact-schema.json"
   ];
@@ -87,6 +88,11 @@ test("brain canonical schema files load and expose required top-level fields", (
   const reasoningSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "reasoning-artifact-schema.json"), "utf8"));
   assert.ok(reasoningSchema.required.includes("reasoningId"));
   assert.ok(reasoningSchema.properties.reasoning);
+
+  const voiceSessionSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "voice-session-state-schema.json"), "utf8"));
+  assert.ok(voiceSessionSchema.required.includes("sessionId"));
+  assert.ok(voiceSessionSchema.required.includes("state"));
+  assert.ok(voiceSessionSchema.properties.inputMode);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {
@@ -202,4 +208,35 @@ test("shared adam zod contracts accept canonical sample payloads", () => {
     }
   });
   assert.equal(parsedReasoningArtifact.reasoning.requestClassification, "campaign_planning");
+
+  const parsedVoiceSession = contracts.adamVoiceSessionStateSchema.parse({
+    sessionId: "77777777-7777-7777-7777-777777777777",
+    projectId: "33333333-3333-3333-3333-333333333333",
+    runId: "11111111-1111-1111-1111-111111111111",
+    turnId: "88888888-8888-8888-8888-888888888888",
+    state: "speaking",
+    inputMode: "text",
+    outputMode: "text",
+    transcript: "What is Adam's current review status?",
+    lastUserMessage: "What is Adam's current review status?",
+    responseText: "Adam has produced planning, reasoning, and artifacts for this project.",
+    errorMessage: null,
+    lastUpdatedAt: "2026-03-20T12:00:00.000Z",
+    metadata: {}
+  });
+  assert.equal(parsedVoiceSession.state, "speaking");
+
+  const parsedVoiceRequest = contracts.adamVoiceRequestSchema.parse({
+    projectId: "33333333-3333-3333-3333-333333333333",
+    inputMode: "text",
+    utterance: "Summarize Adam's output for this project."
+  });
+  assert.equal(parsedVoiceRequest.inputMode, "text");
+
+  const parsedVoiceResponse = contracts.adamVoiceResponseSchema.parse({
+    session: parsedVoiceSession,
+    replyText: "Adam is ready for review.",
+    metadata: {}
+  });
+  assert.equal(parsedVoiceResponse.replyText, "Adam is ready for review.");
 });

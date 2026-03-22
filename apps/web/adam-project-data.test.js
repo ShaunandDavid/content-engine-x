@@ -188,3 +188,61 @@ test("getAdamReviewReadiness reports not_started when no stored Adam output exis
   assert.equal(result.reasoningExists, false);
   assert.equal(result.artifactsExist, false);
 });
+
+test("getAdamReviewDetails reports all categories available when review output is complete", () => {
+  const module = loadTsModule(helperFile, {
+    "@content-engine/db": {},
+    "@content-engine/shared": {}
+  });
+
+  const result = module.getAdamReviewDetails({
+    summary: {
+      status: "completed",
+      runId: "adam-run-1",
+      errorMessage: null
+    },
+    planningArtifact: {
+      normalizedUserGoal: "Bridge Adam planning into Content Engine X."
+    },
+    reasoningArtifact: {
+      reasoning: {
+        reasoningSummary: "Use Adam to sharpen the downstream concept."
+      }
+    },
+    artifacts: [{ artifactId: "artifact-plan-1", artifactType: "planning_output" }],
+    lookupError: null
+  });
+
+  assert.equal(result.availableCount, 4);
+  assert.equal(result.missingCount, 0);
+  assert.equal(result.incompleteCount, 0);
+  assert.equal(result.items[0].state, "available");
+  assert.match(result.summaryText, /all expected adam review categories are available/i);
+});
+
+test("getAdamReviewDetails reports incomplete and missing categories when Adam output is partial", () => {
+  const module = loadTsModule(helperFile, {
+    "@content-engine/db": {},
+    "@content-engine/shared": {}
+  });
+
+  const result = module.getAdamReviewDetails({
+    summary: {
+      status: "completed",
+      runId: "adam-run-1",
+      errorMessage: null
+    },
+    planningArtifact: null,
+    reasoningArtifact: null,
+    artifacts: [],
+    lookupError: "Failed to load Adam planning detail."
+  });
+
+  assert.equal(result.availableCount, 1);
+  assert.equal(result.missingCount, 0);
+  assert.equal(result.incompleteCount, 3);
+  assert.equal(result.items[0].category, "bridge_linkage");
+  assert.equal(result.items[0].state, "available");
+  assert.equal(result.items[1].state, "incomplete");
+  assert.match(result.summaryText, /incomplete categories/i);
+});

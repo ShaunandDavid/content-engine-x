@@ -1,4 +1,7 @@
 import type {
+  AdamFeedbackActorType,
+  AdamFeedbackCategory,
+  AdamFeedbackValue,
   AdamJobStatus,
   AdamWorkflowStage
 } from "@content-engine/shared";
@@ -94,6 +97,21 @@ export type AdamGovernanceDecisionRow = {
   outcome: AdamGovernanceOutcome;
   reason_codes: string[] | null;
   notes: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type AdamFeedbackRecordRow = {
+  id: string;
+  tenant_id: string | null;
+  project_id: string | null;
+  run_id: string | null;
+  artifact_id: string | null;
+  actor_type: AdamFeedbackActorType;
+  actor_id: string | null;
+  feedback_category: AdamFeedbackCategory;
+  feedback_value: AdamFeedbackValue;
+  note: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
 };

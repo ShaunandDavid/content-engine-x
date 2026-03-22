@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Adam Feedback Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "feedbackId",
+    "actorType",
+    "feedbackCategory",
+    "feedbackValue",
+    "createdAt",
+    "metadata"
+  ],
+  "anyOf": [
+    { "required": ["projectId"] },
+    { "required": ["runId"] },
+    { "required": ["artifactId"] }
+  ],
+  "properties": {
+    "feedbackId": { "type": "string", "format": "uuid" },
+    "tenantId": { "type": ["string", "null"], "format": "uuid" },
+    "projectId": { "type": ["string", "null"], "format": "uuid" },
+    "runId": { "type": ["string", "null"], "format": "uuid" },
+    "artifactId": { "type": ["string", "null"], "format": "uuid" },
+    "actorType": { "type": "string", "enum": ["operator", "system", "service"] },
+    "actorId": { "type": ["string", "null"] },
+    "feedbackCategory": {
+      "type": "string",
+      "enum": ["general", "planning", "reasoning", "artifact", "quality"]
+    },
+    "feedbackValue": {
+      "type": "string",
+      "enum": ["positive", "negative", "needs_revision", "approved"]
+    },
+    "note": { "type": ["string", "null"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

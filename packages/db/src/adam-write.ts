@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdamArtifact,
+  AdamFeedbackRecord,
   AdamGovernanceDecision,
   AdamLangGraphRuntimeState,
   AdamModelDecision,
@@ -12,6 +13,7 @@ import type {
   AdamArtifactRole,
   AdamArtifactRow,
   AdamAuditEventRow,
+  AdamFeedbackRecordRow,
   AdamGovernanceDecisionRow,
   AdamGovernanceOutcome,
   AdamModelDecisionRow,
@@ -75,6 +77,8 @@ export type CreateAdamGovernanceDecisionInput = AdamGovernanceDecision & {
   projectId?: string | null;
 };
 
+export type CreateAdamFeedbackRecordInput = AdamFeedbackRecord;
+
 const assertData = <T>(data: T | null, error: { message: string } | null, context: string): T => {
   if (error) {
     throw new Error(`${context}: ${error.message}`);
@@ -92,6 +96,7 @@ const toAdamArtifactRow = (row: AdamArtifactRow): AdamArtifactRow => row;
 const toAdamAuditEventRow = (row: AdamAuditEventRow): AdamAuditEventRow => row;
 const toAdamModelDecisionRow = (row: AdamModelDecisionRow): AdamModelDecisionRow => row;
 const toAdamGovernanceDecisionRow = (row: AdamGovernanceDecisionRow): AdamGovernanceDecisionRow => row;
+const toAdamFeedbackRecordRow = (row: AdamFeedbackRecordRow): AdamFeedbackRecordRow => row;
 
 const buildAdamRunInsert = (input: CreateAdamRunInput) => ({
   id: input.runId,
@@ -177,6 +182,21 @@ const buildAdamGovernanceDecisionInsert = (input: CreateAdamGovernanceDecisionIn
   metadata: input.metadata
 });
 
+const buildAdamFeedbackRecordInsert = (input: CreateAdamFeedbackRecordInput) => ({
+  id: input.feedbackId,
+  tenant_id: input.tenantId ?? null,
+  project_id: input.projectId ?? null,
+  run_id: input.runId ?? null,
+  artifact_id: input.artifactId ?? null,
+  actor_type: input.actorType,
+  actor_id: input.actorId ?? null,
+  feedback_category: input.feedbackCategory,
+  feedback_value: input.feedbackValue,
+  note: input.note ?? null,
+  metadata: input.metadata,
+  created_at: input.createdAt
+});
+
 export const createAdamRunRecord = async (input: CreateAdamRunInput, options?: { client?: SupabaseClient }) => {
   const client = options?.client ?? createServiceSupabaseClient();
   const { data, error } = await client.from("adam_runs").insert(buildAdamRunInsert(input)).select("*").single();
@@ -255,6 +275,22 @@ export const createAdamGovernanceDecisionRecord = async (
   );
 };
 
+export const createAdamFeedbackRecord = async (
+  input: CreateAdamFeedbackRecordInput,
+  options?: { client?: SupabaseClient }
+) => {
+  const client = options?.client ?? createServiceSupabaseClient();
+  const { data, error } = await client
+    .from("adam_feedback_records")
+    .insert(buildAdamFeedbackRecordInsert(input))
+    .select("*")
+    .single();
+
+  return toAdamFeedbackRecordRow(
+    assertData(data as AdamFeedbackRecordRow | null, error, "Failed to create adam feedback record")
+  );
+};
+
 export interface AdamFastPathPersistence {
   createRun(input: CreateAdamRunInput, options?: { client?: SupabaseClient }): Promise<AdamRunRow>;
   updateRun(runId: string, updates: UpdateAdamRunInput, options?: { client?: SupabaseClient }): Promise<AdamRunRow>;
@@ -265,6 +301,7 @@ export interface AdamFastPathPersistence {
     input: CreateAdamGovernanceDecisionInput,
     options?: { client?: SupabaseClient }
   ): Promise<AdamGovernanceDecisionRow>;
+  createFeedback(input: CreateAdamFeedbackRecordInput, options?: { client?: SupabaseClient }): Promise<AdamFeedbackRecordRow>;
 }
 
 export const adamFastPathPersistence: AdamFastPathPersistence = {
@@ -273,5 +310,6 @@ export const adamFastPathPersistence: AdamFastPathPersistence = {
   createArtifact: createAdamArtifactRecord,
   appendAuditEvent: appendAdamAuditEvent,
   createModelDecision: createAdamModelDecisionRecord,
-  createGovernanceDecision: createAdamGovernanceDecisionRecord
+  createGovernanceDecision: createAdamGovernanceDecisionRecord,
+  createFeedback: createAdamFeedbackRecord
 };

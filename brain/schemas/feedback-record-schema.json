@@ -5,10 +5,16 @@
   "additionalProperties": false,
   "required": [
     "feedbackId",
+    "actorType",
     "feedbackCategory",
     "feedbackValue",
     "createdAt",
     "metadata"
+  ],
+  "anyOf": [
+    { "required": ["projectId"] },
+    { "required": ["runId"] },
+    { "required": ["artifactId"] }
   ],
   "properties": {
     "feedbackId": { "type": "string", "format": "uuid" },

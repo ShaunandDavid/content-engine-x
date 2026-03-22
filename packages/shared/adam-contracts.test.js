@@ -97,8 +97,10 @@ test("brain canonical schema files load and expose required top-level fields", (
 
   const feedbackSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "feedback-record-schema.json"), "utf8"));
   assert.ok(feedbackSchema.required.includes("feedbackId"));
+  assert.ok(feedbackSchema.required.includes("actorType"));
   assert.ok(feedbackSchema.required.includes("feedbackCategory"));
   assert.ok(feedbackSchema.properties.feedbackValue);
+  assert.equal(feedbackSchema.anyOf?.length, 3);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {

@@ -136,3 +136,55 @@ test("getAdamWorkspaceDetail preserves artifact summaries when bridge detail loo
   assert.equal(result.artifacts[0].artifactId, "artifact-plan-1");
   assert.match(result.lookupError, /bridge detail unavailable/i);
 });
+
+test("getAdamReviewReadiness reports ready_for_review when planning, reasoning, and artifacts exist", () => {
+  const module = loadTsModule(helperFile, {
+    "@content-engine/db": {},
+    "@content-engine/shared": {}
+  });
+
+  const result = module.getAdamReviewReadiness({
+    summary: {
+      status: "completed",
+      runId: "adam-run-1"
+    },
+    planningArtifact: { normalizedUserGoal: "Bridge Adam planning into Content Engine X." },
+    reasoningArtifact: {
+      reasoning: {
+        reasoningSummary: "Use Adam to sharpen the downstream concept."
+      }
+    },
+    artifacts: [{ artifactId: "artifact-plan-1" }, { artifactId: "artifact-reasoning-1" }],
+    lookupError: null
+  });
+
+  assert.equal(result.label, "ready_for_review");
+  assert.equal(result.artifactCount, 2);
+  assert.equal(result.planningExists, true);
+  assert.equal(result.reasoningExists, true);
+  assert.equal(result.artifactsExist, true);
+});
+
+test("getAdamReviewReadiness reports not_started when no stored Adam output exists", () => {
+  const module = loadTsModule(helperFile, {
+    "@content-engine/db": {},
+    "@content-engine/shared": {}
+  });
+
+  const result = module.getAdamReviewReadiness({
+    summary: {
+      status: "absent",
+      runId: null
+    },
+    planningArtifact: null,
+    reasoningArtifact: null,
+    artifacts: [],
+    lookupError: null
+  });
+
+  assert.equal(result.label, "not_started");
+  assert.equal(result.artifactCount, 0);
+  assert.equal(result.planningExists, false);
+  assert.equal(result.reasoningExists, false);
+  assert.equal(result.artifactsExist, false);
+});

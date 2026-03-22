@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
-import { getAdamWorkspaceDetail, resolveSelectedAdamArtifact } from "../../../../lib/server/adam-project-data";
+import {
+  getAdamReviewReadiness,
+  getAdamWorkspaceDetail,
+  resolveSelectedAdamArtifact
+} from "../../../../lib/server/adam-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { projectRoute } from "../../../../lib/routes";
 
@@ -35,6 +39,7 @@ export default async function ProjectAdamDetailPage({
     adamDetail.artifacts,
     selectedArtifactId
   );
+  const reviewReadiness = getAdamReviewReadiness(adamDetail);
 
   return (
     <DashboardShell
@@ -48,6 +53,42 @@ export default async function ProjectAdamDetailPage({
           Back to Project Overview
         </Link>
       </div>
+
+      <FormCard
+        title="Review Readiness"
+        description="A passive summary of whether the current Adam output set looks ready for operator review."
+      >
+        <div className="stack">
+          <div className="two-up">
+            <div>
+              <p className="eyebrow">Readiness</p>
+              <p>{reviewReadiness.label}</p>
+            </div>
+            <div>
+              <p className="eyebrow">Adam Run</p>
+              <p>{reviewReadiness.runId ?? "No canonical Adam run linked."}</p>
+            </div>
+          </div>
+          <div className="adam-preplan-detail-grid">
+            <article className="payload-card">
+              <p className="eyebrow">Planning</p>
+              <strong>{reviewReadiness.planningExists ? "Available" : "Missing"}</strong>
+            </article>
+            <article className="payload-card">
+              <p className="eyebrow">Reasoning</p>
+              <strong>{reviewReadiness.reasoningExists ? "Available" : "Missing"}</strong>
+            </article>
+            <article className="payload-card">
+              <p className="eyebrow">Artifacts</p>
+              <strong>{reviewReadiness.artifactsExist ? `${reviewReadiness.artifactCount} available` : "None stored"}</strong>
+            </article>
+          </div>
+          <div>
+            <p className="eyebrow">Summary</p>
+            <p>{reviewReadiness.summaryText}</p>
+          </div>
+        </div>
+      </FormCard>
 
       <div className="page-grid">
         <FormCard title="Bridge Status" description="The stored Adam linkage for this project workspace.">

@@ -36,6 +36,16 @@ export type AdamWorkspaceDetail = {
   lookupError: string | null;
 };
 
+export type AdamReviewReadiness = {
+  label: "not_started" | "partial" | "ready_for_review";
+  planningExists: boolean;
+  reasoningExists: boolean;
+  artifactsExist: boolean;
+  artifactCount: number;
+  runId: string | null;
+  summaryText: string;
+};
+
 export type AdamArtifactSelection = {
   selectedArtifact: AdamContentEngineArtifactSummary | null;
   requestedArtifactMissing: boolean;
@@ -118,6 +128,47 @@ export const resolveSelectedAdamArtifact = (
   return {
     selectedArtifact: exactMatch ?? artifacts[0] ?? null,
     requestedArtifactMissing: Boolean(requestedArtifactId) && !exactMatch
+  };
+};
+
+export const getAdamReviewReadiness = (detail: AdamWorkspaceDetail): AdamReviewReadiness => {
+  const planningExists = Boolean(detail.planningArtifact);
+  const reasoningExists = Boolean(detail.reasoningArtifact);
+  const artifactCount = detail.artifacts.length;
+  const artifactsExist = artifactCount > 0;
+
+  if (!planningExists && !reasoningExists && !artifactsExist) {
+    return {
+      label: "not_started",
+      planningExists,
+      reasoningExists,
+      artifactsExist,
+      artifactCount,
+      runId: detail.summary.runId,
+      summaryText: "Adam has not produced stored planning, reasoning, or artifact output for this project yet."
+    };
+  }
+
+  if (planningExists && reasoningExists && artifactsExist) {
+    return {
+      label: "ready_for_review",
+      planningExists,
+      reasoningExists,
+      artifactsExist,
+      artifactCount,
+      runId: detail.summary.runId,
+      summaryText: `Adam has produced planning, reasoning, and ${artifactCount} stored artifact${artifactCount === 1 ? "" : "s"} for operator review.`
+    };
+  }
+
+  return {
+    label: "partial",
+    planningExists,
+    reasoningExists,
+    artifactsExist,
+    artifactCount,
+    runId: detail.summary.runId,
+    summaryText: `Adam has partial output for this project${detail.summary.runId ? ` on run ${detail.summary.runId}` : ""}. Check the available planning, reasoning, and artifact records before review.`
   };
 };
 

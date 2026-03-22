@@ -30,6 +30,8 @@ export const adamArtifactRoleValues = ["input", "working", "output"] as const;
 export const adamFeedbackActorTypeValues = ["operator", "system", "service"] as const;
 export const adamFeedbackCategoryValues = ["general", "planning", "reasoning", "artifact", "quality"] as const;
 export const adamFeedbackValueValues = ["positive", "negative", "needs_revision", "approved"] as const;
+export const adamRouterProviderValues = ["openai", "anthropic", "google"] as const;
+export const adamRouterTaskTypeValues = ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"] as const;
 export const adamVoiceTurnStateValues = ["idle", "listening", "thinking", "speaking", "error"] as const;
 export const adamVoiceInputModeValues = ["text", "speech_text"] as const;
 export const adamVoiceOutputModeValues = ["text", "speech"] as const;
@@ -41,6 +43,8 @@ export const adamArtifactRoleSchema = z.enum(adamArtifactRoleValues);
 export const adamFeedbackActorTypeSchema = z.enum(adamFeedbackActorTypeValues);
 export const adamFeedbackCategorySchema = z.enum(adamFeedbackCategoryValues);
 export const adamFeedbackValueSchema = z.enum(adamFeedbackValueValues);
+export const adamRouterProviderSchema = z.enum(adamRouterProviderValues);
+export const adamRouterTaskTypeSchema = z.enum(adamRouterTaskTypeValues);
 export const adamVoiceTurnStateSchema = z.enum(adamVoiceTurnStateValues);
 export const adamVoiceInputModeSchema = z.enum(adamVoiceInputModeValues);
 export const adamVoiceOutputModeSchema = z.enum(adamVoiceOutputModeValues);
@@ -197,6 +201,18 @@ export const adamFeedbackSubmissionSchema = z
   .refine((value) => Boolean(value.projectId || value.runId || value.artifactId), {
     message: "At least one Adam linkage is required: projectId, runId, or artifactId."
   });
+
+export const adamModelRoutingDecisionSchema = z.object({
+  decisionId: z.string().uuid(),
+  taskType: adamRouterTaskTypeSchema,
+  provider: adamRouterProviderSchema,
+  model: z.string().min(1),
+  routingReason: z.string().min(1),
+  selectionBasis: z.string().min(1).nullish(),
+  confidence: z.number().min(0).max(1).nullish(),
+  createdAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown())
+});
 
 export const adamVoiceSessionStateSchema = z.object({
   sessionId: z.string().uuid(),

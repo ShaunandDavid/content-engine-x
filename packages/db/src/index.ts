@@ -1,4 +1,6 @@
 export * from "./adam.js";
+export * from "./adam-model-router.js";
+export * from "./adam-provider-adapters.js";
 export * from "./adam-write.js";
 export * from "./adam-content-engine-bridge.js";
 export * from "./adam-text-loop.js";

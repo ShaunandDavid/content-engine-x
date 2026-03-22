@@ -56,6 +56,7 @@ test("brain canonical schema files load and expose required top-level fields", (
     "artifact-schema.json",
     "governance-decision-schema.json",
     "model-decision-schema.json",
+    "model-routing-decision-schema.json",
     "langgraph-runtime-state-schema.json",
     "voice-session-state-schema.json",
     "feedback-record-schema.json",
@@ -101,6 +102,11 @@ test("brain canonical schema files load and expose required top-level fields", (
   assert.ok(feedbackSchema.required.includes("feedbackCategory"));
   assert.ok(feedbackSchema.properties.feedbackValue);
   assert.equal(feedbackSchema.anyOf?.length, 3);
+
+  const routingSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "model-routing-decision-schema.json"), "utf8"));
+  assert.ok(routingSchema.required.includes("provider"));
+  assert.ok(routingSchema.required.includes("routingReason"));
+  assert.ok(routingSchema.properties.confidence);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {
@@ -273,4 +279,17 @@ test("shared adam zod contracts accept canonical sample payloads", () => {
     note: "The artifact is ready for operator review."
   });
   assert.equal(parsedFeedbackSubmission.feedbackCategory, "artifact");
+
+  const parsedRoutingDecision = contracts.adamModelRoutingDecisionSchema.parse({
+    decisionId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    taskType: "reasoning",
+    provider: "anthropic",
+    model: "claude-default",
+    routingReason: "Selected anthropic for reasoning because the caller explicitly requested that provider.",
+    selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+    confidence: 0.9,
+    createdAt: "2026-03-22T12:00:00.000Z",
+    metadata: {}
+  });
+  assert.equal(parsedRoutingDecision.provider, "anthropic");
 });

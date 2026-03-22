@@ -295,7 +295,8 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
   const canonicalCalls = {
     runs: [],
     artifacts: [],
-    audits: []
+    audits: [],
+    modelDecisions: []
   };
   const client = createMockClient();
 
@@ -306,15 +307,33 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
       adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
+      adamModelDecisionSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-model-router.js": {
+      selectAdamProviderForTask: () => ({
+        adapter: { provider: "openai", defaultModel: "gpt-default" },
+        decision: {
+          decisionId: "decision-1",
+          taskType: "text_planning",
+          provider: "openai",
+          model: "gpt-default",
+          routingReason: "Selected openai for text_planning using the compatibility-safe default router path.",
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          confidence: 0.75,
+          createdAt: "2026-03-20T12:00:00.000Z",
+          metadata: { source: "adam_text_loop" }
+        }
+      })
+    },
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
       createAdamArtifactRecord: async (input) => canonicalCalls.artifacts.push(input),
-      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input)
+      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input),
+      createAdamModelDecisionRecord: async (input) => canonicalCalls.modelDecisions.push(input)
     }
   });
 
@@ -345,17 +364,25 @@ test("createAdamTextPlanningLoop creates legacy shell plus canonical run and pla
   assert.equal(canonicalCalls.runs.length, 1);
   assert.equal(canonicalCalls.artifacts.length, 3);
   assert.equal(canonicalCalls.audits.length, 4);
+  assert.equal(canonicalCalls.modelDecisions.length, 1);
   assert.equal(canonicalCalls.runs[0].workflowKind, "adam.text_planning");
   assert.equal(canonicalCalls.artifacts[1].artifactType, "reasoning_output");
   assert.equal(canonicalCalls.artifacts[2].artifactType, "planning_output");
+  assert.equal(canonicalCalls.modelDecisions[0].provider, "openai");
+  assert.equal(canonicalCalls.modelDecisions[0].model, "gpt-default");
+  assert.equal(canonicalCalls.modelDecisions[0].taskType, "text_planning");
   assert.equal(canonicalCalls.runs[0].stateSnapshot.workingMemory.reasoningPass.requestClassification, "campaign_planning");
+  assert.equal(canonicalCalls.runs[0].stateSnapshot.modelDecisionRefs.length, 1);
+  assert.equal(canonicalCalls.runs[0].stateSnapshot.modelDecisionRefs[0], "decision-1");
+  assert.equal(canonicalCalls.runs[0].stateSnapshot.metadata.routingProvider, "openai");
 });
 
 test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonical persistence fails", async () => {
   const canonicalCalls = {
     runs: [],
     artifacts: [],
-    audits: []
+    audits: [],
+    modelDecisions: []
   };
   const client = createMockClient();
 
@@ -366,11 +393,28 @@ test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonic
       adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
+      adamModelDecisionSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-model-router.js": {
+      selectAdamProviderForTask: () => ({
+        adapter: { provider: "openai", defaultModel: "gpt-default" },
+        decision: {
+          decisionId: "decision-1",
+          taskType: "text_planning",
+          provider: "openai",
+          model: "gpt-default",
+          routingReason: "Selected openai for text_planning using the compatibility-safe default router path.",
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          confidence: 0.75,
+          createdAt: "2026-03-20T12:00:00.000Z",
+          metadata: { source: "adam_text_loop" }
+        }
+      })
+    },
     "./adam-write.js": {
       createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
       createAdamArtifactRecord: async (input) => {
@@ -379,7 +423,8 @@ test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonic
           throw new Error("canonical artifact write failed");
         }
       },
-      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input)
+      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input),
+      createAdamModelDecisionRecord: async (input) => canonicalCalls.modelDecisions.push(input)
     }
   });
 
@@ -406,8 +451,9 @@ test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonic
 
   assert.deepEqual(
     client.deletes.map((entry) => entry.table),
-    ["adam_audit_events", "adam_artifacts", "adam_runs", "audit_logs", "workflow_runs", "briefs", "projects"]
+    ["adam_audit_events", "adam_artifacts", "adam_model_decisions", "adam_runs", "audit_logs", "workflow_runs", "briefs", "projects"]
   );
+  assert.equal(canonicalCalls.modelDecisions.length, 1);
 });
 
 test("getAdamTextPlanningLoop reopens a stored planning artifact by project id", async () => {
@@ -420,15 +466,22 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by project id",
       adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
+      adamModelDecisionSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-model-router.js": {
+      selectAdamProviderForTask: () => {
+        throw new Error("router should not be used during reopen");
+      }
+    },
     "./adam-write.js": {
       createAdamRunRecord: async () => undefined,
       createAdamArtifactRecord: async () => undefined,
-      appendAdamAuditEvent: async () => undefined
+      appendAdamAuditEvent: async () => undefined,
+      createAdamModelDecisionRecord: async () => undefined
     }
   });
 
@@ -452,15 +505,22 @@ test("getAdamTextPlanningLoop reopens a stored planning artifact by run id", asy
       adamReasoningArtifactSchema: { parse: (value) => value },
       adamPlanningArtifactSchema: { parse: (value) => value },
       adamArtifactSchema: { parse: (value) => value },
+      adamModelDecisionSchema: { parse: (value) => value },
       adamLangGraphRuntimeStateSchema: { parse: (value) => value },
       adamRunSchema: { parse: (value) => value }
     },
     "./client.js": { createServiceSupabaseClient: () => client },
     "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-model-router.js": {
+      selectAdamProviderForTask: () => {
+        throw new Error("router should not be used during reopen");
+      }
+    },
     "./adam-write.js": {
       createAdamRunRecord: async () => undefined,
       createAdamArtifactRecord: async () => undefined,
-      appendAdamAuditEvent: async () => undefined
+      appendAdamAuditEvent: async () => undefined,
+      createAdamModelDecisionRecord: async () => undefined
     }
   });
 

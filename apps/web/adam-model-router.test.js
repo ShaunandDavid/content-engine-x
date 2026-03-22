@@ -1,0 +1,141 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
+
+const require = createRequire(import.meta.url);
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const routerFile = path.join(workspaceRoot, "packages", "db", "src", "adam-model-router.ts");
+
+const loadTsModule = (filePath, mocks = {}) => {
+  const source = fs.readFileSync(filePath, "utf8");
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true
+    }
+  });
+
+  const module = { exports: {} };
+  const dirname = path.dirname(filePath);
+  const localRequire = (specifier) => {
+    if (specifier in mocks) {
+      return mocks[specifier];
+    }
+
+    if (specifier.startsWith(".")) {
+      return require(path.resolve(dirname, specifier));
+    }
+
+    return require(specifier);
+  };
+
+  vm.runInNewContext(outputText, {
+    module,
+    exports: module.exports,
+    require: localRequire,
+    __dirname: dirname,
+    __filename: filePath,
+    process,
+    console
+  });
+
+  return module.exports;
+};
+
+test("selectAdamProviderForTask keeps the compatibility-safe OpenAI default when no preference is provided", () => {
+  const module = loadTsModule(routerFile, {
+    "@content-engine/shared": {
+      adamModelRoutingDecisionSchema: { parse: (value) => value }
+    },
+    "./adam-provider-adapters.js": {
+      adamProviderAdapters: {
+        openai: {
+          provider: "openai",
+          label: "OpenAI / GPT",
+          defaultModel: "gpt-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
+        },
+        anthropic: {
+          provider: "anthropic",
+          label: "Anthropic / Claude",
+          defaultModel: "claude-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
+        },
+        google: {
+          provider: "google",
+          label: "Google / Gemini",
+          defaultModel: "gemini-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
+        }
+      }
+    }
+  });
+
+  const result = module.selectAdamProviderForTask({
+    taskType: "text_planning"
+  });
+
+  assert.equal(result.adapter.provider, "openai");
+  assert.equal(result.decision.provider, "openai");
+  assert.equal(result.decision.model, "gpt-default");
+  assert.match(result.decision.routingReason, /compatibility-safe default/i);
+});
+
+test("selectAdamProviderForTask honors an explicit alternate provider request without fan-out", () => {
+  const module = loadTsModule(routerFile, {
+    "@content-engine/shared": {
+      adamModelRoutingDecisionSchema: { parse: (value) => value }
+    },
+    "./adam-provider-adapters.js": {
+      adamProviderAdapters: {
+        openai: {
+          provider: "openai",
+          label: "OpenAI / GPT",
+          defaultModel: "gpt-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
+        },
+        anthropic: {
+          provider: "anthropic",
+          label: "Anthropic / Claude",
+          defaultModel: "claude-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
+        },
+        google: {
+          provider: "google",
+          label: "Google / Gemini",
+          defaultModel: "gemini-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
+        }
+      }
+    }
+  });
+
+  const result = module.selectAdamProviderForTask({
+    taskType: "reasoning",
+    preferredProvider: "anthropic",
+    preferredModel: "claude-custom"
+  });
+
+  assert.equal(result.adapter.provider, "anthropic");
+  assert.equal(result.decision.provider, "anthropic");
+  assert.equal(result.decision.model, "claude-custom");
+  assert.match(result.decision.routingReason, /explicitly requested/i);
+});

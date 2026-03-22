@@ -1,0 +1,55 @@
+import type { AdamRouterProvider, AdamRouterTaskType } from "@content-engine/shared";
+
+export type AdamProviderAdapter = {
+  provider: AdamRouterProvider;
+  label: string;
+  defaultModel: string;
+  supportedTaskTypes: AdamRouterTaskType[];
+  selectionBasis: string;
+  resolveModel(taskType: AdamRouterTaskType, preferredModel?: string | null): string;
+};
+
+const createAdapter = (input: {
+  provider: AdamRouterProvider;
+  label: string;
+  defaultModel: string;
+  supportedTaskTypes: AdamRouterTaskType[];
+  selectionBasis: string;
+}): AdamProviderAdapter => ({
+  ...input,
+  resolveModel(taskType, preferredModel) {
+    if (preferredModel?.trim()) {
+      return preferredModel.trim();
+    }
+
+    if (!input.supportedTaskTypes.includes(taskType)) {
+      return input.defaultModel;
+    }
+
+    return input.defaultModel;
+  }
+});
+
+export const adamProviderAdapters: Record<AdamRouterProvider, AdamProviderAdapter> = {
+  openai: createAdapter({
+    provider: "openai",
+    label: "OpenAI / GPT",
+    defaultModel: "gpt-default",
+    supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+    selectionBasis: "Compatibility default provider for the current single-model Adam flow."
+  }),
+  anthropic: createAdapter({
+    provider: "anthropic",
+    label: "Anthropic / Claude",
+    defaultModel: "claude-default",
+    supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+    selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out."
+  }),
+  google: createAdapter({
+    provider: "google",
+    label: "Google / Gemini",
+    defaultModel: "gemini-default",
+    supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+    selectionBasis: "Available as an explicit alternate provider behind the same routing boundary."
+  })
+};

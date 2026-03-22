@@ -7,6 +7,7 @@ import type {
   adamFeedbackRecordSchema,
   adamFeedbackSubmissionSchema,
   adamFeedbackValueSchema,
+  adamModelRoutingDecisionSchema,
   adamReasoningArtifactSchema,
   adamReasoningBlockSchema,
   adamGovernanceDecisionSchema,
@@ -15,6 +16,8 @@ import type {
   adamLangGraphRuntimeStateSchema,
   adamPlanningArtifactSchema,
   adamModelDecisionSchema,
+  adamRouterProviderSchema,
+  adamRouterTaskTypeSchema,
   adamRunSchema,
   adamTextPlanningInputSchema,
   adamVoiceInputModeSchema,
@@ -39,6 +42,9 @@ export type AdamFeedbackCategory = z.infer<typeof adamFeedbackCategorySchema>;
 export type AdamFeedbackValue = z.infer<typeof adamFeedbackValueSchema>;
 export type AdamFeedbackRecord = z.infer<typeof adamFeedbackRecordSchema>;
 export type AdamFeedbackSubmission = z.infer<typeof adamFeedbackSubmissionSchema>;
+export type AdamRouterProvider = z.infer<typeof adamRouterProviderSchema>;
+export type AdamRouterTaskType = z.infer<typeof adamRouterTaskTypeSchema>;
+export type AdamModelRoutingDecision = z.infer<typeof adamModelRoutingDecisionSchema>;
 export type AdamReasoningBlock = z.infer<typeof adamReasoningBlockSchema>;
 export type AdamReasoningArtifact = z.infer<typeof adamReasoningArtifactSchema>;
 export type AdamGovernanceDecision = z.infer<typeof adamGovernanceDecisionSchema>;

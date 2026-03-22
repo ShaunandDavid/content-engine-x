@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AdamFeedbackPanel } from "../../../../components/adam-feedback-panel";
 import { AdamVoiceTestPanel } from "../../../../components/adam-voice-test-panel";
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
@@ -116,6 +117,12 @@ export default async function ProjectAdamDetailPage({
       </FormCard>
 
       <AdamVoiceTestPanel projectId={projectId} initialRunId={reviewReadiness.runId} />
+      <AdamFeedbackPanel
+        projectId={projectId}
+        runId={reviewReadiness.runId}
+        selectedArtifactId={selectedArtifact?.artifactId ?? null}
+        selectedArtifactLabel={selectedArtifact?.previewLabel ?? null}
+      />
 
       <div className="page-grid">
         <FormCard title="Bridge Status" description="The stored Adam linkage for this project workspace.">

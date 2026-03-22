@@ -27,6 +27,9 @@ export const adamWorkflowStageValues = [
 
 export const adamGovernanceOutcomeValues = ["pending", "approved", "rejected", "flagged"] as const;
 export const adamArtifactRoleValues = ["input", "working", "output"] as const;
+export const adamFeedbackActorTypeValues = ["operator", "system", "service"] as const;
+export const adamFeedbackCategoryValues = ["general", "planning", "reasoning", "artifact", "quality"] as const;
+export const adamFeedbackValueValues = ["positive", "negative", "needs_revision", "approved"] as const;
 export const adamVoiceTurnStateValues = ["idle", "listening", "thinking", "speaking", "error"] as const;
 export const adamVoiceInputModeValues = ["text", "speech_text"] as const;
 export const adamVoiceOutputModeValues = ["text", "speech"] as const;
@@ -35,6 +38,9 @@ export const adamJobStatusSchema = z.enum(adamJobStatusValues);
 export const adamWorkflowStageSchema = z.enum(adamWorkflowStageValues);
 export const adamGovernanceOutcomeSchema = z.enum(adamGovernanceOutcomeValues);
 export const adamArtifactRoleSchema = z.enum(adamArtifactRoleValues);
+export const adamFeedbackActorTypeSchema = z.enum(adamFeedbackActorTypeValues);
+export const adamFeedbackCategorySchema = z.enum(adamFeedbackCategoryValues);
+export const adamFeedbackValueSchema = z.enum(adamFeedbackValueValues);
 export const adamVoiceTurnStateSchema = z.enum(adamVoiceTurnStateValues);
 export const adamVoiceInputModeSchema = z.enum(adamVoiceInputModeValues);
 export const adamVoiceOutputModeSchema = z.enum(adamVoiceOutputModeValues);
@@ -156,6 +162,41 @@ export const adamPlanningArtifactSchema = z.object({
   createdAt: z.string().datetime(),
   metadata: z.record(z.string(), z.unknown())
 });
+
+export const adamFeedbackRecordSchema = z
+  .object({
+    feedbackId: z.string().uuid(),
+    tenantId: z.string().uuid().nullish(),
+    projectId: z.string().uuid().nullish(),
+    runId: z.string().uuid().nullish(),
+    artifactId: z.string().uuid().nullish(),
+    actorType: adamFeedbackActorTypeSchema,
+    actorId: z.string().nullish(),
+    feedbackCategory: adamFeedbackCategorySchema,
+    feedbackValue: adamFeedbackValueSchema,
+    note: z.string().min(1).max(500).nullish(),
+    createdAt: z.string().datetime(),
+    metadata: z.record(z.string(), z.unknown())
+  })
+  .refine((value) => Boolean(value.projectId || value.runId || value.artifactId), {
+    message: "At least one Adam linkage is required: projectId, runId, or artifactId."
+  });
+
+export const adamFeedbackSubmissionSchema = z
+  .object({
+    projectId: z.string().uuid().optional(),
+    runId: z.string().uuid().optional(),
+    artifactId: z.string().uuid().optional(),
+    actorType: adamFeedbackActorTypeSchema.default("operator"),
+    actorId: z.string().min(1).max(120).optional(),
+    feedbackCategory: adamFeedbackCategorySchema,
+    feedbackValue: adamFeedbackValueSchema,
+    note: z.string().min(1).max(500).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional()
+  })
+  .refine((value) => Boolean(value.projectId || value.runId || value.artifactId), {
+    message: "At least one Adam linkage is required: projectId, runId, or artifactId."
+  });
 
 export const adamVoiceSessionStateSchema = z.object({
   sessionId: z.string().uuid(),

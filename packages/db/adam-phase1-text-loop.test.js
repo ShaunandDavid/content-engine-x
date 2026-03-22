@@ -456,6 +456,81 @@ test("createAdamTextPlanningLoop rolls back legacy and canonical rows if canonic
   assert.equal(canonicalCalls.modelDecisions.length, 1);
 });
 
+test("createAdamTextPlanningLoop preserves an explicit supported provider preference in the canonical model decision", async () => {
+  const canonicalCalls = {
+    runs: [],
+    artifacts: [],
+    audits: [],
+    modelDecisions: []
+  };
+  const client = createMockClient();
+
+  const module = loadTsModule(textLoopFile, {
+    "@content-engine/shared": {
+      adamCompatibilityTenantId: "00000000-0000-0000-0000-000000000000",
+      adamTextPlanningInputSchema: { parse: (value) => value },
+      adamReasoningArtifactSchema: { parse: (value) => value },
+      adamPlanningArtifactSchema: { parse: (value) => value },
+      adamArtifactSchema: { parse: (value) => value },
+      adamModelDecisionSchema: { parse: (value) => value },
+      adamLangGraphRuntimeStateSchema: { parse: (value) => value },
+      adamRunSchema: { parse: (value) => value }
+    },
+    "./client.js": { createServiceSupabaseClient: () => client },
+    "./config.js": { getSupabaseConfig: () => ({ CONTENT_ENGINE_OPERATOR_USER_ID: "operator-1" }) },
+    "./adam-model-router.js": {
+      selectAdamProviderForTask: (input) => ({
+        adapter: { provider: "anthropic", defaultModel: "claude-default" },
+        decision: {
+          decisionId: "decision-supported-1",
+          taskType: input.taskType,
+          provider: "anthropic",
+          model: "claude-default",
+          routingReason: "Selected anthropic for text_planning because the caller explicitly requested that provider.",
+          selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+          confidence: 0.9,
+          createdAt: "2026-03-20T12:00:00.000Z",
+          metadata: { source: "adam_text_loop" }
+        }
+      })
+    },
+    "./adam-write.js": {
+      createAdamRunRecord: async (input) => canonicalCalls.runs.push(input),
+      createAdamArtifactRecord: async (input) => canonicalCalls.artifacts.push(input),
+      appendAdamAuditEvent: async (input) => canonicalCalls.audits.push(input),
+      createAdamModelDecisionRecord: async (input) => canonicalCalls.modelDecisions.push(input)
+    }
+  });
+
+  await module.createAdamTextPlanningLoop(
+    {
+      projectName: "Operator Plan",
+      idea: "Build a text-first Adam planning loop that turns rough ideas into a clear operator-ready campaign direction.",
+      audience: "Performance marketers",
+      constraints: ["Keep it brand safe"],
+      platforms: ["linkedin"],
+      tone: "authority",
+      durationSeconds: 30,
+      aspectRatio: "9:16",
+      provider: "sora"
+    },
+    {
+      client,
+      operatorUserId: "operator-1",
+      routingPreference: {
+        preferredProvider: "anthropic",
+        preferredModel: "claude-default"
+      }
+    }
+  );
+
+  assert.equal(canonicalCalls.modelDecisions.length, 1);
+  assert.equal(canonicalCalls.modelDecisions[0].provider, "anthropic");
+  assert.equal(canonicalCalls.modelDecisions[0].model, "claude-default");
+  assert.match(canonicalCalls.modelDecisions[0].selectionReason, /explicitly requested/i);
+  assert.equal(canonicalCalls.runs[0].stateSnapshot.modelDecisionRefs[0], "decision-supported-1");
+});
+
 test("getAdamTextPlanningLoop reopens a stored planning artifact by project id", async () => {
   const client = createMockClient();
 

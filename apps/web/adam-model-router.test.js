@@ -139,3 +139,51 @@ test("selectAdamProviderForTask honors an explicit alternate provider request wi
   assert.equal(result.decision.model, "claude-custom");
   assert.match(result.decision.routingReason, /explicitly requested/i);
 });
+
+test("selectAdamProviderForTask falls back when an explicit provider does not support the requested task", () => {
+  const module = loadTsModule(routerFile, {
+    "@content-engine/shared": {
+      adamModelRoutingDecisionSchema: { parse: (value) => value }
+    },
+    "./adam-provider-adapters.js": {
+      adamProviderAdapters: {
+        openai: {
+          provider: "openai",
+          label: "OpenAI / GPT",
+          defaultModel: "gpt-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
+        },
+        anthropic: {
+          provider: "anthropic",
+          label: "Anthropic / Claude",
+          defaultModel: "claude-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
+        },
+        google: {
+          provider: "google",
+          label: "Google / Gemini",
+          defaultModel: "gemini-default",
+          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
+        }
+      }
+    }
+  });
+
+  const result = module.selectAdamProviderForTask({
+    taskType: "voice_response",
+    preferredProvider: "google",
+    preferredModel: "gemini-voice"
+  });
+
+  assert.equal(result.adapter.provider, "openai");
+  assert.equal(result.decision.provider, "openai");
+  assert.equal(result.decision.model, "gemini-voice");
+  assert.match(result.decision.routingReason, /does not support/i);
+  assert.match(result.decision.routingReason, /fell back/i);
+});

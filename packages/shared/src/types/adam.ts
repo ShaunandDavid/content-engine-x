@@ -12,6 +12,12 @@ import type {
   adamModelDecisionSchema,
   adamRunSchema,
   adamTextPlanningInputSchema,
+  adamVoiceInputModeSchema,
+  adamVoiceOutputModeSchema,
+  adamVoiceRequestSchema,
+  adamVoiceResponseSchema,
+  adamVoiceSessionStateSchema,
+  adamVoiceTurnStateSchema,
   adamWorkflowStageSchema,
   stageHistoryEntrySchema
 } from "../schemas/adam.js";
@@ -30,3 +36,9 @@ export type AdamModelDecision = z.infer<typeof adamModelDecisionSchema>;
 export type AdamLangGraphRuntimeState = z.infer<typeof adamLangGraphRuntimeStateSchema>;
 export type AdamTextPlanningInput = z.infer<typeof adamTextPlanningInputSchema>;
 export type AdamPlanningArtifact = z.infer<typeof adamPlanningArtifactSchema>;
+export type AdamVoiceTurnState = z.infer<typeof adamVoiceTurnStateSchema>;
+export type AdamVoiceInputMode = z.infer<typeof adamVoiceInputModeSchema>;
+export type AdamVoiceOutputMode = z.infer<typeof adamVoiceOutputModeSchema>;
+export type AdamVoiceSessionState = z.infer<typeof adamVoiceSessionStateSchema>;
+export type AdamVoiceRequest = z.infer<typeof adamVoiceRequestSchema>;
+export type AdamVoiceResponse = z.infer<typeof adamVoiceResponseSchema>;

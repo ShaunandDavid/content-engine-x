@@ -46,6 +46,24 @@ export type AdamReviewReadiness = {
   summaryText: string;
 };
 
+export type AdamReviewGapState = "available" | "missing" | "incomplete";
+
+export type AdamReviewGapItem = {
+  category: "bridge_linkage" | "planning" | "reasoning" | "artifacts";
+  state: AdamReviewGapState;
+  title: string;
+  message: string;
+  detail: string | null;
+};
+
+export type AdamReviewDetails = {
+  items: AdamReviewGapItem[];
+  availableCount: number;
+  missingCount: number;
+  incompleteCount: number;
+  summaryText: string;
+};
+
 export type AdamArtifactSelection = {
   selectedArtifact: AdamContentEngineArtifactSummary | null;
   requestedArtifactMissing: boolean;
@@ -169,6 +187,76 @@ export const getAdamReviewReadiness = (detail: AdamWorkspaceDetail): AdamReviewR
     artifactCount,
     runId: detail.summary.runId,
     summaryText: `Adam has partial output for this project${detail.summary.runId ? ` on run ${detail.summary.runId}` : ""}. Check the available planning, reasoning, and artifact records before review.`
+  };
+};
+
+export const getAdamReviewDetails = (detail: AdamWorkspaceDetail): AdamReviewDetails => {
+  const items: AdamReviewGapItem[] = [];
+  const bridgeLinked = detail.summary.status === "completed" && Boolean(detail.summary.runId);
+  const bridgeIncomplete = detail.summary.status === "skipped" || Boolean(detail.lookupError);
+
+  items.push({
+    category: "bridge_linkage",
+    state: bridgeLinked ? "available" : bridgeIncomplete ? "incomplete" : "missing",
+    title: "Bridge Linkage",
+    message: bridgeLinked
+      ? "A canonical Adam run is linked to this project context."
+      : bridgeIncomplete
+        ? "Adam linkage is partial or degraded for this project."
+        : "No project-context Adam linkage is available yet.",
+    detail: detail.lookupError ?? detail.summary.errorMessage ?? detail.summary.runId
+  });
+
+  items.push({
+    category: "planning",
+    state: detail.planningArtifact ? "available" : detail.summary.status === "completed" ? "incomplete" : "missing",
+    title: "Planning",
+    message: detail.planningArtifact
+      ? "Stored Adam planning output is available for review."
+      : detail.summary.status === "completed"
+        ? "Adam planning was expected but could not be fully loaded."
+        : "No stored Adam planning output is available yet.",
+    detail: detail.planningArtifact?.normalizedUserGoal ?? null
+  });
+
+  items.push({
+    category: "reasoning",
+    state: detail.reasoningArtifact ? "available" : detail.summary.status === "completed" ? "incomplete" : "missing",
+    title: "Reasoning",
+    message: detail.reasoningArtifact
+      ? "Stored Adam reasoning output is available for review."
+      : detail.summary.status === "completed"
+        ? "Adam reasoning was expected but could not be fully loaded."
+        : "No stored Adam reasoning output is available yet.",
+    detail: detail.reasoningArtifact?.reasoning.reasoningSummary ?? null
+  });
+
+  items.push({
+    category: "artifacts",
+    state: detail.artifacts.length > 0 ? "available" : detail.summary.status === "completed" ? "incomplete" : "missing",
+    title: "Artifacts",
+    message:
+      detail.artifacts.length > 0
+        ? `Stored canonical Adam artifacts are available (${detail.artifacts.length}).`
+        : detail.summary.status === "completed"
+          ? "Adam artifacts were expected but could not be fully loaded."
+          : "No canonical Adam artifacts are available yet.",
+    detail: detail.artifacts.length > 0 ? detail.artifacts.map((artifact) => artifact.artifactType).join(", ") : null
+  });
+
+  const availableCount = items.filter((item) => item.state === "available").length;
+  const missingCount = items.filter((item) => item.state === "missing").length;
+  const incompleteCount = items.filter((item) => item.state === "incomplete").length;
+
+  return {
+    items,
+    availableCount,
+    missingCount,
+    incompleteCount,
+    summaryText:
+      availableCount === items.length
+        ? "All expected Adam review categories are available."
+        : `Adam review currently has ${availableCount} available, ${missingCount} missing, and ${incompleteCount} incomplete categories.`
   };
 };
 

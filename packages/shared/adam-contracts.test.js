@@ -90,9 +90,9 @@ test("brain canonical schema files load and expose required top-level fields", (
   assert.ok(reasoningSchema.properties.reasoning);
 
   const voiceSessionSchema = JSON.parse(fs.readFileSync(path.join(brainSchemaDir, "voice-session-state-schema.json"), "utf8"));
-  assert.ok(voiceSessionSchema.required.includes("session_id"));
+  assert.ok(voiceSessionSchema.required.includes("sessionId"));
   assert.ok(voiceSessionSchema.required.includes("state"));
-  assert.ok(voiceSessionSchema.properties.input_mode);
+  assert.ok(voiceSessionSchema.properties.inputMode);
 });
 
 test("shared adam zod contracts accept canonical sample payloads", () => {

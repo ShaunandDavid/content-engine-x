@@ -22,6 +22,7 @@ export const AdamVoiceTestPanel = ({ projectId, initialRunId = null }: AdamVoice
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setVoiceResponse(null);
 
     const trimmedUtterance = utterance.trim();
     if (!trimmedUtterance) {
@@ -60,6 +61,7 @@ export const AdamVoiceTestPanel = ({ projectId, initialRunId = null }: AdamVoice
       setVoiceResponse(parsed.data);
       setCurrentState(parsed.data.session.state);
     } catch (submitError) {
+      setVoiceResponse(null);
       setError(submitError instanceof Error ? submitError.message : "Adam voice test request failed.");
     } finally {
       setIsSubmitting(false);

@@ -4,35 +4,35 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "session_id",
+    "sessionId",
     "state",
-    "input_mode",
-    "output_mode",
-    "last_updated_at",
+    "inputMode",
+    "outputMode",
+    "lastUpdatedAt",
     "metadata"
   ],
   "properties": {
-    "session_id": { "type": "string", "format": "uuid" },
-    "project_id": { "type": ["string", "null"], "format": "uuid" },
-    "run_id": { "type": ["string", "null"], "format": "uuid" },
-    "turn_id": { "type": ["string", "null"], "format": "uuid" },
+    "sessionId": { "type": "string", "format": "uuid" },
+    "projectId": { "type": ["string", "null"], "format": "uuid" },
+    "runId": { "type": ["string", "null"], "format": "uuid" },
+    "turnId": { "type": ["string", "null"], "format": "uuid" },
     "state": {
       "type": "string",
       "enum": ["idle", "listening", "thinking", "speaking", "error"]
     },
-    "input_mode": {
+    "inputMode": {
       "type": "string",
       "enum": ["text", "speech_text"]
     },
-    "output_mode": {
+    "outputMode": {
       "type": "string",
       "enum": ["text", "speech"]
     },
     "transcript": { "type": ["string", "null"] },
-    "last_user_message": { "type": ["string", "null"] },
-    "response_text": { "type": ["string", "null"] },
-    "error_message": { "type": ["string", "null"] },
-    "last_updated_at": { "type": "string", "format": "date-time" },
+    "lastUserMessage": { "type": ["string", "null"] },
+    "responseText": { "type": ["string", "null"] },
+    "errorMessage": { "type": ["string", "null"] },
+    "lastUpdatedAt": { "type": "string", "format": "date-time" },
     "metadata": {
       "type": "object",
       "additionalProperties": true

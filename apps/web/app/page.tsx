@@ -1,40 +1,38 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { AdamOrb, AdamState } from "../components/adam/adam-orb";
+import { AdamTopNav } from "../components/adam/adam-top-nav";
+import { workspaceRoute } from "../lib/routes";
 
-import { demoProject } from "../lib/dashboard-data";
-import { clipReviewRoute, projectRoute } from "../lib/routes";
+export default function AdamHomepage() {
+  const [orbState, setOrbState] = useState<AdamState>("idle");
 
-export default function HomePage() {
+  const cycleState = () => {
+    const states: AdamState[] = ["idle", "listening", "thinking", "speaking"];
+    setOrbState(prev => states[(states.indexOf(prev) + 1) % states.length]);
+  };
+
   return (
-    <main style={{ padding: "32px" }}>
-      <section className="hero-card">
-        <p className="eyebrow">Phase 1 Operator Shell</p>
-        <h1>From brief to publish handoff in one controlled pipeline.</h1>
-        <p>
-          This shell covers intake, planning, clip review, render assembly, and publish preparation for the first
-          version of CONTENT ENGINE X.
-        </p>
-        <div className="tag-row" style={{ marginTop: "20px", marginBottom: "28px" }}>
-          <span className="tag">Next.js 15</span>
-          <span className="tag">LangGraph</span>
-          <span className="tag">OpenAI Sora</span>
-          <span className="tag">Supabase</span>
-          <span className="tag">FFmpeg</span>
+    <main className="adam-home-main">
+      <AdamTopNav />
+      <div className="adam-center-content">
+        {/* Core Animated Presence */}
+        <AdamOrb state={orbState} onClick={cycleState} />
+        
+        {/* Typographical elements below the orb per Figma structure */}
+        <div className="adam-home-text">
+          <p>
+            Welcome to the core of ADAM. Your intuitive workspace for high-<br/>
+            precision content architecture and generative systems.
+          </p>
+          <div className="adam-home-actions">
+            <Link href={workspaceRoute} className="button button--solid" prefetch={false}>OPEN WORKSPACE</Link>
+            <Link href="/projects/new" className="button button--outline" prefetch={false}>QUICK ACTION</Link>
+          </div>
         </div>
-        <div className="button-row">
-          <Link className="button" href="/projects/new">
-            Create Project
-          </Link>
-          <Link className="button button--secondary" href="/adam/plan">
-            Adam Text Plan
-          </Link>
-          <Link className="button button--secondary" href={projectRoute(demoProject.id)}>
-            Open Demo Project (Sample Data)
-          </Link>
-          <Link className="button button--secondary" href={clipReviewRoute(demoProject.id)}>
-            Review Demo Clips
-          </Link>
-        </div>
-      </section>
+      </div>
     </main>
   );
 }

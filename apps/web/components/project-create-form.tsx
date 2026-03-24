@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { startTransition, useState, type FormEvent } from "react";
+import { workspaceRoute } from "../lib/routes";
 
 import {
   ASPECT_RATIO_OPTIONS,
@@ -38,7 +39,42 @@ const initialState: FormState = {
   guardrailsText: ""
 };
 
-export const ProjectCreateForm = ({ initialBlockingIssues = [] }: { initialBlockingIssues?: string[] }) => {
+const DevicePreview = ({ platforms, aspectRatio }: { platforms: string[], aspectRatio: string }) => {
+  const isVertical = platforms.some(p => ['TikTok', 'Instagram Reels', 'YouTube Shorts'].includes(p));
+  const isTV = platforms.includes('YouTube') && !isVertical;
+
+  let deviceClass = "device-desktop";
+  let label = "16:9 Desktop Display";
+  if (isVertical) {
+    deviceClass = "device-phone";
+    label = "9:16 Vertical Output";
+  } else if (isTV) {
+    deviceClass = "device-tv";
+    label = "16:9 Studio Monitor";
+  }
+
+  return (
+    <div className="device-canvas-container--focal">
+      <div className={`device-silhouette--platinum ${deviceClass}`}>
+        <div className="device-glare" />
+        {isVertical && <div className="device-notch" />}
+        <div className="device-screen">
+          <div className="device-content-placeholder">
+            <span>{label}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ProjectCreateForm = ({ 
+  initialBlockingIssues = [],
+  warnings = [] 
+}: { 
+  initialBlockingIssues?: string[],
+  warnings?: string[] 
+}) => {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState<string | null>(initialBlockingIssues[0] ?? null);
@@ -102,7 +138,7 @@ export const ProjectCreateForm = ({ initialBlockingIssues = [] }: { initialBlock
 
       const projectId = result.project.id;
       startTransition(() => {
-        router.push(`/projects/${projectId}`);
+        router.push(workspaceRoute);
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create project.");
@@ -120,163 +156,125 @@ export const ProjectCreateForm = ({ initialBlockingIssues = [] }: { initialBlock
   };
 
   return (
-    <form onSubmit={onSubmit} className="page-grid">
-      <section className="panel-card">
-        <div className="panel-card__header">
-          <h2>Brief Intake</h2>
-          <p>Define the objective, audience, and source brief that will seed concept, scenes, and prompts.</p>
-        </div>
-        <div className="panel-card__body">
+    <>
+      {/* Left Sidebar (Inputs) */}
+      <aside className="studio-sidebar-left" style={{ width: "340px", overflowY: "auto", position: "relative", zIndex: 10 }}>
+        <form id="project-form" onSubmit={onSubmit} style={{ padding: "32px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
+          
+          <div className="eyebrow" style={{ color: "var(--muted)", letterSpacing: "0.15em", marginBottom: "-12px", borderBottom: "1px solid rgba(0,0,0,0.06)", paddingBottom: "16px" }}>Project Setup</div>
+          
+          {isBlocked ? (
+            <div className="error-banner" style={{ borderRadius: "12px", fontSize: "0.85rem", padding: "12px" }}>
+              <strong style={{ display: "block" }}>Preflight Failing.</strong>
+            </div>
+          ) : null}
+
           <div className="field">
             <label htmlFor="project-name">Project name</label>
-            <input
-              id="project-name"
-              value={form.projectName}
-              onChange={(event) => setForm((current) => ({ ...current, projectName: event.target.value }))}
-              placeholder="Q2 Demand Gen Shorts"
-            />
+            <input id="project-name" value={form.projectName} onChange={(e) => setForm((c) => ({ ...c, projectName: e.target.value }))} placeholder="Q2 Demand Gen Shorts" />
           </div>
-          <div className="input-grid">
-            <div className="field">
-              <label htmlFor="objective">Objective</label>
-              <input
-                id="objective"
-                value={form.objective}
-                onChange={(event) => setForm((current) => ({ ...current, objective: event.target.value }))}
-                placeholder="Drive saves and profile visits"
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="audience">Audience</label>
-              <input
-                id="audience"
-                value={form.audience}
-                onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value }))}
-                placeholder="SaaS operators and marketers"
-              />
-            </div>
-          </div>
+          
           <div className="field">
-            <label htmlFor="brief">Content brief</label>
-            <textarea
-              id="brief"
-              value={form.rawBrief}
-              onChange={(event) => setForm((current) => ({ ...current, rawBrief: event.target.value }))}
-              placeholder="Describe the hook, pain point, desired takeaway, visual references, and hard guardrails."
-            />
+            <label htmlFor="objective">Objective</label>
+            <input id="objective" value={form.objective} onChange={(e) => setForm((c) => ({ ...c, objective: e.target.value }))} placeholder="Drive saves and profile visits" />
           </div>
+          
           <div className="field">
-            <label htmlFor="guardrails">Guardrails</label>
-            <textarea
-              id="guardrails"
-              value={form.guardrailsText}
-              onChange={(event) => setForm((current) => ({ ...current, guardrailsText: event.target.value }))}
-              placeholder="One per line, for example: Avoid product UI claims without proof"
-            />
+            <label htmlFor="audience">Audience</label>
+            <input id="audience" value={form.audience} onChange={(e) => setForm((c) => ({ ...c, audience: e.target.value }))} placeholder="SaaS operators and marketers" />
           </div>
-        </div>
-      </section>
+          
+          <div className="field">
+            <label htmlFor="brief">Content Brief</label>
+            <textarea id="brief" value={form.rawBrief} onChange={(e) => setForm((c) => ({ ...c, rawBrief: e.target.value }))} placeholder="Describe the hook, pain point, visual references, and transitions." style={{ minHeight: "160px" }} />
+          </div>
 
-      <section className="panel-card">
-        <div className="panel-card__header">
-          <h2>Publishing Targets</h2>
-          <p>Choose the release destinations and output format envelope.</p>
-        </div>
-        <div className="panel-card__body">
           <div className="field">
-            <label>Platforms</label>
-            <div className="checkbox-grid">
+            <label htmlFor="guardrails">Guardrails & Exclusions</label>
+            <textarea id="guardrails" value={form.guardrailsText} onChange={(e) => setForm((c) => ({ ...c, guardrailsText: e.target.value }))} placeholder="Avoid product UI claims..." style={{ minHeight: "100px" }} />
+          </div>
+
+        </form>
+      </aside>
+
+      {/* Center Hero Canvas */}
+      <div className="studio-center-hero">
+        <DevicePreview platforms={form.platforms} aspectRatio={form.aspectRatio} />
+
+        {/* Floating Bottom Ribbon */}
+        <div className="studio-bottom-ribbon" style={{ zIndex: 50 }}>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed", border: "0", background: "transparent" }}>Save Draft</button>
+            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed", border: "0", background: "transparent" }}>Publish Later</button>
+          </div>
+          <div style={{ display: "flex", gap: "16px" }}>
+            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>Generate Preview</button>
+            <button type="submit" form="project-form" className="button" disabled={isSubmitting || isBlocked}>
+              {isBlocked ? "System Offline" : isSubmitting ? "Orchestrating..." : "Initialize & Move to Workspace"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Sidebar (Settings) */}
+      <aside className="studio-sidebar-right" style={{ width: "340px", overflowY: "auto", position: "relative", zIndex: 10 }}>
+        <div style={{ padding: "32px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
+          
+          <div className="eyebrow" style={{ color: "var(--muted)", letterSpacing: "0.15em", marginBottom: "-12px", borderBottom: "1px solid rgba(0,0,0,0.06)", paddingBottom: "16px" }}>Export Options</div>
+          
+          <div className="field">
+            <label>Target Platforms</label>
+            <div className="tag-row" style={{ gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
               {PLATFORM_OPTIONS.map((platform) => (
-                <label className="checkbox-card" key={platform}>
-                  <input
-                    type="checkbox"
-                    checked={form.platforms.includes(platform)}
-                    onChange={() => togglePlatform(platform)}
-                  />
+                <label className={`checkbox-card ${form.platforms.includes(platform) ? 'checkbox-card--active' : ''}`} key={platform} style={{ padding: "8px 12px", fontSize: "0.85rem", width: "100%", justifyContent: "flex-start" }}>
+                  <input type="checkbox" checked={form.platforms.includes(platform)} onChange={() => togglePlatform(platform)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} />
                   <span>{platform}</span>
                 </label>
               ))}
             </div>
           </div>
-          <div className="input-grid">
-            <div className="field">
-              <label htmlFor="provider">Video provider</label>
-              <select
-                id="provider"
-                value={form.provider}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, provider: event.target.value as FormState["provider"] }))
-                }
-              >
-                {PROVIDER_OPTIONS.map((provider) => (
-                  <option key={provider} value={provider}>
-                    {provider}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="tone">Tone</label>
-              <select
-                id="tone"
-                value={form.tone}
-                onChange={(event) => setForm((current) => ({ ...current, tone: event.target.value as FormState["tone"] }))}
-              >
-                {TONE_OPTIONS.map((tone) => (
-                  <option key={tone} value={tone}>
-                    {tone}
-                  </option>
-                ))}
-              </select>
-            </div>
+
+          <div className="field">
+            <label htmlFor="provider">Video Provider</label>
+            <select id="provider" value={form.provider} onChange={(e) => setForm((c) => ({ ...c, provider: e.target.value as FormState["provider"] }))}>
+              {PROVIDER_OPTIONS.map((provider) => (<option key={provider} value={provider}>{provider}</option>))}
+            </select>
           </div>
-          <div className="input-grid">
+
+          <div className="field">
+            <label htmlFor="tone">Tone</label>
+            <select id="tone" value={form.tone} onChange={(e) => setForm((c) => ({ ...c, tone: e.target.value as FormState["tone"] }))}>
+              {TONE_OPTIONS.map((tone) => (<option key={tone} value={tone}>{tone}</option>))}
+            </select>
+          </div>
+
+          <div className="input-grid" style={{ gap: "16px", gridTemplateColumns: "1fr" }}>
             <div className="field">
-              <label htmlFor="duration">Duration</label>
-              <select
-                id="duration"
-                value={String(form.durationSeconds)}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    durationSeconds: Number(event.target.value) as FormState["durationSeconds"]
-                  }))
-                }
-              >
-                {PROJECT_DURATION_OPTIONS.map((duration) => (
-                  <option key={duration} value={duration}>
-                    {duration} seconds
-                  </option>
-                ))}
+              <label htmlFor="duration">Duration Target</label>
+              <select id="duration" value={String(form.durationSeconds)} onChange={(e) => setForm((c) => ({ ...c, durationSeconds: Number(e.target.value) as FormState["durationSeconds"] }))}>
+                {PROJECT_DURATION_OPTIONS.map((duration) => (<option key={duration} value={duration}>{duration} seconds</option>))}
               </select>
             </div>
             <div className="field">
               <label htmlFor="aspect-ratio">Aspect ratio</label>
-              <select
-                id="aspect-ratio"
-                value={form.aspectRatio}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, aspectRatio: event.target.value as FormState["aspectRatio"] }))
-                }
-              >
-                {ASPECT_RATIO_OPTIONS.map((ratio) => (
-                  <option key={ratio} value={ratio}>
-                    {ratio}
-                  </option>
-                ))}
+              <select id="aspect-ratio" value={form.aspectRatio} onChange={(e) => setForm((c) => ({ ...c, aspectRatio: e.target.value as FormState["aspectRatio"] }))}>
+                {ASPECT_RATIO_OPTIONS.map((ratio) => (<option key={ratio} value={ratio}>{ratio}</option>))}
               </select>
             </div>
           </div>
 
           {error ? <p className="error-banner">{error}</p> : null}
+          {warnings.length > 0 ? (
+            <div className="empty-state" style={{ marginTop: "16px" }}>
+              <span className="eyebrow">Warnings</span>
+              <ul className="list-reset" style={{ marginTop: "8px", fontSize: "0.8rem" }}>
+                {warnings.map((warning) => (<li key={warning}>{warning}</li>))}
+              </ul>
+            </div>
+          ) : null}
 
-          <div className="button-row">
-            <button className="button" type="submit" disabled={isSubmitting || isBlocked}>
-              {isBlocked ? "Live Runtime Not Ready" : isSubmitting ? "Creating Project..." : "Create Project"}
-            </button>
-          </div>
         </div>
-      </section>
-    </form>
+      </aside>
+    </>
   );
 };

@@ -7,6 +7,7 @@ import type {
   adamFeedbackRecordSchema,
   adamFeedbackSubmissionSchema,
   adamFeedbackValueSchema,
+  adamModelRoutingDecisionSchema,
   adamReasoningArtifactSchema,
   adamReasoningBlockSchema,
   adamGovernanceDecisionSchema,
@@ -15,10 +16,18 @@ import type {
   adamLangGraphRuntimeStateSchema,
   adamPlanningArtifactSchema,
   adamModelDecisionSchema,
+  adamRouterProviderSchema,
+  adamRouterTaskTypeSchema,
   adamRunSchema,
   adamTextPlanningInputSchema,
   adamVoiceInputModeSchema,
   adamVoiceOutputModeSchema,
+  adamChatRequestSchema,
+  adamChatResponseSchema,
+  adamTranscriptionRequestSchema,
+  adamTranscriptionResponseSchema,
+  adamTtsRequestSchema,
+  adamTtsResponseSchema,
   adamVoiceRequestSchema,
   adamVoiceResponseSchema,
   adamVoiceSessionStateSchema,
@@ -39,6 +48,9 @@ export type AdamFeedbackCategory = z.infer<typeof adamFeedbackCategorySchema>;
 export type AdamFeedbackValue = z.infer<typeof adamFeedbackValueSchema>;
 export type AdamFeedbackRecord = z.infer<typeof adamFeedbackRecordSchema>;
 export type AdamFeedbackSubmission = z.infer<typeof adamFeedbackSubmissionSchema>;
+export type AdamRouterProvider = z.infer<typeof adamRouterProviderSchema>;
+export type AdamRouterTaskType = z.infer<typeof adamRouterTaskTypeSchema>;
+export type AdamModelRoutingDecision = z.infer<typeof adamModelRoutingDecisionSchema>;
 export type AdamReasoningBlock = z.infer<typeof adamReasoningBlockSchema>;
 export type AdamReasoningArtifact = z.infer<typeof adamReasoningArtifactSchema>;
 export type AdamGovernanceDecision = z.infer<typeof adamGovernanceDecisionSchema>;
@@ -50,5 +62,11 @@ export type AdamVoiceTurnState = z.infer<typeof adamVoiceTurnStateSchema>;
 export type AdamVoiceInputMode = z.infer<typeof adamVoiceInputModeSchema>;
 export type AdamVoiceOutputMode = z.infer<typeof adamVoiceOutputModeSchema>;
 export type AdamVoiceSessionState = z.infer<typeof adamVoiceSessionStateSchema>;
+export type AdamChatRequest = z.infer<typeof adamChatRequestSchema>;
+export type AdamChatResponse = z.infer<typeof adamChatResponseSchema>;
+export type AdamTranscriptionRequest = z.infer<typeof adamTranscriptionRequestSchema>;
+export type AdamTranscriptionResponse = z.infer<typeof adamTranscriptionResponseSchema>;
+export type AdamTtsRequest = z.infer<typeof adamTtsRequestSchema>;
+export type AdamTtsResponse = z.infer<typeof adamTtsResponseSchema>;
 export type AdamVoiceRequest = z.infer<typeof adamVoiceRequestSchema>;
 export type AdamVoiceResponse = z.infer<typeof adamVoiceResponseSchema>;

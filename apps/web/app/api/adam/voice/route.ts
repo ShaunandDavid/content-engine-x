@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { adamVoiceRequestSchema } from "@content-engine/shared";
+import { adamChatResponseSchema, adamVoiceRequestSchema } from "@content-engine/shared";
 
 import { createAdamVoiceResponse } from "../../../../lib/server/adam-voice";
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const parsed = adamVoiceRequestSchema.parse(body);
     const result = await createAdamVoiceResponse(parsed);
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(adamChatResponseSchema.parse(result), { status: 200 });
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(

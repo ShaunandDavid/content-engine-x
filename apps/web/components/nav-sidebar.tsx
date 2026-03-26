@@ -1,10 +1,29 @@
 import Link from "next/link";
 
-import { clipReviewRoute, projectAdamRoute, projectRoute, publishRoute, renderRoute, sceneReviewRoute } from "../lib/routes";
+import {
+  adamPlanRoute,
+  clipReviewRoute,
+  homeRoute,
+  newProjectRoute,
+  projectAdamRoute,
+  projectRoute,
+  projectsRoute,
+  publishRoute,
+  renderRoute,
+  sceneReviewRoute,
+  workspaceRoute
+} from "../lib/routes";
 
-const navItems = (projectId?: string) => [
-  { href: "/projects/new", label: "New Project" },
-  ...(projectId
+const coreItems = [
+  { href: homeRoute, label: "Home" },
+  { href: workspaceRoute, label: "Workspace" },
+  { href: projectsRoute, label: "Projects" },
+  { href: newProjectRoute, label: "New Project" },
+  { href: adamPlanRoute, label: "Adam Plan" }
+];
+
+const projectItems = (projectId?: string) =>
+  projectId
     ? [
         { href: projectRoute(projectId), label: "Overview" },
         { href: projectAdamRoute(projectId), label: "Adam" },
@@ -13,22 +32,43 @@ const navItems = (projectId?: string) => [
         { href: renderRoute(projectId), label: "Render" },
         { href: publishRoute(projectId), label: "Publish" }
       ]
-    : [])
-];
+    : [];
 
 export const NavSidebar = ({ projectId }: { projectId?: string }) => (
   <aside className="sidebar">
     <div className="brand-block">
       <span className="brand-block__eyebrow">CONTENT ENGINE X</span>
-      <h1>Operator Console</h1>
-      <p>Brief to publish pipeline for short-form video systems.</p>
+      <h1>ADAM Studio</h1>
+      <p>One connected surface for planning, review, and production handoff.</p>
     </div>
-    <nav className="sidebar__nav">
-      {navItems(projectId).map((item) => (
-        <Link key={item.href} href={item.href}>
-          {item.label}
-        </Link>
-      ))}
-    </nav>
+
+    <div className="sidebar__section">
+      <p className="sidebar__section-title">Core Routes</p>
+      <nav className="sidebar__nav">
+        {coreItems.map((item) => (
+          <Link key={item.href} href={item.href}>
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+    </div>
+
+    {projectId ? (
+      <div className="sidebar__section">
+        <p className="sidebar__section-title">Project Workflow</p>
+        <nav className="sidebar__nav">
+          {projectItems(projectId).map((item) => (
+            <Link key={item.href} href={item.href}>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+    ) : null}
+
+    <div className="sidebar__meta">
+      <span className="truth-pill">Live System</span>
+      <p>Navigation is wired to real routes only. Empty states are shown when live data is unavailable.</p>
+    </div>
   </aside>
 );

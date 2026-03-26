@@ -1,3 +1,10 @@
+export const homeRoute = "/";
+export const workspaceRoute = "/workspace";
+export const studioRoute = "/studio";
+export const projectsRoute = "/projects";
+export const newProjectRoute = `${projectsRoute}/new`;
+export const adamPlanRoute = "/adam/plan";
+
 export const projectRoute = (projectId: string) => `/projects/${projectId}`;
 export const projectAdamRoute = (projectId: string) => `${projectRoute(projectId)}/adam`;
 export const sceneReviewRoute = (projectId: string) => `${projectRoute(projectId)}/scenes`;

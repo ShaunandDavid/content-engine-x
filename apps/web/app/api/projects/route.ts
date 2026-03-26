@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { appendAuditLog, createProjectWorkflow, initializeAsyncProjectWorkflow, updateProjectWorkflowState } from "@content-engine/db";
 import { projectBriefInputSchema } from "@content-engine/shared";
 
-import { assertLiveRuntimeReady, assertProjectCreationReady, LiveRuntimePreflightError } from "../../../lib/server/live-runtime-preflight";
+import { assertProjectCreationReady, LiveRuntimePreflightError } from "../../../lib/server/live-runtime-preflight";
 import { isPythonOrchestratorEnabled, triggerPythonWorkflowRun } from "../../../lib/server/python-orchestrator";
 
 export async function POST(request: Request) {
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json(result, { status: 201 });
     }
 
-    await assertLiveRuntimeReady();
+    await assertProjectCreationReady();
     const result = await createProjectWorkflow(parsed);
 
     return NextResponse.json(result, { status: 201 });

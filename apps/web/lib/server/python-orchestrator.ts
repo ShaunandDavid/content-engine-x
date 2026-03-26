@@ -2,8 +2,14 @@ import { z } from "zod";
 
 const pythonOrchestratorConfigSchema = z.object({
   CONTENT_ENGINE_USE_PYTHON_ORCHESTRATOR: z.enum(["true", "false"]).default("false"),
-  CONTENT_ENGINE_PYTHON_ORCHESTRATOR_URL: z.string().url().optional(),
-  WORKFLOW_SIGNING_SECRET: z.string().min(1).optional()
+  CONTENT_ENGINE_PYTHON_ORCHESTRATOR_URL: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional()
+  ),
+  WORKFLOW_SIGNING_SECRET: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().min(1).optional()
+  )
 });
 
 type PythonOrchestratorConfig = z.infer<typeof pythonOrchestratorConfigSchema>;
@@ -11,8 +17,15 @@ type PythonOrchestratorConfig = z.infer<typeof pythonOrchestratorConfigSchema>;
 const getPythonOrchestratorConfig = (env: NodeJS.ProcessEnv = process.env): PythonOrchestratorConfig =>
   pythonOrchestratorConfigSchema.parse(env);
 
-export const isPythonOrchestratorEnabled = (env: NodeJS.ProcessEnv = process.env) =>
-  getPythonOrchestratorConfig(env).CONTENT_ENGINE_USE_PYTHON_ORCHESTRATOR === "true";
+export const isPythonOrchestratorEnabled = (env: NodeJS.ProcessEnv = process.env) => {
+  const config = pythonOrchestratorConfigSchema.safeParse(env);
+
+  if (!config.success) {
+    return false;
+  }
+
+  return config.data.CONTENT_ENGINE_USE_PYTHON_ORCHESTRATOR === "true";
+};
 
 export const assertPythonOrchestratorConfigured = (env: NodeJS.ProcessEnv = process.env) => {
   const config = getPythonOrchestratorConfig(env);

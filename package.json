@@ -18,5 +18,23 @@
     "pnpm": "10.6.0",
     "turbo": "^2.5.0",
     "typescript": "^5.8.2"
-  }
+  },
+  "version": "1.0.0",
+  "description": "CONTENT ENGINE X is a production-oriented monorepo for generating, reviewing, rendering, and handing off short-form social video content.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ShaunandDavid/content-engine-x.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ShaunandDavid/content-engine-x/issues"
+  },
+  "homepage": "https://github.com/ShaunandDavid/content-engine-x#readme"
 }

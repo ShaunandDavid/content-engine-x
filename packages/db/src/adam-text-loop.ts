@@ -5,15 +5,18 @@ import {
   adamArtifactSchema,
   adamCompatibilityTenantId,
   adamLangGraphRuntimeStateSchema,
+  adamModelDecisionSchema,
   adamPlanningArtifactSchema,
   adamReasoningArtifactSchema,
   adamRunSchema,
   adamTextPlanningInputSchema,
   type AdamArtifact,
   type AdamLangGraphRuntimeState,
+  type AdamModelDecision,
   type AdamPlanningArtifact,
   type AdamReasoningArtifact,
   type AdamReasoningBlock,
+  type AdamRouterProvider,
   type AdamTextPlanningInput,
   type AuditLogRecord,
   type BriefRecord,
@@ -23,7 +26,13 @@ import {
   type WorkflowStage
 } from "@content-engine/shared";
 
-import { appendAdamAuditEvent, createAdamArtifactRecord, createAdamRunRecord } from "./adam-write.js";
+import { selectAdamProviderForTask } from "./adam-model-router.js";
+import {
+  appendAdamAuditEvent,
+  createAdamArtifactRecord,
+  createAdamModelDecisionRecord,
+  createAdamRunRecord
+} from "./adam-write.js";
 import { createServiceSupabaseClient } from "./client.js";
 import { getSupabaseConfig } from "./config.js";
 
@@ -155,6 +164,13 @@ const cleanupAdamTextPlanningCreate = async (client: SupabaseClient, rollback: R
       const { error } = await client.from("adam_artifacts").delete().eq("run_id", rollback.workflowRunId);
       if (error) {
         throw new Error(`Failed to delete Adam artifacts during rollback: ${error.message}`);
+      }
+    });
+
+    cleanupSteps.push(async () => {
+      const { error } = await client.from("adam_model_decisions").delete().eq("run_id", rollback.workflowRunId);
+      if (error) {
+        throw new Error(`Failed to delete Adam model decisions during rollback: ${error.message}`);
       }
     });
 
@@ -439,6 +455,38 @@ const applyReasoningToPlanningArtifact = (input: {
     reasoning: input.reasoningArtifact.reasoning
   });
 
+const buildCanonicalModelDecision = (input: {
+  workflowRunId: string;
+  routingDecision: {
+    decisionId: string;
+    taskType: string;
+    provider: string;
+    model: string;
+    routingReason: string;
+    selectionBasis?: string | null;
+    confidence?: number | null;
+    createdAt: string;
+    metadata?: Record<string, unknown>;
+  };
+}): AdamModelDecision =>
+  adamModelDecisionSchema.parse({
+    decisionId: input.routingDecision.decisionId,
+    tenantId: adamCompatibilityTenantId,
+    runId: input.workflowRunId,
+    stage: PLANNING_STAGE,
+    taskType: input.routingDecision.taskType,
+    provider: input.routingDecision.provider,
+    model: input.routingDecision.model,
+    selectionReason: input.routingDecision.routingReason,
+    createdAt: input.routingDecision.createdAt,
+    metadata: {
+      source: "adam_text_loop_router",
+      selectionBasis: input.routingDecision.selectionBasis ?? null,
+      confidence: input.routingDecision.confidence ?? null,
+      ...(input.routingDecision.metadata ?? {})
+    }
+  });
+
 const buildCanonicalRuntimeState = (input: {
   projectId: string;
   workflowRunId: string;
@@ -449,6 +497,7 @@ const buildCanonicalRuntimeState = (input: {
   outputArtifactId: string;
   reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
+  modelDecision: AdamModelDecision;
   createdAt: string;
 }): AdamLangGraphRuntimeState =>
   adamLangGraphRuntimeStateSchema.parse({
@@ -503,7 +552,7 @@ const buildCanonicalRuntimeState = (input: {
       adamPlan: input.planningArtifact
     },
     governanceDecisionRefs: [],
-    modelDecisionRefs: [],
+    modelDecisionRefs: [input.modelDecision.decisionId],
     brief: {
       briefId: input.briefId,
       rawBrief: buildRawBrief(
@@ -538,7 +587,10 @@ const buildCanonicalRuntimeState = (input: {
     metadata: {
       source: "adam_text_loop",
       planningMode: "text_first",
-      reasoningMode: "heuristic_mvp"
+      reasoningMode: "heuristic_mvp",
+      routingProvider: input.modelDecision.provider,
+      routingModel: input.modelDecision.model,
+      routingTaskType: input.modelDecision.taskType
     }
   });
 
@@ -548,6 +600,7 @@ const buildLegacyStateSnapshot = (input: {
   payload: AdamTextPlanningInput;
   reasoningArtifact: AdamReasoningArtifact;
   planningArtifact: AdamPlanningArtifact;
+  modelDecision: AdamModelDecision;
   createdAt: string;
   inputArtifactId: string;
   reasoningArtifactId: string;
@@ -604,6 +657,13 @@ const buildLegacyStateSnapshot = (input: {
     recommended_angle: input.planningArtifact.recommendedAngle
   },
   adam_reasoning: input.reasoningArtifact.reasoning,
+  routing_decision: {
+    decision_id: input.modelDecision.decisionId,
+    provider: input.modelDecision.provider,
+    model: input.modelDecision.model,
+    task_type: input.modelDecision.taskType,
+    selection_reason: input.modelDecision.selectionReason
+  },
   scenes: [],
   prompt_versions: [],
   clip_requests: [],
@@ -616,7 +676,10 @@ const buildLegacyStateSnapshot = (input: {
   metadata: {
     source: "adam_text_loop",
     planning_mode: "text_first",
-    reasoning_mode: "heuristic_mvp"
+    reasoning_mode: "heuristic_mvp",
+    routing_provider: input.modelDecision.provider,
+    routing_model: input.modelDecision.model,
+    routing_task_type: input.modelDecision.taskType
   }
 });
 
@@ -626,6 +689,7 @@ const persistCanonicalRun = async (input: {
   reasoningArtifactId: string;
   outputArtifactId: string;
   state: AdamLangGraphRuntimeState;
+  modelDecision: AdamModelDecision;
   createdAt: string;
   projectId: string;
   client: SupabaseClient;
@@ -647,7 +711,10 @@ const persistCanonicalRun = async (input: {
     updatedAt: input.createdAt,
     metadata: {
       source: "adam_text_loop",
-      planningMode: "text_first"
+      planningMode: "text_first",
+      routingProvider: input.modelDecision.provider,
+      routingModel: input.modelDecision.model,
+      routingTaskType: input.modelDecision.taskType
     }
   });
 
@@ -821,6 +888,10 @@ export const createAdamTextPlanningLoop = async (
   options?: {
     client?: SupabaseClient;
     operatorUserId?: string;
+    routingPreference?: {
+      preferredProvider?: AdamRouterProvider | null;
+      preferredModel?: string | null;
+    };
   }
 ): Promise<CreateAdamTextPlanningResult> => {
   const payload = adamTextPlanningInputSchema.parse(input);
@@ -842,6 +913,15 @@ export const createAdamTextPlanningLoop = async (
   };
 
   try {
+    const selectedProvider = selectAdamProviderForTask({
+      taskType: "text_planning",
+      preferredProvider: options?.routingPreference?.preferredProvider,
+      preferredModel: options?.routingPreference?.preferredModel,
+      metadata: {
+        source: "adam_text_loop",
+        workflowKind: ADAM_TEXT_WORKFLOW_KIND
+      }
+    });
     const reasoning = buildReasoningBlock(payload);
     const rawBrief = buildRawBrief(payload, reasoning.coreUserGoal, buildOfferOrConcept(payload));
 
@@ -888,6 +968,10 @@ export const createAdamTextPlanningLoop = async (
       reasoning,
       createdAt: now
     });
+    const modelDecision = buildCanonicalModelDecision({
+      workflowRunId,
+      routingDecision: selectedProvider.decision
+    });
 
     const { data: briefRowData, error: briefError } = await client
       .from("briefs")
@@ -922,6 +1006,7 @@ export const createAdamTextPlanningLoop = async (
       outputArtifactId,
       reasoningArtifact,
       planningArtifact,
+      modelDecision,
       createdAt: now
     });
 
@@ -931,6 +1016,7 @@ export const createAdamTextPlanningLoop = async (
       payload,
       reasoningArtifact,
       planningArtifact,
+      modelDecision,
       createdAt: now,
       inputArtifactId,
       reasoningArtifactId,
@@ -1005,11 +1091,13 @@ export const createAdamTextPlanningLoop = async (
       reasoningArtifactId,
       outputArtifactId,
       state: canonicalState,
+      modelDecision,
       createdAt: now,
       projectId: projectRow.id,
       client
     });
 
+    await createAdamModelDecisionRecord({ ...modelDecision, projectId: projectRow.id }, { client });
     await createAdamArtifactRecord({ ...inputArtifact, projectId: projectRow.id }, { client });
     await createAdamArtifactRecord({ ...reasoningOutputArtifact, projectId: projectRow.id }, { client });
     await createAdamArtifactRecord({ ...outputArtifact, projectId: projectRow.id }, { client });

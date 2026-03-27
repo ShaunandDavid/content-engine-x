@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "CONTENT ENGINE X",
   description: "Premium Adam-guided workspace for planning, project orchestration, and video production flow."

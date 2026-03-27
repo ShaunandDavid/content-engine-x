@@ -3009,16 +3009,26 @@ select {
 
   .home-orb-stage {
     min-height: auto;
-    height: calc(100svh - 56px);
+    height: auto;
     padding-top: 0;
-    padding-bottom: 16px;
+    padding-bottom: 24px;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .home-orb-stage__backdrop {
+    display: none;
+  }
+
+  .home-orb-stage__halo {
+    display: none;
   }
 
   .home-orb-stage .adam-voice-surface {
     justify-content: flex-start;
     padding-top: 8px;
-    max-height: calc(100svh - 100px);
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .home-orb-stage .adam-orb-container {
@@ -3028,7 +3038,10 @@ select {
   }
 
   .home-orb-stage__scroll {
-    bottom: 12px;
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
   }
 
   .studio-bottom-ribbon {

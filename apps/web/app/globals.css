@@ -3007,14 +3007,23 @@ select {
   }
 
   .home-orb-stage {
-    min-height: calc(100svh - 72px);
-    padding-top: 24px;
-    padding-bottom: 64px;
+    min-height: auto;
+    height: calc(100svh - 56px);
+    padding-top: 0;
+    padding-bottom: 16px;
+  }
+
+  .home-orb-stage .adam-voice-surface {
+    justify-content: flex-start;
+    padding-top: 8px;
+    max-height: calc(100svh - 100px);
+    overflow-y: auto;
   }
 
   .home-orb-stage .adam-orb-container {
-    width: min(100%, 320px);
-    height: min(100%, 320px);
+    width: min(70vw, 280px);
+    height: min(70vw, 280px);
+    flex-shrink: 0;
   }
 
   .home-orb-stage__scroll {

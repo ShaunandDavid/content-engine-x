@@ -3010,7 +3010,7 @@ select {
   .home-orb-stage {
     min-height: auto;
     height: auto;
-    padding-top: 0;
+    padding-top: 24px;
     padding-bottom: 24px;
     flex-direction: column;
     gap: 16px;

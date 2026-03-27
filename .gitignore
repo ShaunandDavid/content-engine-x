@@ -17,3 +17,5 @@ __pycache__/
 pnpm-lock.yaml
 tmp/
 *.log
+
+.vercel

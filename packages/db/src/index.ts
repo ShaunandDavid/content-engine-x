@@ -1,4 +1,5 @@
 export * from "./adam.js";
+export * from "./adam-brain.js";
 export * from "./adam-model-router.js";
 export * from "./adam-provider-adapters.js";
 export * from "./adam-write.js";

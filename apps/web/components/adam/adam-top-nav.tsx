@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 import Link from "next/link";
 
 import { adamPlanRoute, homeRoute, newProjectRoute, projectsRoute, studioRoute, workspaceRoute } from "../../lib/routes";
@@ -7,14 +11,26 @@ export const AdamTopNav = ({
 }: {
   currentRoute?: "home" | "workspace" | "studio" | "projects" | "plan";
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <header className="adam-header">
+    <header className={`adam-header${isOpen ? " adam-header--open" : ""}`}>
       <div className="adam-header-left">
         <Link href={homeRoute} prefetch={false}>
           <strong>ADAM</strong>
         </Link>
       </div>
-      <nav className="adam-header-center">
+      <button
+        className="adam-top-nav__toggle"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-label={isOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={isOpen}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+      <nav className="adam-header-center" onClick={() => setIsOpen(false)}>
         <Link href={homeRoute} prefetch={false} aria-current={currentRoute === "home" ? "page" : undefined}>
           Home
         </Link>

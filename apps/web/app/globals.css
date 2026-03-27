@@ -579,6 +579,33 @@ select {
   padding-inline: 22px;
 }
 
+/* Hamburger toggle — hidden on desktop, shown on mobile via media query */
+.adam-top-nav__toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.adam-top-nav__toggle:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.adam-top-nav__toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px;
+}
+
 .landing-shell,
 .workspace-shell,
 .projects-shell,
@@ -2534,20 +2561,66 @@ select {
   border: 0;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.14) 48%, rgba(255, 255, 255, 0) 58%),
-    radial-gradient(circle at 74% 76%, rgba(188, 206, 255, 0.54), rgba(255, 255, 255, 0) 58%),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.38), rgba(208, 216, 232, 0.18) 76%, rgba(255, 255, 255, 0) 100%);
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08) 40%, transparent 55%),
+    radial-gradient(circle at 68% 74%, rgba(219, 112, 219, 0.65), rgba(180, 90, 220, 0.20) 50%, transparent 70%),
+    radial-gradient(circle at 36% 60%, rgba(160, 100, 240, 0.72), rgba(120, 80, 200, 0.30) 55%, transparent 75%),
+    radial-gradient(circle at 55% 40%, rgba(200, 140, 255, 0.50), rgba(170, 120, 240, 0.15) 60%, transparent 80%),
+    radial-gradient(ellipse at 50% 50%, rgba(180, 130, 255, 0.85), rgba(200, 160, 240, 0.50) 45%, rgba(230, 200, 255, 0.20) 70%, rgba(245, 235, 255, 0.08) 100%);
   box-shadow:
-    inset 0 0 90px rgba(255, 255, 255, 0.72),
-    inset 18px 24px 56px rgba(255, 255, 255, 0.48),
-    inset -18px -26px 60px rgba(193, 209, 240, 0.42),
-    0 38px 110px rgba(148, 163, 184, 0.24);
+    inset 0 0 80px rgba(200, 160, 255, 0.50),
+    inset 16px 20px 50px rgba(255, 255, 255, 0.35),
+    inset -14px -22px 55px rgba(160, 100, 240, 0.40),
+    inset 0 0 120px rgba(220, 180, 255, 0.18),
+    0 0 60px rgba(180, 130, 255, 0.35),
+    0 0 120px rgba(180, 120, 240, 0.20),
+    0 30px 100px rgba(160, 100, 230, 0.18);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.35s ease;
+  transition: transform 0.25s ease, box-shadow 0.35s ease, background 0.6s ease;
+  position: relative;
+  overflow: visible;
+}
+
+.adam-orb::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(180, 130, 255, 0.22), rgba(200, 160, 240, 0.10) 50%, transparent 72%);
+  pointer-events: none;
+  z-index: -1;
+  animation: orb-ambient-glow 6s infinite ease-in-out;
+}
+
+.adam-orb::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  left: 18%;
+  width: 28%;
+  height: 18%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  filter: blur(8px);
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+@keyframes orb-ambient-glow {
+  0% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 0.7; transform: scale(1); }
 }
 
 .adam-orb:hover:not(.is-disabled) {
-  transform: scale(1.02);
+  transform: scale(1.03);
+  box-shadow:
+    inset 0 0 80px rgba(200, 160, 255, 0.55),
+    inset 16px 20px 50px rgba(255, 255, 255, 0.40),
+    inset -14px -22px 55px rgba(160, 100, 240, 0.45),
+    inset 0 0 120px rgba(220, 180, 255, 0.22),
+    0 0 80px rgba(180, 130, 255, 0.45),
+    0 0 150px rgba(180, 120, 240, 0.25),
+    0 30px 100px rgba(160, 100, 230, 0.22);
 }
 
 .adam-orb:active:not(.is-disabled) {
@@ -2556,73 +2629,118 @@ select {
 
 .adam-orb.is-disabled {
   cursor: progress;
+  opacity: 0.65;
 }
 
 .adam-orb.idle {
-  animation: orb-breathe 8s infinite ease-in-out;
+  animation: orb-breathe-vibrant 8s infinite ease-in-out;
 }
 
 .adam-orb.listening {
-  animation: orb-pulse-listen 3.2s infinite ease-in-out;
+  animation: orb-pulse-listen-vibrant 3.2s infinite ease-in-out;
 }
 
 .adam-orb.thinking {
-  animation: orb-spin-think 6.5s infinite linear;
+  animation: orb-think-vibrant 4s infinite ease-in-out;
 }
 
 .adam-orb.speaking {
-  animation: orb-pulse-speak 2.1s infinite alternate ease-in-out;
+  animation: orb-speak-vibrant 2.1s infinite alternate ease-in-out;
 }
 
+/* Legacy keyframe kept for external references */
 @keyframes orb-breathe {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+/* Vibrant state animations */
+@keyframes orb-breathe-vibrant {
   0% {
     transform: scale(1);
+    filter: hue-rotate(0deg) brightness(1);
   }
-
-  50% {
-    transform: scale(1.03);
+  33% {
+    transform: scale(1.025);
+    filter: hue-rotate(8deg) brightness(1.04);
   }
-
+  66% {
+    transform: scale(1.015);
+    filter: hue-rotate(-5deg) brightness(1.02);
+  }
   100% {
     transform: scale(1);
+    filter: hue-rotate(0deg) brightness(1);
   }
 }
 
-@keyframes orb-pulse-listen {
+@keyframes orb-pulse-listen-vibrant {
   0% {
     transform: scale(1.01);
+    filter: hue-rotate(0deg) brightness(1.05);
+    box-shadow:
+      inset 0 0 80px rgba(200, 160, 255, 0.55),
+      0 0 70px rgba(180, 130, 255, 0.40),
+      0 0 130px rgba(160, 100, 240, 0.22);
   }
-
   50% {
+    transform: scale(1.07);
+    filter: hue-rotate(15deg) brightness(1.12);
+    box-shadow:
+      inset 0 0 90px rgba(200, 160, 255, 0.65),
+      0 0 90px rgba(180, 130, 255, 0.55),
+      0 0 170px rgba(160, 100, 240, 0.30);
+  }
+  100% {
+    transform: scale(1.01);
+    filter: hue-rotate(0deg) brightness(1.05);
+    box-shadow:
+      inset 0 0 80px rgba(200, 160, 255, 0.55),
+      0 0 70px rgba(180, 130, 255, 0.40),
+      0 0 130px rgba(160, 100, 240, 0.22);
+  }
+}
+
+@keyframes orb-think-vibrant {
+  0% {
+    transform: scale(1);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  25% {
+    transform: scale(1.02);
+    filter: hue-rotate(20deg) brightness(1.08);
+  }
+  50% {
+    transform: scale(0.98);
+    filter: hue-rotate(-15deg) brightness(1.05);
+  }
+  75% {
+    transform: scale(1.015);
+    filter: hue-rotate(10deg) brightness(1.10);
+  }
+  100% {
+    transform: scale(1);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+}
+
+@keyframes orb-speak-vibrant {
+  0% {
+    transform: scale(1);
+    filter: hue-rotate(0deg) brightness(1.05);
+    box-shadow:
+      inset 0 0 80px rgba(200, 160, 255, 0.55),
+      0 0 60px rgba(180, 130, 255, 0.35),
+      0 0 120px rgba(180, 120, 240, 0.20);
+  }
+  100% {
     transform: scale(1.06);
-  }
-
-  100% {
-    transform: scale(1.01);
-  }
-}
-
-@keyframes orb-spin-think {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-
-  50% {
-    transform: rotate(180deg) scale(1.015);
-  }
-
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-
-@keyframes orb-pulse-speak {
-  0% {
-    transform: scale(1);
-  }
-
-  100% {
-    transform: scale(1.05);
+    filter: hue-rotate(12deg) brightness(1.15);
+    box-shadow:
+      inset 0 0 95px rgba(200, 160, 255, 0.65),
+      0 0 90px rgba(180, 130, 255, 0.50),
+      0 0 180px rgba(180, 120, 240, 0.30);
   }
 }
 
@@ -2990,5 +3108,55 @@ select {
     width: auto;
     white-space: nowrap;
     padding-inline: 18px;
+  }
+
+  /* Mobile hamburger behaviour */
+  .adam-top-nav__toggle {
+    display: flex;
+    order: 2;
+    flex-shrink: 0;
+  }
+
+  /* Collapsed: single row, nav items hidden */
+  .adam-header {
+    flex-wrap: nowrap;
+    padding: 14px 20px;
+  }
+
+  .adam-header-center,
+  .adam-header-right {
+    display: none;
+  }
+
+  /* Open: wrap and reveal nav items stacked vertically */
+  .adam-header--open {
+    flex-wrap: wrap;
+  }
+
+  .adam-header--open .adam-header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    order: 3;
+    width: 100%;
+    border-radius: 16px;
+    gap: 2px;
+    padding: 8px;
+  }
+
+  .adam-header--open .adam-header-center a {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.92rem;
+  }
+
+  .adam-header--open .adam-header-right {
+    display: flex;
+    order: 4;
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 }

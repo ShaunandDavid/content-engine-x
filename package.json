@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:web:vercel": "node node_modules/typescript/bin/tsc --project packages/shared/tsconfig.json && node node_modules/typescript/bin/tsc --project packages/db/tsconfig.json && node node_modules/typescript/bin/tsc --project services/media/tsconfig.json && node node_modules/typescript/bin/tsc --project services/providers/sora/tsconfig.json && cd apps/web && node ../../node_modules/next/dist/bin/next build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

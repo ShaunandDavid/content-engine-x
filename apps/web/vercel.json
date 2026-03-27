@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "cd ../.. && corepack prepare pnpm@10.6.0 --activate && corepack pnpm install",
-  "buildCommand": "cd ../.. && node node_modules/typescript/bin/tsc --project packages/shared/tsconfig.json && node node_modules/typescript/bin/tsc --project packages/db/tsconfig.json && node node_modules/typescript/bin/tsc --project services/media/tsconfig.json && node node_modules/typescript/bin/tsc --project services/providers/sora/tsconfig.json && cd apps/web && node ../../node_modules/next/dist/bin/next build"
+  "buildCommand": "cd ../.. && corepack pnpm run build:web:vercel"
 }

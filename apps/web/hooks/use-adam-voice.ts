@@ -92,6 +92,8 @@ export const useAdamVoice = () => {
   const currentStateRef = useRef<AdamVoiceTurnState>("idle");
   const sessionIdRef = useRef<string | null>(null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeAudioUrlRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -100,13 +102,20 @@ export const useAdamVoice = () => {
 
   useEffect(() => {
     isMountedRef.current = true;
-    setIsAudioPlaybackAvailable(typeof window !== "undefined" && "speechSynthesis" in window);
+    setIsAudioPlaybackAvailable(
+      typeof window !== "undefined" && ("speechSynthesis" in window || typeof Audio !== "undefined")
+    );
 
     return () => {
       isMountedRef.current = false;
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
+      }
+      activeAudioRef.current?.pause();
+      if (activeAudioUrlRef.current) {
+        URL.revokeObjectURL(activeAudioUrlRef.current);
+        activeAudioUrlRef.current = null;
       }
     };
   }, []);
@@ -128,7 +137,95 @@ export const useAdamVoice = () => {
     }
 
     activeUtteranceRef.current = null;
+    activeAudioRef.current?.pause();
+    activeAudioRef.current = null;
+    if (activeAudioUrlRef.current) {
+      URL.revokeObjectURL(activeAudioUrlRef.current);
+      activeAudioUrlRef.current = null;
+    }
     resetToIdle("Adam playback interrupted.");
+  };
+
+  const playBrowserSpeechFallback = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      return false;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    activeUtteranceRef.current = utterance;
+    setVoiceState("speaking");
+    setStatusMessage("Adam is speaking.");
+    utterance.onend = () => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      activeUtteranceRef.current = null;
+      resetToIdle("Adam is ready for another turn.");
+    };
+    utterance.onerror = () => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      activeUtteranceRef.current = null;
+      setError("Adam could not play audio back, but the reply text is available below.");
+      resetToIdle("Adam replied in text-only mode.");
+    };
+    window.speechSynthesis.speak(utterance);
+    return true;
+  };
+
+  const playAudioData = async (audioBase64: string, audioMimeType?: string) => {
+    if (typeof window === "undefined" || typeof Audio === "undefined") {
+      return false;
+    }
+
+    const binary = window.atob(audioBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    if (activeAudioUrlRef.current) {
+      URL.revokeObjectURL(activeAudioUrlRef.current);
+      activeAudioUrlRef.current = null;
+    }
+
+    const blob = new Blob([bytes], { type: audioMimeType ?? "audio/mpeg" });
+    const objectUrl = URL.createObjectURL(blob);
+    const audio = new Audio(objectUrl);
+    activeAudioUrlRef.current = objectUrl;
+    activeAudioRef.current = audio;
+    setVoiceState("speaking");
+    setStatusMessage("Adam is speaking.");
+
+    audio.onended = () => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      activeAudioRef.current = null;
+      if (activeAudioUrlRef.current) {
+        URL.revokeObjectURL(activeAudioUrlRef.current);
+        activeAudioUrlRef.current = null;
+      }
+      resetToIdle("Adam is ready for another turn.");
+    };
+
+    audio.onerror = () => {
+      if (!isMountedRef.current) {
+        return;
+      }
+      activeAudioRef.current = null;
+      if (activeAudioUrlRef.current) {
+        URL.revokeObjectURL(activeAudioUrlRef.current);
+        activeAudioUrlRef.current = null;
+      }
+      setError("Adam could not play ElevenLabs audio, but the reply text is available below.");
+      resetToIdle("Adam replied in text-only mode.");
+    };
+
+    await audio.play();
+    return true;
   };
 
   const playReply = async (replyText: string, sessionId: string | null) => {
@@ -155,33 +252,25 @@ export const useAdamVoice = () => {
       }
 
       const ttsResponse: AdamTtsResponse = parsed.data;
-      if (
-        ttsResponse.supported &&
-        ttsResponse.playbackMode === "browser_speech_synthesis" &&
-        typeof window !== "undefined" &&
-        "speechSynthesis" in window
-      ) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(ttsResponse.text);
-        activeUtteranceRef.current = utterance;
-        setVoiceState("speaking");
-        setStatusMessage("Adam is speaking.");
-        utterance.onend = () => {
-          if (!isMountedRef.current) {
+      if (ttsResponse.supported && ttsResponse.playbackMode === "audio_data" && ttsResponse.audioBase64) {
+        try {
+          const played = await playAudioData(ttsResponse.audioBase64, ttsResponse.audioMimeType);
+          if (played) {
             return;
           }
-          activeUtteranceRef.current = null;
-          resetToIdle("Adam is ready for another turn.");
-        };
-        utterance.onerror = () => {
-          if (!isMountedRef.current) {
-            return;
-          }
-          activeUtteranceRef.current = null;
-          setError("Adam could not play audio back, but the reply text is available below.");
-          resetToIdle("Adam replied in text-only mode.");
-        };
-        window.speechSynthesis.speak(utterance);
+        } catch (audioError) {
+          console.warn("Adam ElevenLabs audio playback failed in the browser, attempting browser speech fallback.", {
+            error: audioError instanceof Error ? audioError.message : "unknown_error",
+            sessionId
+          });
+        }
+      }
+
+      if (ttsResponse.supported && ttsResponse.playbackMode === "browser_speech_synthesis" && playBrowserSpeechFallback(ttsResponse.text)) {
+        return;
+      }
+
+      if (playBrowserSpeechFallback(ttsResponse.text)) {
         return;
       }
 

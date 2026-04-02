@@ -4,11 +4,21 @@ import { useEffect, useRef, useState } from "react";
 
 import type {
   AdamChatResponse,
+  AdamConversationTurn,
   AdamTranscriptionResponse,
   AdamTtsResponse,
   AdamVoiceTurnState
 } from "@content-engine/shared";
 import { adamChatResponseSchema, adamTranscriptionResponseSchema, adamTtsResponseSchema } from "@content-engine/shared";
+
+import {
+  clearAdamConversationHistory,
+  clearAdamSessionId,
+  readAdamConversationHistory,
+  readAdamSessionId,
+  writeAdamConversationHistory,
+  writeAdamSessionId
+} from "../lib/adam-session";
 
 type RecognitionAlternative = {
   transcript: string;
@@ -91,6 +101,7 @@ export const useAdamVoice = () => {
   const didCancelListeningRef = useRef(false);
   const currentStateRef = useRef<AdamVoiceTurnState>("idle");
   const sessionIdRef = useRef<string | null>(null);
+  const conversationHistoryRef = useRef<AdamConversationTurn[]>([]);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
   const activeAudioUrlRef = useRef<string | null>(null);
@@ -102,6 +113,8 @@ export const useAdamVoice = () => {
 
   useEffect(() => {
     isMountedRef.current = true;
+    sessionIdRef.current = readAdamSessionId();
+    conversationHistoryRef.current = readAdamConversationHistory();
     setIsAudioPlaybackAvailable(
       typeof window !== "undefined" && ("speechSynthesis" in window || typeof Audio !== "undefined")
     );
@@ -331,6 +344,7 @@ export const useAdamVoice = () => {
         },
         body: JSON.stringify({
           sessionId: sessionIdRef.current ?? undefined,
+          history: conversationHistoryRef.current,
           inputMode: source === "browser_speech" ? "speech_text" : "text",
           currentState: currentStateRef.current,
           message: normalized.normalizedTranscript
@@ -348,6 +362,9 @@ export const useAdamVoice = () => {
 
       const chat: AdamChatResponse = parsedChat.data;
       sessionIdRef.current = chat.session.sessionId;
+      writeAdamSessionId(chat.session.sessionId);
+      conversationHistoryRef.current = chat.history ?? [];
+      writeAdamConversationHistory(conversationHistoryRef.current);
       setAssistantReply(chat.replyText);
       await playReply(chat.replyText, chat.session.sessionId);
     } catch (submitError) {
@@ -505,6 +522,10 @@ export const useAdamVoice = () => {
 
     setError(null);
     setAssistantReply("");
+    sessionIdRef.current = null;
+    conversationHistoryRef.current = [];
+    clearAdamSessionId();
+    clearAdamConversationHistory();
     setTextInput("");
     setTextFallbackOpen(false);
     resetListeningBuffers();

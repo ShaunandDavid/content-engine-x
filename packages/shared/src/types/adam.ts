@@ -22,6 +22,9 @@ import type {
   adamTextPlanningInputSchema,
   adamVoiceInputModeSchema,
   adamVoiceOutputModeSchema,
+  adamConversationMemorySchema,
+  adamConversationTurnRoleSchema,
+  adamConversationTurnSchema,
   adamChatRequestSchema,
   adamChatResponseSchema,
   adamTranscriptionRequestSchema,
@@ -61,6 +64,9 @@ export type AdamPlanningArtifact = z.infer<typeof adamPlanningArtifactSchema>;
 export type AdamVoiceTurnState = z.infer<typeof adamVoiceTurnStateSchema>;
 export type AdamVoiceInputMode = z.infer<typeof adamVoiceInputModeSchema>;
 export type AdamVoiceOutputMode = z.infer<typeof adamVoiceOutputModeSchema>;
+export type AdamConversationTurnRole = z.infer<typeof adamConversationTurnRoleSchema>;
+export type AdamConversationTurn = z.infer<typeof adamConversationTurnSchema>;
+export type AdamConversationMemory = z.infer<typeof adamConversationMemorySchema>;
 export type AdamVoiceSessionState = z.infer<typeof adamVoiceSessionStateSchema>;
 export type AdamChatRequest = z.infer<typeof adamChatRequestSchema>;
 export type AdamChatResponse = z.infer<typeof adamChatResponseSchema>;

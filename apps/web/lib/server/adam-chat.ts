@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  formatBrainContextForPrompt,
+  loadAdamBrain,
+  loadAdamBrainForProject
+} from "@content-engine/db";
+import type { AdamBrainInsight } from "@content-engine/db";
 import type { AdamChatRequest, AdamChatResponse } from "@content-engine/shared";
-import { adamChatResponseSchema, adamVoiceSessionStateSchema } from "@content-engine/shared";
+import { adamChatResponseSchema, adamConversationTurnSchema, adamVoiceSessionStateSchema } from "@content-engine/shared";
 
 import { getProjectWorkspaceOrDemo } from "./project-data";
 import { getAdamReviewDetails, getAdamReviewReadiness, getAdamWorkspaceDetail } from "./adam-project-data";
@@ -27,10 +33,51 @@ const buildProjectContext = (input: {
   ].join(" ");
 };
 
+const toErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
+
+const dedupeBrainInsights = (insights: AdamBrainInsight[]) => {
+  const map = new Map<string, AdamBrainInsight>();
+
+  for (const insight of insights) {
+    map.set(insight.id, insight);
+  }
+
+  return Array.from(map.values());
+};
+
+const loadBrainContext = async (projectId: string | null) => {
+  const [globalInsightsResult, projectInsightsResult] = await Promise.allSettled([
+    loadAdamBrain({ limit: 8 }),
+    projectId ? loadAdamBrainForProject(projectId, { limit: 8 }) : Promise.resolve([])
+  ]);
+
+  const errors: string[] = [];
+  const collectedInsights: AdamBrainInsight[] = [];
+
+  if (globalInsightsResult.status === "fulfilled") {
+    collectedInsights.push(...globalInsightsResult.value);
+  } else {
+    errors.push(toErrorMessage(globalInsightsResult.reason, "Failed to load global Adam brain context."));
+  }
+
+  if (projectInsightsResult.status === "fulfilled") {
+    collectedInsights.push(...projectInsightsResult.value);
+  } else {
+    errors.push(toErrorMessage(projectInsightsResult.reason, "Failed to load project Adam brain context."));
+  }
+
+  return {
+    brainContext: formatBrainContextForPrompt(dedupeBrainInsights(collectedInsights)),
+    brainError: errors.length > 0 ? errors.join(" ") : null
+  };
+};
+
 export const createAdamChatResponse = async (request: AdamChatRequest): Promise<AdamChatResponse> => {
   const sessionId = request.sessionId ?? randomUUID();
   const turnId = request.turnId ?? randomUUID();
   const now = new Date().toISOString();
+
+  const priorHistory = request.history ?? [];
 
   let replyText = "";
   let runId: string | null | undefined = null;
@@ -41,15 +88,22 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
   let provider = "local_fallback";
   let model = "local_fallback_v1";
   let usage: { inputTokens?: number | null; outputTokens?: number | null } | undefined;
+  let isFallback = false;
+  let fallbackReason: string | null = null;
+  let brainError: string | null = null;
+  let brainContext = "";
 
-  if (request.projectId) {
-    const workspace = await getProjectWorkspaceOrDemo(request.projectId);
+  if (projectId) {
+    const workspace = await getProjectWorkspaceOrDemo(projectId);
 
     if (!workspace) {
       state = "error";
       errorMessage = "Project not found for Adam voice context.";
       replyText = "I could not find the requested project context for Adam voice.";
-      projectId = request.projectId;
+      provider = "local_fallback";
+      model = "local_fallback_v1";
+      isFallback = true;
+      fallbackReason = "project_context_not_found";
     } else {
       const detail = await getAdamWorkspaceDetail(workspace);
       const readiness = getAdamReviewReadiness(detail);
@@ -66,9 +120,19 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
   }
 
   if (state !== "error") {
+    const brainContextResult = await loadBrainContext(projectId ?? null).catch((error) => ({
+      brainContext: "",
+      brainError: toErrorMessage(error, "Failed to load Adam brain context.")
+    }));
+
+    brainContext = brainContextResult.brainContext;
+    brainError = brainContextResult.brainError;
+
     const providerResult = await generateAdamReply({
       message: request.message,
+      conversationHistory: priorHistory,
       projectContext,
+      brainContext,
       systemPrompt: process.env.ADAM_SYSTEM_PROMPT
     });
 
@@ -76,7 +140,53 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
     provider = providerResult.provider;
     model = providerResult.model;
     usage = providerResult.usage;
+    isFallback = providerResult.isFallback;
+    fallbackReason = providerResult.fallbackReason;
   }
+
+  const userTurn = adamConversationTurnSchema.parse({
+    turnId,
+    role: "user",
+    content: request.message,
+    createdAt: now,
+    metadata: {
+      source: "adam_chat_v2",
+      inputMode: request.inputMode,
+      currentState: request.currentState ?? "idle"
+    }
+  });
+
+  const assistantTurn = adamConversationTurnSchema.parse({
+    turnId: randomUUID(),
+    role: "assistant",
+    content: replyText,
+    createdAt: now,
+    metadata: {
+      source: "adam_chat_v2",
+      provider,
+      model,
+      isFallback,
+      fallbackReason,
+      linkedRunId: runId ?? null
+    }
+  });
+
+  const nextHistory = [...(priorHistory ?? []), userTurn, assistantTurn];
+  const responseHistory = nextHistory;
+
+  const responseMetadata = {
+    source: "adam_chat_v2",
+    provider,
+    model,
+    usage: usage ?? null,
+    isFallback,
+    fallbackReason,
+    historyLength: responseHistory.length,
+    memoryStorage: "request_history",
+    memoryError: null,
+    brainError,
+    linkedRunId: runId ?? null
+  };
 
   const session = adamVoiceSessionStateSchema.parse({
     sessionId,
@@ -92,22 +202,19 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
     errorMessage,
     lastUpdatedAt: now,
     metadata: {
-      source: "adam_chat_v1",
-      currentState: request.currentState ?? "idle",
-      provider,
-      model,
-      usage: usage ?? null
+      ...responseMetadata,
+      currentState: request.currentState ?? "idle"
     }
   });
 
   return adamChatResponseSchema.parse({
     session,
     replyText,
-    metadata: {
-      source: "adam_chat_v1",
-      provider,
-      model,
-      usage: usage ?? null
-    }
+    provider,
+    model,
+    isFallback,
+    fallbackReason,
+    history: responseHistory,
+    metadata: responseMetadata
   });
 };

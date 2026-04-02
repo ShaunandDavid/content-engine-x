@@ -1,3 +1,5 @@
+import type { AdamConversationTurn } from "@content-engine/shared";
+
 type AdamProvider = "claude" | "gemini" | "openai" | "local_fallback";
 
 type AdamProviderUsage = {
@@ -7,7 +9,9 @@ type AdamProviderUsage = {
 
 type GenerateAdamReplyParams = {
   message: string;
+  conversationHistory?: AdamConversationTurn[];
   projectContext?: string | null;
+  brainContext?: string | null;
   systemPrompt?: string | null;
 };
 
@@ -17,6 +21,8 @@ type GenerateAdamReplyResult = {
   model: string;
   usage?: AdamProviderUsage;
   error?: string | null;
+  isFallback: boolean;
+  fallbackReason: string | null;
 };
 
 const DEFAULT_SYSTEM_PROMPT =
@@ -26,6 +32,7 @@ const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 const DEFAULT_PROVIDER_TIMEOUT_MS = 15000;
+const MAX_HISTORY_TURNS_FOR_MODEL = 12;
 
 const normalizePrimaryProvider = (value: string | undefined): "claude" | "gemini" | "openai" => {
   switch (value?.toLowerCase()) {
@@ -53,13 +60,24 @@ const getProviderOrder = (): Array<"claude" | "gemini" | "openai"> => {
   }
 };
 
-const buildUserPrompt = (params: GenerateAdamReplyParams) => {
-  const parts = [`User message:\n${params.message.trim()}`];
+const getConversationHistoryForModel = (history?: AdamConversationTurn[]) =>
+  (history ?? [])
+    .filter((turn) => turn.role === "user" || turn.role === "assistant")
+    .slice(-MAX_HISTORY_TURNS_FOR_MODEL);
+
+const buildSystemPrompt = (params: GenerateAdamReplyParams) =>
+  [params.systemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT, params.brainContext?.trim() || null]
+    .filter((value): value is string => Boolean(value))
+    .join("\n\n");
+
+const buildCurrentUserPrompt = (params: GenerateAdamReplyParams) => {
+  const parts: string[] = [];
 
   if (params.projectContext?.trim()) {
-    parts.push(`Project context:\n${params.projectContext.trim()}`);
+    parts.push(`Current project context:\n${params.projectContext.trim()}`);
   }
 
+  parts.push(`User message:\n${params.message.trim()}`);
   parts.push("Respond briefly in a voice-friendly style.");
 
   return parts.join("\n\n");
@@ -108,7 +126,13 @@ const parseJsonResponse = async <T>(response: Response): Promise<T> => {
   }
 };
 
-const createLocalFallbackReply = (params: GenerateAdamReplyParams, error: string | null): GenerateAdamReplyResult => {
+const createLocalFallbackReply = (
+  params: GenerateAdamReplyParams,
+  input: {
+    error: string | null;
+    attemptedProviders: Array<"claude" | "gemini" | "openai">;
+  }
+): GenerateAdamReplyResult => {
   const contextLine = params.projectContext?.trim()
     ? `Project context: ${params.projectContext.trim()}`
     : "No project context was available for this turn.";
@@ -117,7 +141,7 @@ const createLocalFallbackReply = (params: GenerateAdamReplyParams, error: string
     replyText: [
       `Adam fallback is active. I heard: "${params.message.trim()}".`,
       contextLine,
-      error ? `All configured providers failed. Last provider error: ${error}` : null
+      input.error ? `All configured providers failed. Last provider error: ${input.error}` : null
     ]
       .filter(Boolean)
       .join(" "),
@@ -127,9 +151,22 @@ const createLocalFallbackReply = (params: GenerateAdamReplyParams, error: string
       inputTokens: null,
       outputTokens: null
     },
-    error
+    error: input.error,
+    isFallback: true,
+    fallbackReason: input.error ?? `all_configured_providers_failed:${input.attemptedProviders.join(",")}`
   };
 };
+
+const createClaudeMessages = (params: GenerateAdamReplyParams) => [
+  ...getConversationHistoryForModel(params.conversationHistory).map((turn) => ({
+    role: turn.role,
+    content: turn.content
+  })),
+  {
+    role: "user" as const,
+    content: buildCurrentUserPrompt(params)
+  }
+];
 
 const createClaudeReply = async (params: GenerateAdamReplyParams): Promise<GenerateAdamReplyResult> => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -148,13 +185,8 @@ const createClaudeReply = async (params: GenerateAdamReplyParams): Promise<Gener
     body: JSON.stringify({
       model,
       max_tokens: 320,
-      system: params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: buildUserPrompt(params)
-        }
-      ]
+      system: buildSystemPrompt(params),
+      messages: createClaudeMessages(params)
     })
   });
 
@@ -188,9 +220,22 @@ const createClaudeReply = async (params: GenerateAdamReplyParams): Promise<Gener
       inputTokens: data.usage?.input_tokens ?? null,
       outputTokens: data.usage?.output_tokens ?? null
     },
-    error: null
+    error: null,
+    isFallback: false,
+    fallbackReason: null
   };
 };
+
+const createGeminiContents = (params: GenerateAdamReplyParams) => [
+  ...getConversationHistoryForModel(params.conversationHistory).map((turn) => ({
+    role: turn.role === "assistant" ? "model" : "user",
+    parts: [{ text: turn.content }]
+  })),
+  {
+    role: "user" as const,
+    parts: [{ text: buildCurrentUserPrompt(params) }]
+  }
+];
 
 const createGeminiReply = async (params: GenerateAdamReplyParams): Promise<GenerateAdamReplyResult> => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -209,14 +254,9 @@ const createGeminiReply = async (params: GenerateAdamReplyParams): Promise<Gener
       },
       body: JSON.stringify({
         systemInstruction: {
-          parts: [{ text: params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT }]
+          parts: [{ text: buildSystemPrompt(params) }]
         },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: buildUserPrompt(params) }]
-          }
-        ]
+        contents: createGeminiContents(params)
       })
     }
   );
@@ -261,9 +301,41 @@ const createGeminiReply = async (params: GenerateAdamReplyParams): Promise<Gener
       inputTokens: usage?.promptTokenCount ?? null,
       outputTokens: usage?.candidatesTokenCount ?? null
     },
-    error: null
+    error: null,
+    isFallback: false,
+    fallbackReason: null
   };
 };
+
+const createOpenAiInput = (params: GenerateAdamReplyParams) => [
+  {
+    role: "system" as const,
+    content: [
+      {
+        type: "input_text" as const,
+        text: buildSystemPrompt(params)
+      }
+    ]
+  },
+  ...getConversationHistoryForModel(params.conversationHistory).map((turn) => ({
+    role: turn.role,
+    content: [
+      {
+        type: "input_text" as const,
+        text: turn.content
+      }
+    ]
+  })),
+  {
+    role: "user" as const,
+    content: [
+      {
+        type: "input_text" as const,
+        text: buildCurrentUserPrompt(params)
+      }
+    ]
+  }
+];
 
 const createOpenAiReply = async (params: GenerateAdamReplyParams): Promise<GenerateAdamReplyResult> => {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -280,26 +352,7 @@ const createOpenAiReply = async (params: GenerateAdamReplyParams): Promise<Gener
     },
     body: JSON.stringify({
       model,
-      input: [
-        {
-          role: "system",
-          content: [
-            {
-              type: "input_text",
-              text: params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: buildUserPrompt(params)
-            }
-          ]
-        }
-      ]
+      input: createOpenAiInput(params)
     })
   });
 
@@ -347,7 +400,9 @@ const createOpenAiReply = async (params: GenerateAdamReplyParams): Promise<Gener
       inputTokens: data.usage?.input_tokens ?? null,
       outputTokens: data.usage?.output_tokens ?? null
     },
-    error: null
+    error: null,
+    isFallback: false,
+    fallbackReason: null
   };
 };
 
@@ -365,12 +420,16 @@ export type { AdamProvider, AdamProviderUsage, GenerateAdamReplyParams, Generate
 export const generateAdamReply = async (params: GenerateAdamReplyParams): Promise<GenerateAdamReplyResult> => {
   const normalizedParams: GenerateAdamReplyParams = {
     ...params,
+    conversationHistory: getConversationHistoryForModel(params.conversationHistory),
     systemPrompt: params.systemPrompt?.trim() || process.env.ADAM_SYSTEM_PROMPT || DEFAULT_SYSTEM_PROMPT
   };
 
   let lastError: string | null = null;
+  const attemptedProviders: Array<"claude" | "gemini" | "openai"> = [];
 
   for (const provider of getProviderOrder()) {
+    attemptedProviders.push(provider);
+
     try {
       return await providerHandlers[provider](normalizedParams);
     } catch (error) {
@@ -379,5 +438,8 @@ export const generateAdamReply = async (params: GenerateAdamReplyParams): Promis
     }
   }
 
-  return createLocalFallbackReply(normalizedParams, lastError);
+  return createLocalFallbackReply(normalizedParams, {
+    error: lastError,
+    attemptedProviders
+  });
 };

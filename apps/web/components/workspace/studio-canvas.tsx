@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import type { AdamConversationTurn } from "@content-engine/shared";
 import type { LiveRuntimeReadinessResult } from "../../lib/server/live-runtime-preflight";
 import type { ProjectIndexItem, ProjectsIndexResult } from "../../lib/server/projects-index";
+import {
+  readAdamConversationHistory,
+  readAdamSessionId,
+  writeAdamConversationHistory,
+  writeAdamSessionId
+} from "../../lib/adam-session";
 import { stageLabels } from "../../lib/dashboard-data";
 import {
   adamPlanRoute,
@@ -437,12 +444,16 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
       const position = getNextNodePosition(transform, nodes.length, viewportRef.current);
 
       if (composer.mode === "adam") {
+        const sessionId = readAdamSessionId();
+        const history = readAdamConversationHistory();
         const response = await fetch("/api/adam/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
+            sessionId: sessionId ?? undefined,
+            history,
             message: body,
             inputMode: "text",
             currentState: "idle",
@@ -451,13 +462,21 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
         });
         const payload = (await response.json()) as {
           replyText?: string;
-          session?: { metadata?: { provider?: string; model?: string } };
+          session?: { sessionId?: string; metadata?: { provider?: string; model?: string } };
+          history?: AdamConversationTurn[];
           metadata?: { provider?: string; model?: string };
           message?: string;
         };
 
         if (!response.ok || !payload.replyText) {
           throw new Error(payload.message ?? "Adam could not shape that prompt right now.");
+        }
+
+        if (typeof payload.session?.sessionId === "string") {
+          writeAdamSessionId(payload.session.sessionId);
+        }
+        if (Array.isArray(payload.history)) {
+          writeAdamConversationHistory(payload.history);
         }
 
         const replyText = payload.replyText;

@@ -248,9 +248,34 @@ export const adamVoiceRequestSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
+export const adamConversationTurnRoleSchema = z.enum(["user", "assistant"]);
+
+export const adamConversationTurnSchema = z.object({
+  turnId: z.string().uuid(),
+  role: adamConversationTurnRoleSchema,
+  content: z.string().min(1).max(4000),
+  createdAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown()).default({})
+});
+
+export const adamConversationMemorySchema = z.object({
+  sessionId: z.string().uuid(),
+  projectId: z.string().uuid().nullish(),
+  linkedRunId: z.string().uuid().nullish(),
+  history: z.array(adamConversationTurnSchema),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  metadata: z.record(z.string(), z.unknown()).default({})
+});
+
 export const adamVoiceResponseSchema = z.object({
   session: adamVoiceSessionStateSchema,
   replyText: z.string().min(1),
+  provider: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  isFallback: z.boolean().optional(),
+  fallbackReason: z.string().nullish(),
+  history: z.array(adamConversationTurnSchema).optional(),
   metadata: z.record(z.string(), z.unknown())
 });
 
@@ -261,12 +286,18 @@ export const adamChatRequestSchema = z.object({
   inputMode: adamVoiceInputModeSchema.default("text"),
   currentState: adamVoiceTurnStateSchema.optional(),
   message: z.string().min(1).max(4000),
+  history: z.array(adamConversationTurnSchema).max(40).optional(),
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
 export const adamChatResponseSchema = z.object({
   session: adamVoiceSessionStateSchema,
   replyText: z.string().min(1),
+  provider: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  isFallback: z.boolean().optional(),
+  fallbackReason: z.string().nullish(),
+  history: z.array(adamConversationTurnSchema).optional(),
   metadata: z.record(z.string(), z.unknown())
 });
 

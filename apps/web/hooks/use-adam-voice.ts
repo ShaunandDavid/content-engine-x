@@ -100,6 +100,44 @@ const createObjectUrlFromBase64 = (audioData: string, mimeType: string) => {
   return URL.createObjectURL(blob);
 };
 
+const createDataUrlFromBase64 = (audioData: string, mimeType: string) => `data:${mimeType};base64,${audioData}`;
+
+const getTtsMetadataString = (response: AdamTtsResponse, key: string) => {
+  const value = response.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
+const writeAscii = (view: DataView, offset: number, value: string) => {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
+};
+
+const createSilentWavObjectUrl = (durationMs = 120) => {
+  const sampleRate = 8000;
+  const sampleCount = Math.max(1, Math.floor((sampleRate * durationMs) / 1000));
+  const bytesPerSample = 2;
+  const dataLength = sampleCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, "data");
+  view.setUint32(40, dataLength, true);
+
+  return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+};
+
 export const useAdamVoice = () => {
   const [voiceState, setVoiceState] = useState<AdamVoiceTurnState>("idle");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -125,6 +163,7 @@ export const useAdamVoice = () => {
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const activeAudioElementRef = useRef<HTMLAudioElement | null>(null);
   const activeAudioUrlRef = useRef<string | null>(null);
+  const playbackUnlockedRef = useRef(false);
   const isMountedRef = useRef(true);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -135,6 +174,7 @@ export const useAdamVoice = () => {
   const analyserFrameRef = useRef<number | null>(null);
   const speechBoundaryPulseRef = useRef(0.18);
   const speechBoundaryFrameRef = useRef<number | null>(null);
+  const playbackCadenceCleanupRef = useRef<(() => void) | null>(null);
 
   const setVoiceTurnState = (nextState: AdamVoiceTurnState) => {
     currentStateRef.current = nextState;
@@ -178,10 +218,9 @@ export const useAdamVoice = () => {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
-      activeAudioElementRef.current?.pause();
-      if (activeAudioUrlRef.current) {
-        URL.revokeObjectURL(activeAudioUrlRef.current);
-      }
+      stopActiveAudioElement();
+      activeAudioElementRef.current?.remove();
+      activeAudioElementRef.current = null;
       if (analyserFrameRef.current !== null) {
         window.cancelAnimationFrame(analyserFrameRef.current);
       }
@@ -201,6 +240,9 @@ export const useAdamVoice = () => {
   };
 
   const stopSignalLoops = () => {
+    playbackCadenceCleanupRef.current?.();
+    playbackCadenceCleanupRef.current = null;
+
     if (analyserFrameRef.current !== null) {
       window.cancelAnimationFrame(analyserFrameRef.current);
       analyserFrameRef.current = null;
@@ -239,14 +281,65 @@ export const useAdamVoice = () => {
   const stopActiveAudioElement = () => {
     const currentAudio = activeAudioElementRef.current;
     if (currentAudio) {
+      currentAudio.onended = null;
+      currentAudio.onerror = null;
+      currentAudio.onplaying = null;
+      currentAudio.ontimeupdate = null;
       currentAudio.pause();
+      currentAudio.currentTime = 0;
       currentAudio.src = "";
-      activeAudioElementRef.current = null;
+      currentAudio.load();
     }
 
     if (activeAudioUrlRef.current) {
       URL.revokeObjectURL(activeAudioUrlRef.current);
       activeAudioUrlRef.current = null;
+    }
+  };
+
+  const getOrCreateAudioElement = () => {
+    if (activeAudioElementRef.current) {
+      return activeAudioElementRef.current;
+    }
+
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return null;
+    }
+
+    const audioElement = document.createElement("audio");
+    audioElement.preload = "auto";
+    audioElement.crossOrigin = "anonymous";
+    audioElement.setAttribute("playsinline", "");
+    audioElement.setAttribute("webkit-playsinline", "");
+    audioElement.style.display = "none";
+    document.body.appendChild(audioElement);
+    activeAudioElementRef.current = audioElement;
+    return audioElement;
+  };
+
+  const primeAudioPlaybackForGesture = async () => {
+    const audioElement = getOrCreateAudioElement();
+    if (!audioElement || playbackUnlockedRef.current) {
+      return;
+    }
+
+    const silentAudioUrl = createSilentWavObjectUrl();
+
+    try {
+      audioElement.muted = true;
+      audioElement.src = silentAudioUrl;
+      audioElement.currentTime = 0;
+      await audioElement.play();
+      audioElement.pause();
+      audioElement.currentTime = 0;
+      playbackUnlockedRef.current = true;
+    } catch {
+      playbackUnlockedRef.current = false;
+    } finally {
+      audioElement.muted = false;
+      audioElement.src = "";
+      audioElement.load();
+      URL.revokeObjectURL(silentAudioUrl);
     }
   };
 
@@ -277,7 +370,7 @@ export const useAdamVoice = () => {
     applyErrorSignal();
   };
 
-  const startSpeechBoundaryCadence = () => {
+  const startCadenceSignal = (source: AdamOrbSignalSource) => {
     stopSignalLoops();
     speechBoundaryPulseRef.current = 0.28;
 
@@ -288,7 +381,7 @@ export const useAdamVoice = () => {
         return;
       }
 
-      setOrbSignalSource("speech_boundary_cadence");
+      setOrbSignalSource(source);
       setOrbSignalLevel(clampSignal(0.26 + speechBoundaryPulseRef.current * 0.72));
       speechBoundaryFrameRef.current = window.requestAnimationFrame(animateCadence);
     };
@@ -352,55 +445,18 @@ export const useAdamVoice = () => {
     }
   };
 
-  const startAudioPlaybackSignalMonitoring = async (audioElement: HTMLAudioElement) => {
-    const AudioContextConstructor = getAudioContextConstructor();
-    if (!AudioContextConstructor) {
-      applySpeakingFallbackSignal();
-      return;
-    }
+  const startAudioPlaybackSignalMonitoring = (audioElement: HTMLAudioElement) => {
+    startCadenceSignal("tts_playback_cadence");
+    const pulseCadence = () => {
+      speechBoundaryPulseRef.current = 1;
+    };
 
-    try {
-      teardownAudioGraph();
-      const audioContext = new AudioContextConstructor();
-      if (audioContext.state === "suspended") {
-        await audioContext.resume();
-      }
-
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.78;
-
-      const source = audioContext.createMediaElementSource(audioElement);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-
-      audioContextRef.current = audioContext;
-      analyserNodeRef.current = analyser;
-      analyserDataRef.current = new Uint8Array(analyser.fftSize);
-      mediaElementSourceRef.current = source;
-
-      const tick = () => {
-        const data = analyserDataRef.current;
-        const node = analyserNodeRef.current;
-
-        if (!data || !node || !isMountedRef.current || currentStateRef.current !== "speaking") {
-          analyserFrameRef.current = null;
-          return;
-        }
-
-        node.getByteFrequencyData(data);
-        const averageMagnitude =
-          data.reduce((sum, value) => sum + value, 0) / Math.max(1, data.length * 255);
-
-        setOrbSignalSource("tts_audio_rms");
-        setOrbSignalLevel(clampSignal(0.22 + averageMagnitude * 1.18));
-        analyserFrameRef.current = window.requestAnimationFrame(tick);
-      };
-
-      tick();
-    } catch {
-      applySpeakingFallbackSignal();
-    }
+    audioElement.onplaying = pulseCadence;
+    audioElement.ontimeupdate = pulseCadence;
+    playbackCadenceCleanupRef.current = () => {
+      audioElement.onplaying = null;
+      audioElement.ontimeupdate = null;
+    };
   };
 
   const interruptPlayback = () => {
@@ -435,8 +491,7 @@ export const useAdamVoice = () => {
       }
 
       const ttsResponse: AdamTtsResponse = parsed.data;
-      setPlaybackMode(ttsResponse.playbackMode);
-      setPlaybackMessage(ttsResponse.message);
+      const selectedVoiceName = getTtsMetadataString(ttsResponse, "voiceName") ?? ttsResponse.voiceHint ?? "Will";
 
       if (
         ttsResponse.supported &&
@@ -445,15 +500,59 @@ export const useAdamVoice = () => {
         ttsResponse.audioMimeType &&
         typeof window !== "undefined"
       ) {
+        const audioElement = getOrCreateAudioElement();
+        if (!audioElement) {
+          throw new Error("Server audio is unavailable in this browser runtime.");
+        }
+
+        stopActiveAudioElement();
         const audioUrl = createObjectUrlFromBase64(ttsResponse.audioData, ttsResponse.audioMimeType);
-        const audioElement = new Audio(audioUrl);
+        const dataUrl = createDataUrlFromBase64(ttsResponse.audioData, ttsResponse.audioMimeType);
         activeAudioUrlRef.current = audioUrl;
-        activeAudioElementRef.current = audioElement;
+        setPlaybackMode("audio_data");
+        setPlaybackMessage("Adam prepared server audio and is starting playback on this device.");
         setVoiceTurnState("speaking");
         setStatusMessage("Adam is speaking.");
         setError(null);
         applySpeakingFallbackSignal();
-        void startAudioPlaybackSignalMonitoring(audioElement);
+
+        const markPlaybackStarted = () => {
+          playbackUnlockedRef.current = true;
+          startAudioPlaybackSignalMonitoring(audioElement);
+          setPlaybackMessage(`Playing Adam through ElevenLabs using ${selectedVoiceName}.`);
+        };
+
+        const finalizePlaybackFailure = () => {
+          stopPlaybackInfrastructure();
+          setPlaybackMessage(
+            `${selectedVoiceName} server audio was generated, but this device could not play it. Adam's reply is still available in text.`
+          );
+          setError("This device blocked server-audio playback. Tap again to retry audio on a fresh gesture.");
+          resetToIdle("Adam replied in text while playback was blocked.");
+        };
+
+        const playAudioSource = async (sourceUrl: string) => {
+          audioElement.src = sourceUrl;
+          audioElement.muted = false;
+          audioElement.currentTime = 0;
+          audioElement.load();
+          await new Promise<void>((resolve, reject) => {
+            const timeoutHandle = window.setTimeout(() => {
+              reject(new Error("Adam audio playback timed out before the device accepted the source."));
+            }, 6000);
+
+            audioElement
+              .play()
+              .then(() => {
+                window.clearTimeout(timeoutHandle);
+                resolve();
+              })
+              .catch((playbackError) => {
+                window.clearTimeout(timeoutHandle);
+                reject(playbackError);
+              });
+          });
+        };
 
         audioElement.onended = () => {
           if (!isMountedRef.current) {
@@ -470,14 +569,23 @@ export const useAdamVoice = () => {
             return;
           }
 
-          stopPlaybackInfrastructure();
-          setPlaybackMode("none");
-          setError("Adam could not play the server audio, but the reply text is available below.");
-          resetToIdle("Adam replied in text-only mode.");
+          finalizePlaybackFailure();
         };
 
-        await audioElement.play();
-        return;
+        try {
+          await playAudioSource(audioUrl);
+          markPlaybackStarted();
+          return;
+        } catch {
+          try {
+            await playAudioSource(dataUrl);
+            markPlaybackStarted();
+            return;
+          } catch {
+            finalizePlaybackFailure();
+            return;
+          }
+        }
       }
 
       if (
@@ -489,11 +597,13 @@ export const useAdamVoice = () => {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(ttsResponse.text);
         activeUtteranceRef.current = utterance;
+        setPlaybackMode("browser_speech_synthesis");
+        setPlaybackMessage(ttsResponse.message);
         setVoiceTurnState("speaking");
         setStatusMessage("Adam is speaking.");
         setError(null);
         applySpeakingFallbackSignal();
-        startSpeechBoundaryCadence();
+        startCadenceSignal("speech_boundary_cadence");
 
         utterance.onboundary = () => {
           speechBoundaryPulseRef.current = 1;
@@ -523,11 +633,13 @@ export const useAdamVoice = () => {
       }
 
       setPlaybackMode("none");
+      setPlaybackMessage("Adam replied in text-only mode.");
       resetToIdle("Adam replied in text-only mode.");
     } catch (playbackError) {
+      const message = playbackError instanceof Error ? playbackError.message : "Adam playback failed.";
       setPlaybackMode("none");
-      setPlaybackMessage("Playback fell back to text-only mode.");
-      setError(playbackError instanceof Error ? playbackError.message : "Adam playback failed.");
+      setPlaybackMessage("Adam prepared a reply, but playback could not start on this device.");
+      setError(message);
       resetToIdle("Adam replied in text-only mode.");
     }
   };
@@ -769,6 +881,7 @@ export const useAdamVoice = () => {
   };
 
   const submitTextFallback = async () => {
+    await primeAudioPlaybackForGesture();
     const didSubmit = await submitTranscript(textInput, "text_fallback");
     if (didSubmit) {
       setTextInput("");
@@ -797,8 +910,9 @@ export const useAdamVoice = () => {
     resetToIdle();
   };
 
-  const handleOrbPress = () => {
+  const handleOrbPress = async () => {
     if (voiceState === "idle" || voiceState === "error") {
+      await primeAudioPlaybackForGesture();
       void startListening();
       return;
     }
@@ -821,6 +935,8 @@ export const useAdamVoice = () => {
       : voiceState === "speaking"
         ? orbSignalSource === "tts_audio_rms"
           ? "Orb signal is tracking real server audio energy."
+          : orbSignalSource === "tts_playback_cadence"
+            ? "Orb signal is following live server-audio playback cadence on the mobile-safe playback path."
           : orbSignalSource === "speech_boundary_cadence"
             ? "Orb signal is following browser speech cadence because server audio data is not active."
             : "Orb signal is using a speaking-state fallback."

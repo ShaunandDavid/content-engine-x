@@ -15,6 +15,19 @@ const KNOWN_ELEVENLABS_VOICE_NAMES: Record<string, string> = {
   JBFqnCBsd6RMkjVDRZzb: "George",
   bIHbv24MWmeRgasZH58o: "Will"
 };
+const SPEECH_EXCERPT_LIMITS = [220, 160, 120];
+
+class ElevenLabsSynthesisError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super(`ElevenLabs synthesis failed with status ${status}.${detail ? ` ${detail}` : ""}`);
+    this.name = "ElevenLabsSynthesisError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
 
 const maskIdentifier = (value: string | null | undefined) => {
   if (!value) {
@@ -196,6 +209,38 @@ const createDirectVoiceSelection = (voiceId: string, preferredVoice?: string) =>
   category: "configured"
 });
 
+const createSpeechExcerpt = (text: string, maxChars: number) => {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+
+  const candidate = normalized.slice(0, maxChars + 1);
+  const sentenceBoundary = Math.max(candidate.lastIndexOf(". "), candidate.lastIndexOf("! "), candidate.lastIndexOf("? "));
+  if (sentenceBoundary >= Math.floor(maxChars * 0.55)) {
+    return candidate.slice(0, sentenceBoundary + 1).trim();
+  }
+
+  const wordBoundary = candidate.lastIndexOf(" ");
+  const trimmed = (wordBoundary >= Math.floor(maxChars * 0.7) ? candidate.slice(0, wordBoundary) : candidate.slice(0, maxChars)).trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+};
+
+const isQuotaExceededError = (error: unknown) =>
+  error instanceof ElevenLabsSynthesisError && /quota_exceeded/i.test(error.detail);
+
+const extractQuotaDetails = (detail: string) => {
+  const match = detail.match(/You have (\d+) credits remaining, while (\d+) credits are required/i);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    remainingCredits: Number(match[1]),
+    requiredCredits: Number(match[2])
+  };
+};
+
 const synthesizeWithElevenLabs = async ({
   apiKey,
   voiceId,
@@ -223,7 +268,8 @@ const synthesizeWithElevenLabs = async ({
   });
 
   if (!response.ok) {
-    throw new Error(`ElevenLabs synthesis failed with status ${response.status}.`);
+    const failureDetail = await response.text();
+    throw new ElevenLabsSynthesisError(response.status, failureDetail);
   }
 
   const audioBuffer = Buffer.from(await response.arrayBuffer());
@@ -237,11 +283,83 @@ const synthesizeWithElevenLabs = async ({
   };
 };
 
+const synthesizeWithCreditAwareFallback = async ({
+  apiKey,
+  voiceId,
+  modelId,
+  outputFormat,
+  text
+}: {
+  apiKey: string;
+  voiceId: string;
+  modelId: string;
+  outputFormat: string;
+  text: string;
+}) => {
+  try {
+    const synthesis = await synthesizeWithElevenLabs({
+      apiKey,
+      voiceId,
+      modelId,
+      outputFormat,
+      text
+    });
+
+    return {
+      ...synthesis,
+      spokenText: text,
+      spokenTextTruncated: false,
+      truncationReason: null
+    };
+  } catch (error) {
+    if (!isQuotaExceededError(error)) {
+      throw error;
+    }
+
+    const attemptedTexts = new Set<string>([text]);
+    let lastQuotaError: unknown = error;
+
+    for (const limit of SPEECH_EXCERPT_LIMITS) {
+      const spokenExcerpt = createSpeechExcerpt(text, limit);
+      if (!spokenExcerpt || attemptedTexts.has(spokenExcerpt)) {
+        continue;
+      }
+
+      attemptedTexts.add(spokenExcerpt);
+
+      try {
+        const synthesis = await synthesizeWithElevenLabs({
+          apiKey,
+          voiceId,
+          modelId,
+          outputFormat,
+          text: spokenExcerpt
+        });
+
+        return {
+          ...synthesis,
+          spokenText: spokenExcerpt,
+          spokenTextTruncated: true,
+          truncationReason: "elevenlabs_quota_exceeded"
+        };
+      } catch (retryError) {
+        if (!isQuotaExceededError(retryError)) {
+          throw retryError;
+        }
+
+        lastQuotaError = retryError;
+      }
+    }
+
+    throw lastQuotaError;
+  }
+};
+
 export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<AdamTtsResponse> => {
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   const configuredVoiceId = getConfiguredVoiceId();
   const configuredVoiceName = getConfiguredVoiceName(configuredVoiceId);
-  const modelId = process.env.ELEVENLABS_MODEL_ID?.trim() || "eleven_multilingual_v2";
+  const modelId = process.env.ELEVENLABS_MODEL_ID?.trim() || "eleven_flash_v2_5";
   const outputFormat = process.env.ELEVENLABS_OUTPUT_FORMAT?.trim() || "mp3_44100_128";
 
   if (!apiKey) {
@@ -263,7 +381,8 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
   try {
     if (configuredVoiceId) {
       selectedVoice = createDirectVoiceSelection(configuredVoiceId, request.preferredVoice);
-      const { audioData, audioMimeType } = await synthesizeWithElevenLabs({
+      const { audioData, audioMimeType, spokenText, spokenTextTruncated, truncationReason } =
+        await synthesizeWithCreditAwareFallback({
         apiKey,
         voiceId: configuredVoiceId,
         modelId,
@@ -274,11 +393,13 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
       return adamTtsResponseSchema.parse({
         supported: true,
         playbackMode: "audio_data",
-        text: request.text,
+        text: spokenText,
         voiceHint: request.preferredVoice ?? configuredVoiceName ?? maskIdentifier(configuredVoiceId),
         audioData,
         audioMimeType,
-        message: `Server audio is ready through ElevenLabs using ${configuredVoiceName ?? "the configured Adam voice"}.`,
+        message: spokenTextTruncated
+          ? `Server audio is ready through ElevenLabs using ${configuredVoiceName ?? "the configured Adam voice"} with a shortened spoken version to fit the current ElevenLabs credit budget.`
+          : `Server audio is ready through ElevenLabs using ${configuredVoiceName ?? "the configured Adam voice"}.`,
         metadata: {
           source: "adam_tts_v1",
           provider: "elevenlabs",
@@ -288,7 +409,11 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
           voiceSelection: "configured_direct",
           voiceIdMasked: maskIdentifier(configuredVoiceId),
           voiceName: request.preferredVoice ?? configuredVoiceName ?? null,
-          voiceCategory: "configured"
+          voiceCategory: "configured",
+          spokenTextTruncated,
+          spokenTextLength: spokenText.length,
+          originalTextLength: request.text.length,
+          truncationReason
         }
       });
     }
@@ -307,7 +432,8 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
       });
     }
 
-    const { audioData, audioMimeType } = await synthesizeWithElevenLabs({
+    const { audioData, audioMimeType, spokenText, spokenTextTruncated, truncationReason } =
+      await synthesizeWithCreditAwareFallback({
       apiKey,
       voiceId: selectedVoice.voice_id,
       modelId,
@@ -318,11 +444,13 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
     return adamTtsResponseSchema.parse({
       supported: true,
       playbackMode: "audio_data",
-      text: request.text,
+      text: spokenText,
       voiceHint: selectedVoice.name ?? request.preferredVoice ?? maskIdentifier(selectedVoice.voice_id),
       audioData,
       audioMimeType,
-      message: `Server audio is ready through ElevenLabs using ${selectedVoice.name ?? "the selected voice"}.`,
+      message: spokenTextTruncated
+        ? `Server audio is ready through ElevenLabs using ${selectedVoice.name ?? "the selected voice"} with a shortened spoken version to fit the current ElevenLabs credit budget.`
+        : `Server audio is ready through ElevenLabs using ${selectedVoice.name ?? "the selected voice"}.`,
       metadata: {
         source: "adam_tts_v1",
         provider: "elevenlabs",
@@ -332,18 +460,29 @@ export const createAdamTtsResponse = async (request: AdamTtsRequest): Promise<Ad
         voiceSelection: configuredVoiceId ? "configured_or_ranked" : "ranked_from_available_voices",
         voiceIdMasked: maskIdentifier(selectedVoice.voice_id),
         voiceName: selectedVoice.name ?? null,
-        voiceCategory: selectedVoice.category ?? null
+        voiceCategory: selectedVoice.category ?? null,
+        spokenTextTruncated,
+        spokenTextLength: spokenText.length,
+        originalTextLength: request.text.length,
+        truncationReason
       }
     });
   } catch (error) {
+    const quotaDetails =
+      error instanceof ElevenLabsSynthesisError ? extractQuotaDetails(error.detail) : null;
+
     return createBrowserSpeechFallback(request, {
-      message: "ElevenLabs could not finish Adam audio, so browser speech playback is active instead.",
-      fallbackReason: "elevenlabs_synthesis_failed",
+      message: quotaDetails
+        ? `${selectedVoice?.name ?? configuredVoiceName ?? "Will"} is selected for Adam, but this ElevenLabs account only has ${quotaDetails.remainingCredits} credits left and this reply needs ${quotaDetails.requiredCredits}, so browser speech playback is active instead.`
+        : "ElevenLabs could not finish Adam audio, so browser speech playback is active instead.",
+      fallbackReason: quotaDetails ? "elevenlabs_quota_exceeded" : "elevenlabs_synthesis_failed",
       voiceHint: selectedVoice?.name ?? request.preferredVoice ?? configuredVoiceName ?? configuredVoiceId ?? "default",
       metadata: {
         attemptedVoiceIdMasked: maskIdentifier(selectedVoice?.voice_id ?? configuredVoiceId),
         attemptedVoiceName: selectedVoice?.name ?? configuredVoiceName ?? null,
-        elevenlabsFailure: error instanceof Error ? error.message : "unknown_error"
+        elevenlabsFailure: error instanceof Error ? error.message : "unknown_error",
+        elevenlabsRemainingCredits: quotaDetails?.remainingCredits ?? null,
+        elevenlabsRequiredCredits: quotaDetails?.requiredCredits ?? null
       }
     });
   }

@@ -169,7 +169,7 @@ test("createAdamTtsResponse returns audio data when ElevenLabs responds successf
 
   process.env.ELEVENLABS_API_KEY = "test-elevenlabs-key";
   process.env.ELEVENLABS_VOICE_ID = "voice-1";
-  process.env.ELEVENLABS_MODEL_ID = "eleven_multilingual_v2";
+  process.env.ELEVENLABS_MODEL_ID = "eleven_flash_v2_5";
   process.env.ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
 
   global.fetch = async (url, options = {}) => {
@@ -206,6 +206,92 @@ test("createAdamTtsResponse returns audio data when ElevenLabs responds successf
     assert.equal(result.audioMimeType, "audio/mpeg");
     assert.equal(result.audioData, Buffer.from([1, 2, 3, 4]).toString("base64"));
     assert.match(result.message, /configured Adam voice/i);
+  } finally {
+    global.fetch = originalFetch;
+
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
+test("createAdamTtsResponse retries with a shortened spoken version when ElevenLabs quota is exceeded", async () => {
+  const originalEnv = {
+    ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+    ELEVENLABS_VOICE_ID: process.env.ELEVENLABS_VOICE_ID,
+    ELEVENLABS_VOICE_NAME: process.env.ELEVENLABS_VOICE_NAME,
+    ELEVENLABS_MODEL_ID: process.env.ELEVENLABS_MODEL_ID,
+    ELEVENLABS_OUTPUT_FORMAT: process.env.ELEVENLABS_OUTPUT_FORMAT
+  };
+  const originalFetch = global.fetch;
+  const fetchCalls = [];
+
+  process.env.ELEVENLABS_API_KEY = "test-elevenlabs-key";
+  process.env.ELEVENLABS_VOICE_ID = "bIHbv24MWmeRgasZH58o";
+  process.env.ELEVENLABS_VOICE_NAME = "Will";
+  process.env.ELEVENLABS_MODEL_ID = "eleven_flash_v2_5";
+  process.env.ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
+
+  global.fetch = async (url, options = {}) => {
+    fetchCalls.push({ url, options });
+
+    if (fetchCalls.length === 1) {
+      return {
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({
+            detail: {
+              status: "quota_exceeded",
+              message: "This request exceeds your quota."
+            }
+          })
+      };
+    }
+
+    if (String(url).includes("/v1/text-to-speech/bIHbv24MWmeRgasZH58o")) {
+      return {
+        ok: true,
+        headers: {
+          get: () => "audio/mpeg"
+        },
+        arrayBuffer: async () => Uint8Array.from([5, 6, 7, 8]).buffer
+      };
+    }
+
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  };
+
+  try {
+    const loadTsModule = createTsModuleLoader({
+      "@content-engine/shared": sharedMocks
+    });
+    const module = loadTsModule(helperFile);
+    const longText =
+      "Adam serves as your project's central intelligence, instantly understanding where your team stands and what needs attention next. " +
+      "I help translate complex project states into clear, actionable guidance that every team member can quickly grasp and act on. " +
+      "When decisions need to be made, I provide the context and options your team needs without overwhelming detail or lengthy explanations.";
+
+    const result = await module.createAdamTtsResponse({
+      text: longText
+    });
+
+    assert.equal(fetchCalls.length, 2);
+    const retriedPayload = JSON.parse(fetchCalls[1].options.body);
+    assert.ok(retriedPayload.text.length < longText.length);
+    assert.equal(result.playbackMode, "audio_data");
+    assert.equal(result.metadata.provider, "elevenlabs");
+    assert.equal(result.metadata.voiceName, "Will");
+    assert.equal(result.metadata.spokenTextTruncated, true);
+    assert.equal(result.metadata.originalTextLength, longText.length);
+    assert.equal(result.metadata.truncationReason, "elevenlabs_quota_exceeded");
+    assert.equal(result.text, retriedPayload.text);
+    assert.equal(result.audioData, Buffer.from([5, 6, 7, 8]).toString("base64"));
+    assert.match(result.message, /shortened spoken version/i);
   } finally {
     global.fetch = originalFetch;
 

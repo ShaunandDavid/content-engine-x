@@ -3,7 +3,13 @@
 import type { CSSProperties, PointerEvent } from "react";
 
 export type AdamState = "idle" | "listening" | "thinking" | "speaking" | "error";
-export type AdamOrbSignalSource = "idle_motion" | "microphone_rms" | "speech_boundary_cadence" | "tts_audio_rms" | "state_only";
+export type AdamOrbSignalSource =
+  | "idle_motion"
+  | "microphone_rms"
+  | "speech_boundary_cadence"
+  | "tts_audio_rms"
+  | "tts_playback_cadence"
+  | "state_only";
 
 const clampSignal = (value: number) => Math.min(1, Math.max(0.08, value));
 
@@ -68,8 +74,11 @@ export const AdamOrb = ({
         <span className="adam-orb__backlight" aria-hidden="true" />
         <span className="adam-orb__halo adam-orb__halo--outer" aria-hidden="true" />
         <span className="adam-orb__halo adam-orb__halo--mid" aria-hidden="true" />
+        <span className="adam-orb__halo adam-orb__halo--inner" aria-hidden="true" />
         <span className="adam-orb__shell" aria-hidden="true">
-          <span className="adam-orb__plasma" />
+          <span className="adam-orb__plasma adam-orb__plasma--primary" />
+          <span className="adam-orb__plasma adam-orb__plasma--secondary" />
+          <span className="adam-orb__caustic" />
           <span className="adam-orb__ring adam-orb__ring--major" />
           <span className="adam-orb__ring adam-orb__ring--minor" />
           <span className="adam-orb__mesh" />

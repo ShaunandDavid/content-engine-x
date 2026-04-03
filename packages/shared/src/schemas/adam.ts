@@ -293,9 +293,11 @@ export const adamTtsRequestSchema = z.object({
 
 export const adamTtsResponseSchema = z.object({
   supported: z.boolean(),
-  playbackMode: z.enum(["browser_speech_synthesis", "none"]),
+  playbackMode: z.enum(["audio_data", "browser_speech_synthesis", "none"]),
   text: z.string().min(1).max(4000),
   voiceHint: z.string().min(1).max(120).nullish(),
+  audioData: z.string().min(1).optional(),
+  audioMimeType: z.string().min(1).optional(),
   message: z.string().min(1),
   metadata: z.record(z.string(), z.unknown())
 });
@@ -343,5 +345,3 @@ export const adamLangGraphRuntimeStateSchema = z.object({
   errors: z.array(z.string()),
   metadata: z.record(z.string(), z.unknown())
 });
-
-

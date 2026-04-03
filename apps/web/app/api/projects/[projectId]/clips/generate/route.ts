@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { generateProjectClips } from "../../../../../../lib/server/clip-generation";
+import { ClipGenerationBlockingError, generateProjectClips } from "../../../../../../lib/server/clip-generation";
 import { LiveRuntimePreflightError } from "../../../../../../lib/server/live-runtime-preflight";
 
 export const runtime = "nodejs";
@@ -23,6 +23,16 @@ export async function POST(
           readiness: error.readiness
         },
         { status: 503 }
+      );
+    }
+
+    if (error instanceof ClipGenerationBlockingError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+          blockingIssues: error.blockingIssues
+        },
+        { status: error.statusCode }
       );
     }
 

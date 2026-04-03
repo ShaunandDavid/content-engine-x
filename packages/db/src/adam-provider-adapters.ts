@@ -35,21 +35,21 @@ export const adamProviderAdapters: Record<AdamRouterProvider, AdamProviderAdapte
     provider: "openai",
     label: "OpenAI / GPT",
     defaultModel: "gpt-default",
-    supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+    supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "voice_response", "feedback_summary", "general"],
     selectionBasis: "Compatibility default provider for the current single-model Adam flow."
   }),
   anthropic: createAdapter({
     provider: "anthropic",
     label: "Anthropic / Claude",
     defaultModel: "claude-default",
-    supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+    supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
     selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out."
   }),
   google: createAdapter({
     provider: "google",
     label: "Google / Gemini",
     defaultModel: "gemini-default",
-    supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+    supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
     selectionBasis: "Available as an explicit alternate provider behind the same routing boundary."
   })
 };

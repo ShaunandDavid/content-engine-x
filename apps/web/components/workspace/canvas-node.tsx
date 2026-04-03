@@ -4,7 +4,15 @@ import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 type NodeViewState = "compact" | "expanded" | "pinned";
 
-type CanvasNodeProps = {
+type LegacyCanvasNodeProps = {
+  id: string;
+  initialX: number;
+  initialY: number;
+  title: string;
+  children: ReactNode;
+};
+
+type StudioCanvasNodeProps = {
   id: string;
   title: string;
   subtitle?: string;
@@ -23,7 +31,46 @@ type CanvasNodeProps = {
   children: ReactNode;
 };
 
-export const CanvasNode = ({
+export type CanvasNodeProps = LegacyCanvasNodeProps | StudioCanvasNodeProps;
+
+const isLegacyCanvasNode = (props: CanvasNodeProps): props is LegacyCanvasNodeProps => "initialX" in props;
+
+const LegacyCanvasNode = ({ initialX, initialY, title, children }: LegacyCanvasNodeProps) => {
+  const [pos, setPos] = useState({ x: initialX, y: initialY });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation(); // Block the main canvas from picking up the pan event
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    setPos(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  return (
+    <div 
+      className={`ws-node ${isDragging ? "ws-node--dragging" : ""}`}
+      style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <div className="ws-node-header">{title}</div>
+      <div className="ws-node-content">{children}</div>
+    </div>
+  );
+};
+
+const StudioCanvasNode = ({
   id,
   title,
   subtitle,
@@ -40,7 +87,7 @@ export const CanvasNode = ({
   onStateChange,
   onRemove,
   children
-}: CanvasNodeProps) => {
+}: StudioCanvasNodeProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
@@ -148,3 +195,6 @@ export const CanvasNode = ({
     </article>
   );
 };
+
+export const CanvasNode = (props: CanvasNodeProps) =>
+  isLegacyCanvasNode(props) ? <LegacyCanvasNode {...props} /> : <StudioCanvasNode {...props} />;

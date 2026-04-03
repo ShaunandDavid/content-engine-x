@@ -15,10 +15,22 @@ import type { ClipRecord, ProjectWorkspace } from "@content-engine/shared";
 
 import { uploadAssetFile } from "./r2-storage";
 import { assertLiveRuntimeReady } from "./live-runtime-preflight";
+import { getClipGenerationReadiness } from "./project-flow-readiness";
 import { createVideoProvider } from "./video-provider-registry";
 
 const ACTIVE_CLIP_STATUSES = new Set<ClipRecord["status"]>(["pending", "queued", "running"]);
 const SKIPPABLE_CLIP_STATUSES = new Set<ClipRecord["status"]>(["pending", "queued", "running", "completed", "approved"]);
+
+export class ClipGenerationBlockingError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode = 409,
+    readonly blockingIssues: string[] = [message]
+  ) {
+    super(message);
+    this.name = "ClipGenerationBlockingError";
+  }
+}
 
 const buildWorkflowSnapshot = (workspace: ProjectWorkspace) => ({
   project_id: workspace.project.id,
@@ -182,17 +194,14 @@ export const generateProjectClips = async (projectId: string, options?: { force?
   const workspace = await getProjectWorkspace(projectId, { client });
 
   if (!workspace) {
-    throw new Error("Project not found.");
+    throw new ClipGenerationBlockingError("Project not found.", 404);
   }
 
-  if (!workspace.scenes.length) {
-    await setClipStageFailure(workspace, "Clip generation cannot start because no scenes were persisted for this project.", client);
-    throw new Error("Clip generation cannot start because no scenes were persisted for this project.");
-  }
-
-  if (!workspace.prompts.length) {
-    await setClipStageFailure(workspace, "Clip generation cannot start because no prompt records were persisted for this project.", client);
-    throw new Error("Clip generation cannot start because no prompt records were persisted for this project.");
+  const readiness = getClipGenerationReadiness(workspace);
+  if (!readiness.canGenerate) {
+    const message = readiness.blockingIssues.join(" ");
+    await setClipStageFailure(workspace, message, client);
+    throw new ClipGenerationBlockingError(message);
   }
 
   await updateProjectWorkflowState({

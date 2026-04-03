@@ -5,10 +5,14 @@ import { useState } from "react";
 
 export const PublishActions = ({
   projectId,
-  isDemoProject
+  isDemoProject,
+  canSendPublish = true,
+  disabledReason = null
 }: {
   projectId: string;
   isDemoProject: boolean;
+  canSendPublish?: boolean;
+  disabledReason?: string | null;
 }) => {
   const router = useRouter();
   const [isSending, setIsSending] = useState(false);
@@ -57,10 +61,11 @@ export const PublishActions = ({
   return (
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
-        <button className="button" type="button" onClick={() => void sendPublishHandoff()} disabled={isSending}>
+        <button className="button" type="button" onClick={() => void sendPublishHandoff()} disabled={isSending || !canSendPublish}>
           {isSending ? "Sending..." : "Send Publish Handoff"}
         </button>
       </div>
+      {!canSendPublish && disabledReason ? <p className="empty-state">{disabledReason}</p> : null}
       <p className="muted">This action sends the persisted render payload to the configured n8n webhook and stores the attempt result.</p>
       {success ? <p className="status-chip status-chip--completed">{success}</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}

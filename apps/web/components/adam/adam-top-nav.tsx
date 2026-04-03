@@ -1,56 +1,30 @@
-"use client";
-
-import { useState } from "react";
-
 import Link from "next/link";
-
-import { adamPlanRoute, homeRoute, newProjectRoute, projectsRoute, studioRoute, workspaceRoute } from "../../lib/routes";
+import { dashboardRoute, workspaceRoute } from "../../lib/routes";
 
 export const AdamTopNav = ({
-  currentRoute
+  currentRoute: _currentRoute
 }: {
   currentRoute?: "home" | "workspace" | "studio" | "projects" | "plan";
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+} = {}) => {
   return (
-    <header className={`adam-header${isOpen ? " adam-header--open" : ""}`}>
+    <header className="adam-header">
       <div className="adam-header-left">
-        <Link href={homeRoute} prefetch={false}>
-          <strong>ADAM</strong>
-        </Link>
+        <strong>ADAM</strong>
       </div>
-      <button
-        className="adam-top-nav__toggle"
-        onClick={() => setIsOpen((v) => !v)}
-        aria-label={isOpen ? "Close navigation" : "Open navigation"}
-        aria-expanded={isOpen}
-      >
-        <span />
-        <span />
-        <span />
-      </button>
-      <nav className="adam-header-center" onClick={() => setIsOpen(false)}>
-        <Link href={homeRoute} prefetch={false} aria-current={currentRoute === "home" ? "page" : undefined}>
-          Home
-        </Link>
-        <Link href={workspaceRoute} prefetch={false} aria-current={currentRoute === "workspace" ? "page" : undefined}>
-          Workspace
-        </Link>
-        <Link href={studioRoute} prefetch={false} aria-current={currentRoute === "studio" ? "page" : undefined}>
-          Studio
-        </Link>
-        <Link href={projectsRoute} prefetch={false} aria-current={currentRoute === "projects" ? "page" : undefined}>
-          Projects
-        </Link>
-        <Link href={adamPlanRoute} prefetch={false} aria-current={currentRoute === "plan" ? "page" : undefined}>
-          Adam Plan
-        </Link>
+      <nav className="adam-header-center">
+        <Link href={workspaceRoute} prefetch={false}>Workspace</Link>
+        <Link href="/projects/new" prefetch={false}>Projects</Link>
+        <Link href="/systems" prefetch={false}>Systems</Link>
       </nav>
       <div className="adam-header-right">
-        <Link href={newProjectRoute} prefetch={false} className="button button--solid adam-header-cta">
-          New Project
-        </Link>
+        <Link href={dashboardRoute} className="adam-console-link" prefetch={false}>Console</Link>
+        <button
+          type="button"
+          className="adam-avatar-circle adam-avatar-circle--disabled"
+          title="Profile controls are not available yet."
+          aria-label="Profile controls are not available yet."
+          disabled
+        />
       </div>
     </header>
   );

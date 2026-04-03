@@ -5,10 +5,14 @@ import { useState } from "react";
 
 export const RenderActions = ({
   projectId,
-  isDemoProject
+  isDemoProject,
+  canStartRender = true,
+  disabledReason = null
 }: {
   projectId: string;
   isDemoProject: boolean;
+  canStartRender?: boolean;
+  disabledReason?: string | null;
 }) => {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
@@ -57,10 +61,11 @@ export const RenderActions = ({
   return (
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
-        <button className="button" type="button" onClick={() => void startRender()} disabled={isStarting}>
+        <button className="button" type="button" onClick={() => void startRender()} disabled={isStarting || !canStartRender}>
           {isStarting ? "Rendering..." : "Start Final Render"}
         </button>
       </div>
+      {!canStartRender && disabledReason ? <p className="empty-state">{disabledReason}</p> : null}
       <p className="muted">This action assembles completed clip assets, uploads the final render, and persists the render record.</p>
       {success ? <p className="status-chip status-chip--completed">{success}</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}

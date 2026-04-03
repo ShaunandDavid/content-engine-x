@@ -25,7 +25,6 @@ const DEFAULT_SYSTEM_PROMPT =
 const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4";
-const DEFAULT_PROVIDER_TIMEOUT_MS = 15000;
 
 const normalizePrimaryProvider = (value: string | undefined): "claude" | "gemini" | "openai" => {
   switch (value?.toLowerCase()) {
@@ -68,33 +67,6 @@ const buildUserPrompt = (params: GenerateAdamReplyParams) => {
 const sanitizeProviderError = (error: unknown) =>
   error instanceof Error ? error.message : "Provider request failed.";
 
-const getProviderTimeoutMs = () => {
-  const configured = Number.parseInt(process.env.ADAM_PROVIDER_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_PROVIDER_TIMEOUT_MS;
-};
-
-const fetchWithTimeout = async (provider: "claude" | "gemini" | "openai", input: string, init: RequestInit) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getProviderTimeoutMs());
-
-  try {
-    const response = await fetch(input, {
-      ...init,
-      signal: controller.signal
-    });
-
-    return response;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`${provider} request timed out.`);
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
 const parseJsonResponse = async <T>(response: Response): Promise<T> => {
   const text = await response.text();
   if (!text) {
@@ -110,14 +82,15 @@ const parseJsonResponse = async <T>(response: Response): Promise<T> => {
 
 const createLocalFallbackReply = (params: GenerateAdamReplyParams, error: string | null): GenerateAdamReplyResult => {
   const contextLine = params.projectContext?.trim()
-    ? `Project context: ${params.projectContext.trim()}`
-    : "No project context was available for this turn.";
+    ? "Project context is attached, but live model-backed reasoning is unavailable in this runtime right now."
+    : "No project context is attached for this turn yet.";
 
   return {
     replyText: [
-      `Adam fallback is active. I heard: "${params.message.trim()}".`,
+      "Adam is running in local mode for this turn.",
+      `I heard: "${params.message.trim()}".`,
       contextLine,
-      error ? `All configured providers failed. Last provider error: ${error}` : null
+      "Voice and typed input are still available, but grounded model replies need the active provider keys loaded in this environment."
     ]
       .filter(Boolean)
       .join(" "),
@@ -138,7 +111,7 @@ const createClaudeReply = async (params: GenerateAdamReplyParams): Promise<Gener
   }
 
   const model = process.env.ADAM_CLAUDE_MODEL ?? DEFAULT_CLAUDE_MODEL;
-  const response = await fetchWithTimeout("claude", "https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -199,8 +172,7 @@ const createGeminiReply = async (params: GenerateAdamReplyParams): Promise<Gener
   }
 
   const model = process.env.ADAM_GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
-  const response = await fetchWithTimeout(
-    "gemini",
+  const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
@@ -272,7 +244,7 @@ const createOpenAiReply = async (params: GenerateAdamReplyParams): Promise<Gener
   }
 
   const model = process.env.ADAM_OPENAI_MODEL ?? DEFAULT_OPENAI_MODEL;
-  const response = await fetchWithTimeout("openai", "https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

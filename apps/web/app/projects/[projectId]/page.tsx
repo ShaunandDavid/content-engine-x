@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { getLatestRenderForProject } from "@content-engine/db";
+
 import { FormCard } from "../../../components/form-card";
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { demoProject, stageLabels } from "../../../lib/dashboard-data";
 import { getAdamWorkspaceSummary } from "../../../lib/server/adam-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
-import { projectAdamRoute } from "../../../lib/routes";
+import { getClipGenerationReadiness, getPublishReadiness, getRenderReadiness, getSceneReviewSummary } from "../../../lib/server/project-flow-readiness";
+import { clipReviewRoute, projectAdamRoute, publishRoute, renderRoute, sceneReviewRoute } from "../../../lib/routes";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -23,6 +26,7 @@ async function ProjectDetailContent({
   projectId: string;
 }) {
   const workspace = await workspacePromise;
+  const latestRender = projectId === demoProject.id ? null : await getLatestRenderForProject(projectId);
 
   if (!workspace) {
     notFound();
@@ -30,9 +34,17 @@ async function ProjectDetailContent({
 
   const isDemoProject = projectId === demoProject.id;
   const adamSummary = getAdamWorkspaceSummary(workspace);
+  const sceneReviewSummary = getSceneReviewSummary(workspace);
+  const clipReadiness = getClipGenerationReadiness(workspace);
+  const renderReadiness = getRenderReadiness(workspace);
+  const publishReadiness = getPublishReadiness(workspace, latestRender);
   const planningStatusLabel =
     workspace.project.status === "failed"
       ? "Planning failed"
+      : workspace.project.currentStage === "qc_decision" && workspace.project.status === "approved"
+        ? "Scenes ready for clip generation"
+        : workspace.project.currentStage === "qc_decision"
+          ? "Operator scene review in progress"
       : workspace.project.status === "running"
         ? "Python planning is running"
         : workspace.project.status === "queued"
@@ -43,11 +55,34 @@ async function ProjectDetailContent({
   const currentStageDescription =
     workspace.project.status === "queued"
       ? "The project has been initialized and is waiting for the Python orchestrator to claim the run."
+      : workspace.project.currentStage === "qc_decision" && workspace.project.status === "approved"
+        ? "Scene review is complete and the project is cleared to begin clip generation when runtime dependencies are available."
+        : workspace.project.currentStage === "qc_decision"
+          ? "Operator review is still active. Scenes must be explicitly approved and marked ready before clip generation is treated as operational."
       : workspace.project.status === "running"
         ? "Python is actively generating planning outputs and persisting stage progress into Supabase."
         : workspace.project.status === "failed"
           ? "Planning stopped before clip generation. Review the workflow error details below."
           : "The persisted workflow state is ready for the TypeScript execution stages to continue.";
+  const hasPersistedPrompts = workspace.prompts.length > 0;
+  const hasClipSurface = hasPersistedPrompts || workspace.clips.length > 0;
+  const hasRenderSurface = workspace.clips.length > 0 || Boolean(latestRender);
+  const hasPublishSurface = Boolean(latestRender) || workspace.project.currentStage === "publish_payload";
+  const nextStepSummary =
+    workspace.project.status === "queued" || workspace.project.status === "running"
+      ? "This project is still waiting on persisted planning output before the downstream operator stages can continue."
+      : !sceneReviewSummary.allScenesReadyForNextStage
+        ? sceneReviewSummary.blockingIssues.join(" ")
+        : workspace.clips.length < 1 && clipReadiness.canGenerate
+          ? "Scenes are marked ready and prompts are persisted. Clip generation is the next real execution step."
+          : renderReadiness.canStartRender
+            ? "Every scene has a completed persisted clip asset, so final render assembly is now operational."
+            : publishReadiness.canSendPublish
+              ? "The latest completed render is ready for publish handoff."
+              : clipReadiness.blockingIssues[0] ??
+                renderReadiness.blockingIssues[0] ??
+                publishReadiness.blockingIssues[0] ??
+                "Review the downstream stage pages for the latest operational blockers.";
 
   return (
     <DashboardShell
@@ -98,6 +133,33 @@ async function ProjectDetailContent({
           </p>
         </div>
       </div>
+
+      <FormCard
+        title="Next Operational Step"
+        description="Only real downstream routes are exposed here. Prototype workspace and offline modules are intentionally excluded."
+      >
+        <div className="button-row">
+          <Link className="button button--secondary" href={sceneReviewRoute(projectId)}>
+            Review Scenes
+          </Link>
+          {hasClipSurface ? (
+            <Link className="button button--secondary" href={clipReviewRoute(projectId)}>
+              Open Clips
+            </Link>
+          ) : null}
+          {hasRenderSurface ? (
+            <Link className="button button--secondary" href={renderRoute(projectId)}>
+              Open Render
+            </Link>
+          ) : null}
+          {hasPublishSurface ? (
+            <Link className="button button--secondary" href={publishRoute(projectId)}>
+              Open Publish
+            </Link>
+          ) : null}
+        </div>
+        <p className="muted">{nextStepSummary}</p>
+      </FormCard>
 
       <div className="page-grid" style={{ marginTop: "20px" }}>
         <FormCard title="Brief Summary" description="The original operator input that seeded the workflow.">

@@ -33,6 +33,7 @@ import {
   createAdamModelDecisionRecord,
   createAdamRunRecord
 } from "./adam-write.js";
+import { normalizeAdamPlanningInput } from "./adam-intake-normalization.js";
 import { createServiceSupabaseClient } from "./client.js";
 import { getSupabaseConfig } from "./config.js";
 
@@ -292,105 +293,33 @@ const toAuditLogRecord = (row: AuditLogRow): AuditLogRecord => ({
   updatedAt: row.updated_at
 });
 
-const normalizeGoal = (input: AdamTextPlanningInput) => {
-  if (input.goal?.trim()) {
-    return input.goal.trim();
-  }
-
-  const trimmedIdea = input.idea.trim();
-  if (trimmedIdea.length <= 140) {
-    return trimmedIdea;
-  }
-
-  const sentence = trimmedIdea.split(/[.!?]/).find((part: string) => part.trim().length >= 10);
-  return (sentence ?? trimmedIdea.slice(0, 140)).trim();
-};
-
-const buildOfferOrConcept = (input: AdamTextPlanningInput) => {
-  if (input.offer?.trim()) {
-    return input.offer.trim();
-  }
-
-  const compactIdea = input.idea.trim().replace(/\s+/g, " ");
-  return compactIdea.length <= 120 ? compactIdea : `${compactIdea.slice(0, 117).trim()}...`;
-};
-
-const classifyRequest = (input: AdamTextPlanningInput) => {
-  const classifierSource = [input.idea, input.goal ?? "", input.offer ?? ""].join(" ").toLowerCase();
-
-  if (/(campaign|launch|brief|funnel|position)/.test(classifierSource)) {
-    return "campaign_planning";
-  }
-
-  if (/(offer|product|service|pricing|solution)/.test(classifierSource)) {
-    return "offer_positioning";
-  }
-
-  if (/(audience|buyer|customer|persona|segment)/.test(classifierSource)) {
-    return "audience_strategy";
-  }
-
-  return "content_direction";
-};
-
-const buildAssumptionsOrUnknowns = (input: AdamTextPlanningInput) => {
-  const assumptions: string[] = [];
-
-  if (!input.goal?.trim()) {
-    assumptions.push("The core operator goal is inferred from the idea because no explicit goal was provided.");
-  }
-
-  if (!input.offer?.trim()) {
-    assumptions.push("The offer or concept is inferred from the idea because no explicit offer was supplied.");
-  }
-
-  if (input.constraints.length === 0) {
-    assumptions.push("No explicit constraints were supplied, so brand and approval guardrails may need confirmation.");
-  }
-
-  if (/general audience/i.test(input.audience)) {
-    assumptions.push("The audience is broad and may need tighter segmentation before execution.");
-  }
-
-  if (input.platforms.length === 1) {
-    assumptions.push(`The plan is optimized around ${input.platforms[0]} first and may need adaptation for additional channels.`);
-  }
-
-  return assumptions;
-};
-
-const buildReasoningBlock = (input: AdamTextPlanningInput): AdamReasoningBlock => {
-  const coreUserGoal = normalizeGoal(input);
-  const explicitConstraints = input.constraints;
-  const assumptionsOrUnknowns = buildAssumptionsOrUnknowns(input);
-  const requestClassification = classifyRequest(input);
-  const offerOrConcept = buildOfferOrConcept(input);
-
+const buildReasoningBlock = (input: {
+  coreUserGoal: string;
+  explicitConstraints: string[];
+  assumptionsOrUnknowns: string[];
+  requestClassification: string;
+  offerOrConcept: string;
+}): AdamReasoningBlock => {
   return {
-    requestClassification,
-    coreUserGoal,
-    explicitConstraints,
-    assumptionsOrUnknowns,
-    reasoningSummary: `Treat this as ${requestClassification.replace(/_/g, " ")} work: anchor on ${coreUserGoal.toLowerCase()}, use ${offerOrConcept.toLowerCase()} as the working concept, and pressure-test assumptions before turning it into channel execution.`
+    requestClassification: input.requestClassification,
+    coreUserGoal: input.coreUserGoal,
+    explicitConstraints: input.explicitConstraints,
+    assumptionsOrUnknowns: input.assumptionsOrUnknowns,
+    reasoningSummary: `Treat this as ${input.requestClassification.replace(/_/g, " ")} work: anchor on ${input.coreUserGoal.toLowerCase()}, use ${input.offerOrConcept.toLowerCase()} as the working concept, and pressure-test assumptions before turning it into channel execution.`
   };
 };
-
-const buildRecommendedAngle = (input: AdamTextPlanningInput, normalizedGoal: string, offerOrConcept: string) =>
-  `${input.tone} operator brief that frames ${offerOrConcept.toLowerCase()} as the clearest path to ${normalizedGoal.toLowerCase()} for ${input.audience.toLowerCase()}.`;
-
-const buildNextStepPlanningSummary = (
-  input: AdamTextPlanningInput,
-  recommendedAngle: string,
-  reasoning: AdamReasoningBlock
-) =>
-  `Turn this into a campaign brief with one primary promise, three proof points, and one channel-first execution path for ${input.platforms.join(", ")}. Lead with ${recommendedAngle} Resolve the key unknowns first: ${reasoning.assumptionsOrUnknowns.length > 0 ? reasoning.assumptionsOrUnknowns.join(" ") : "No major unknowns were identified in the intake."}`;
-
-const buildRawBrief = (input: AdamTextPlanningInput, normalizedGoal: string, offerOrConcept: string) =>
+const buildRawBrief = (input: {
+  idea: string;
+  coreGoal: string;
+  audience: string;
+  offerOrConcept: string;
+  constraints: string[];
+}) =>
   [
     `Idea: ${input.idea.trim()}`,
-    `Goal: ${normalizedGoal}`,
+    `Goal: ${input.coreGoal}`,
     `Audience: ${input.audience}`,
-    `Offer or concept: ${offerOrConcept}`,
+    `Offer or concept: ${input.offerOrConcept}`,
     `Constraints: ${input.constraints.length > 0 ? input.constraints.join(" | ") : "None provided"}`
   ].join("\n");
 
@@ -399,30 +328,28 @@ const buildPlanningArtifact = (input: {
   projectId: string;
   workflowRunId: string;
   payload: AdamTextPlanningInput;
+  normalizedIntake: ReturnType<typeof normalizeAdamPlanningInput>;
   reasoning: AdamReasoningBlock;
   createdAt: string;
 }): AdamPlanningArtifact => {
-  const normalizedUserGoal = input.reasoning.coreUserGoal;
-  const offerOrConcept = buildOfferOrConcept(input.payload);
-  const recommendedAngle = buildRecommendedAngle(input.payload, normalizedUserGoal, offerOrConcept);
-
   return adamPlanningArtifactSchema.parse({
     planId: input.planId,
     projectId: input.projectId,
     workflowRunId: input.workflowRunId,
     projectName: input.payload.projectName,
     sourceIdea: input.payload.idea.trim(),
-    normalizedUserGoal,
-    audience: input.payload.audience,
-    offerOrConcept,
-    constraints: input.payload.constraints,
-    recommendedAngle,
-    nextStepPlanningSummary: buildNextStepPlanningSummary(input.payload, recommendedAngle, input.reasoning),
+    normalizedUserGoal: input.normalizedIntake.intent.coreGoal,
+    audience: input.normalizedIntake.intent.audience,
+    offerOrConcept: input.normalizedIntake.intent.offerOrConcept,
+    constraints: input.normalizedIntake.intent.constraints,
+    recommendedAngle: input.normalizedIntake.planning.recommendedAngle,
+    nextStepPlanningSummary: input.normalizedIntake.planning.nextStepPlanningSummary,
     reasoning: input.reasoning,
     createdAt: input.createdAt,
     metadata: {
       source: "adam_text_loop",
-      workflowKind: ADAM_TEXT_WORKFLOW_KIND
+      workflowKind: ADAM_TEXT_WORKFLOW_KIND,
+      normalizedIntake: input.normalizedIntake
     }
   });
 };
@@ -555,11 +482,13 @@ const buildCanonicalRuntimeState = (input: {
     modelDecisionRefs: [input.modelDecision.decisionId],
     brief: {
       briefId: input.briefId,
-      rawBrief: buildRawBrief(
-        input.payload,
-        input.planningArtifact.normalizedUserGoal,
-        input.planningArtifact.offerOrConcept
-      ),
+      rawBrief: buildRawBrief({
+        idea: input.payload.idea,
+        coreGoal: input.planningArtifact.normalizedUserGoal,
+        audience: input.payload.audience,
+        offerOrConcept: input.planningArtifact.offerOrConcept,
+        constraints: input.payload.constraints
+      }),
       objective: input.planningArtifact.normalizedUserGoal,
       audience: input.payload.audience,
       guardrails: input.payload.constraints
@@ -590,7 +519,8 @@ const buildCanonicalRuntimeState = (input: {
       reasoningMode: "heuristic_mvp",
       routingProvider: input.modelDecision.provider,
       routingModel: input.modelDecision.model,
-      routingTaskType: input.modelDecision.taskType
+      routingTaskType: input.modelDecision.taskType,
+      normalizedIntake: input.planningArtifact.metadata.normalizedIntake ?? null
     }
   });
 
@@ -637,11 +567,13 @@ const buildLegacyStateSnapshot = (input: {
   brief: {
     objective: input.planningArtifact.normalizedUserGoal,
     audience: input.payload.audience,
-    raw_brief: buildRawBrief(
-      input.payload,
-      input.planningArtifact.normalizedUserGoal,
-      input.planningArtifact.offerOrConcept
-    ),
+    raw_brief: buildRawBrief({
+      idea: input.payload.idea,
+      coreGoal: input.planningArtifact.normalizedUserGoal,
+      audience: input.payload.audience,
+      offerOrConcept: input.planningArtifact.offerOrConcept,
+      constraints: input.payload.constraints
+    }),
     guardrails: input.payload.constraints
   },
   project_config: {
@@ -679,7 +611,8 @@ const buildLegacyStateSnapshot = (input: {
     reasoning_mode: "heuristic_mvp",
     routing_provider: input.modelDecision.provider,
     routing_model: input.modelDecision.model,
-    routing_task_type: input.modelDecision.taskType
+    routing_task_type: input.modelDecision.taskType,
+    normalized_intake: input.planningArtifact.metadata.normalizedIntake ?? null
   }
 });
 
@@ -914,7 +847,7 @@ export const createAdamTextPlanningLoop = async (
 
   try {
     const selectedProvider = selectAdamProviderForTask({
-      taskType: "text_planning",
+      taskType: "intake_structuring",
       preferredProvider: options?.routingPreference?.preferredProvider,
       preferredModel: options?.routingPreference?.preferredModel,
       metadata: {
@@ -922,8 +855,25 @@ export const createAdamTextPlanningLoop = async (
         workflowKind: ADAM_TEXT_WORKFLOW_KIND
       }
     });
-    const reasoning = buildReasoningBlock(payload);
-    const rawBrief = buildRawBrief(payload, reasoning.coreUserGoal, buildOfferOrConcept(payload));
+    const normalizedIntake = normalizeAdamPlanningInput({
+      sourceType: "rough_idea",
+      payload,
+      routingDecision: selectedProvider.decision
+    });
+    const reasoning = buildReasoningBlock({
+      coreUserGoal: normalizedIntake.intent.coreGoal,
+      explicitConstraints: normalizedIntake.intent.constraints,
+      assumptionsOrUnknowns: normalizedIntake.planning.assumptionsOrUnknowns,
+      requestClassification: normalizedIntake.planning.requestClassification,
+      offerOrConcept: normalizedIntake.intent.offerOrConcept
+    });
+    const rawBrief = buildRawBrief({
+      idea: payload.idea,
+      coreGoal: normalizedIntake.intent.coreGoal,
+      audience: normalizedIntake.intent.audience,
+      offerOrConcept: normalizedIntake.intent.offerOrConcept,
+      constraints: normalizedIntake.intent.constraints
+    });
 
     const { data: projectRowData, error: projectError } = await client
       .from("projects")
@@ -958,6 +908,7 @@ export const createAdamTextPlanningLoop = async (
       projectId: projectRow.id,
       workflowRunId,
       payload,
+      normalizedIntake,
       reasoning,
       createdAt: now
     });

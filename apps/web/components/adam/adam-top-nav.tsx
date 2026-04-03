@@ -13,8 +13,14 @@ export const AdamTopNav = () => {
         <Link href="/systems" prefetch={false}>Systems</Link>
       </nav>
       <div className="adam-header-right">
-        <Link href={dashboardRoute} prefetch={false} style={{ fontSize: "0.85rem", fontWeight: 500, marginRight: "16px", color: "var(--ink)", textDecoration: "none" }}>Console</Link>
-        <div className="adam-avatar-circle" title="User Profile" />
+        <Link href={dashboardRoute} className="adam-console-link" prefetch={false}>Console</Link>
+        <button
+          type="button"
+          className="adam-avatar-circle adam-avatar-circle--disabled"
+          title="Profile controls are not available yet."
+          aria-label="Profile controls are not available yet."
+          disabled
+        />
       </div>
     </header>
   );

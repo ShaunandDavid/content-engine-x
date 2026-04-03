@@ -5,7 +5,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript/lib/typescript.js";
 
 const require = createRequire(import.meta.url);
 
@@ -182,6 +182,61 @@ test("shared adam zod contracts accept canonical sample payloads", () => {
     platforms: ["linkedin"]
   });
   assert.equal(parsedPlanningInput.projectName, "Operator Plan");
+
+  const parsedNormalizedIntake = contracts.normalizedIntakeSchema.parse({
+    source: {
+      sourceType: "rough_idea",
+      rawIdea: "Build a text-first Adam planning loop that turns rough ideas into a clear operator-ready campaign direction."
+    },
+    intent: {
+      projectName: "Operator Plan",
+      coreGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+      audience: "Performance marketers",
+      offerOrConcept: "Text-first Adam planning loop",
+      constraints: ["Keep it brand safe"],
+      tone: "authority"
+    },
+    delivery: {
+      platforms: ["linkedin"],
+      durationSeconds: 30,
+      aspectRatio: "9:16",
+      videoProvider: "sora"
+    },
+    planning: {
+      requestClassification: "campaign_planning",
+      reasoningSummary: "Clarify the operator goal first, then shape the offer into a channel-aware campaign direction.",
+      assumptionsOrUnknowns: ["The exact offer is inferred from the idea because no explicit offer was supplied."],
+      recommendedAngle: "Authority operator brief that frames the text-first loop as the fastest route to campaign clarity.",
+      nextStepPlanningSummary: "Turn this into a campaign brief with one promise and three proof points."
+    },
+    routing: {
+      planningProvider: "openai",
+      planningModel: "gpt-default",
+      taskType: "intake_structuring",
+      decisionReason: "Selected openai for intake_structuring using the compatibility-safe default router path."
+    }
+  });
+  assert.equal(parsedNormalizedIntake.routing.taskType, "intake_structuring");
+
+  const parsedPromptGenerationInput = contracts.promptGenerationInputSchema.parse({
+    projectName: "Operator Plan",
+    coreGoal: "Turn rough ideas into a clear operator-ready campaign direction.",
+    audience: "Performance marketers",
+    offerOrConcept: "Text-first Adam planning loop",
+    constraints: ["Keep it brand safe"],
+    tone: "authority",
+    platforms: ["linkedin"],
+    durationSeconds: 30,
+    aspectRatio: "9:16",
+    videoProvider: "sora",
+    requestClassification: "campaign_planning",
+    reasoningSummary: "Clarify the operator goal first, then shape the offer into a channel-aware campaign direction.",
+    recommendedAngle: "Authority operator brief that frames the text-first loop as the fastest route to campaign clarity.",
+    nextStepPlanningSummary: "Turn this into a campaign brief with one promise and three proof points.",
+    planningProvider: "openai",
+    planningModel: "gpt-default"
+  });
+  assert.equal(parsedPromptGenerationInput.planningModel, "gpt-default");
 
   const parsedPlanningArtifact = contracts.adamPlanningArtifactSchema.parse({
     planId: "44444444-4444-4444-4444-444444444444",

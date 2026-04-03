@@ -1,35 +1,27 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { AdamOrb, AdamState } from "../components/adam/adam-orb";
+import { AdamVoiceSurface } from "../components/adam/adam-voice-surface";
 import { AdamTopNav } from "../components/adam/adam-top-nav";
-import { workspaceRoute } from "../lib/routes";
+import { dashboardRoute } from "../lib/routes";
 
 export default function AdamHomepage() {
-  const [orbState, setOrbState] = useState<AdamState>("idle");
-
-  const cycleState = () => {
-    const states: AdamState[] = ["idle", "listening", "thinking", "speaking"];
-    setOrbState(prev => states[(states.indexOf(prev) + 1) % states.length]);
-  };
-
   return (
     <main className="adam-home-main">
       <AdamTopNav />
       <div className="adam-center-content">
-        {/* Core Animated Presence */}
-        <AdamOrb state={orbState} onClick={cycleState} />
-        
-        {/* Typographical elements below the orb per Figma structure */}
+        <AdamVoiceSurface />
+
         <div className="adam-home-text">
+          <p className="adam-home-eyebrow">Voice-First Project Copilot</p>
+          <h1>Keep Adam close to the real project state without losing the calm.</h1>
           <p>
-            Welcome to the core of ADAM. Your intuitive workspace for high-<br/>
-            precision content architecture and generative systems.
+            Adam listens, reasons server-side against the current workspace, and replies through the active runtime path.
+            The homepage now reflects that truth directly instead of faking confidence in the visual layer.
           </p>
           <div className="adam-home-actions">
-            <Link href={workspaceRoute} className="button button--solid" prefetch={false}>OPEN WORKSPACE</Link>
-            <Link href="/projects/new" className="button button--outline" prefetch={false}>QUICK ACTION</Link>
+            <Link href="/projects/new" className="button button--solid" prefetch={false}>START PROJECT FLOW</Link>
+            <Link href={dashboardRoute} className="button button--outline" prefetch={false}>OPEN CONSOLE</Link>
           </div>
         </div>
       </div>

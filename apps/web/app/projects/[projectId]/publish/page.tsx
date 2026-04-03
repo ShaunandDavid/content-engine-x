@@ -7,6 +7,7 @@ import { FormCard } from "../../../../components/form-card";
 import { PublishActions } from "../../../../components/publish-actions";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
+import { getPublishReadiness } from "../../../../lib/server/project-flow-readiness";
 import { getProjectPublishState, PUBLISH_WEBHOOK_ENV_VAR } from "../../../../lib/server/publish-handoff";
 
 export default async function PublishHandoffPage({ params }: { params: Promise<{ projectId: string }> }) {
@@ -48,6 +49,13 @@ async function PublishHandoffContent({
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const masterAsset = latestRender?.masterAssetId ? assetsById.get(latestRender.masterAssetId) : undefined;
   const thumbnailAsset = latestRender?.thumbnailAssetId ? assetsById.get(latestRender.thumbnailAssetId) : undefined;
+  const publishReadiness = getPublishReadiness(workspace, latestRender);
+  const hasWebhookTarget = publishReadiness.hasWebhookTarget;
+  const canSendPublish = publishReadiness.canSendPublish;
+  const publishDisabledReason =
+    isDemoProject || canSendPublish
+      ? null
+      : publishReadiness.blockingIssues.join(" ");
   const publishPreview =
     isDemoProject
       ? demoProject.publish
@@ -106,7 +114,17 @@ async function PublishHandoffContent({
           Latest publish handoff was sent to the configured webhook. Delivery beyond the webhook response is not confirmed here.
         </p>
       ) : null}
-      <PublishActions projectId={projectId} isDemoProject={isDemoProject} />
+      {!isDemoProject && !canSendPublish ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          {publishReadiness.blockingIssues.join(" ")}
+        </div>
+      ) : null}
+      <PublishActions
+        projectId={projectId}
+        isDemoProject={isDemoProject}
+        canSendPublish={canSendPublish}
+        disabledReason={publishDisabledReason}
+      />
       <div className="publish-grid">
         <FormCard title="Payload Preview" description="n8n receives a stable payload for publish automation.">
           <div className="stack">

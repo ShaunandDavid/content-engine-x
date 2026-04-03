@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 
 export const InfiniteCanvas = ({ children }: { children: React.ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState({ x: 36, y: 32, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   
   const handlePointerDown = (e: React.PointerEvent) => {

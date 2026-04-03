@@ -31,10 +31,10 @@ export const NavSidebar = ({ projectId }: { projectId?: string }) => (
       ))}
       <hr style={{ margin: "24px 0 16px", border: "none", borderTop: "1px solid var(--line)" }} />
       <span className="brand-block__eyebrow" style={{ paddingLeft: "16px", marginBottom: "8px", display: "block" }}>SYSTEMS</span>
-      <Link href="/systems" className="sidebar__link">Pipelines</Link>
-      <Link href="/storage" className="sidebar__link">Storage</Link>
-      <Link href="/integrations" className="sidebar__link">Integrations</Link>
-      <Link href="/settings" className="sidebar__link">Settings</Link>
+      <span className="sidebar__link sidebar__link--disabled" title="Pipelines is offline and not operational yet.">Pipelines</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Storage is offline and not operational yet.">Storage</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Integrations is offline and not operational yet.">Integrations</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Settings is offline and not operational yet.">Settings</span>
     </nav>
   </aside>
 );

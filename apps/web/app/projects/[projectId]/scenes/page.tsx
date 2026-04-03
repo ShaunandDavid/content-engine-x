@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
+import { SceneReviewActions } from "../../../../components/scene-review-actions";
 import { StatusChip } from "../../../../components/status-chip";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
+import { getSceneReviewSummary } from "../../../../lib/server/project-flow-readiness";
 
 export default async function SceneReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -26,6 +28,7 @@ async function SceneReviewContent({
   }
 
   const promptsByScene = new Map(workspace.prompts.map((prompt) => [prompt.sceneId, prompt]));
+  const reviewSummary = getSceneReviewSummary(workspace);
 
   return (
     <DashboardShell
@@ -34,11 +37,21 @@ async function SceneReviewContent({
       status={workspace.project.status}
       projectId={projectId}
     >
+      {reviewSummary.blockingIssues.length > 0 ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          {reviewSummary.blockingIssues.join(" ")}
+        </div>
+      ) : (
+        <p className="status-chip status-chip--approved" style={{ marginBottom: "20px" }}>
+          All persisted scenes are marked ready for downstream generation.
+        </p>
+      )}
       <FormCard title="Scene Planner Output" description="Each scene stays individually reviewable and rerunnable.">
         {workspace.scenes.length ? (
           <div className="scene-grid">
             {workspace.scenes.map((scene) => {
               const prompt = promptsByScene.get(scene.id);
+              const review = reviewSummary.scenes.find((entry) => entry.scene.id === scene.id);
 
               return (
                 <article className="scene-card" key={scene.id}>
@@ -46,12 +59,29 @@ async function SceneReviewContent({
                     <span className="eyebrow">Scene {scene.ordinal}</span>
                     <StatusChip status={scene.status} />
                   </div>
+                  <div className="button-row" style={{ justifyContent: "flex-start", gap: "10px", marginTop: "8px" }}>
+                    <span
+                      className={`status-chip status-chip--scene-review-${(review?.reviewState ?? "pending").replace(/_/g, "-")}`}
+                    >
+                      Review: {review?.reviewState ? review.reviewState.replace(/_/g, " ") : "pending"}
+                    </span>
+                    {review?.readyForNextStage ? (
+                      <span className="status-chip status-chip--scene-review-ready">Ready for next stage</span>
+                    ) : null}
+                  </div>
                   <strong>{scene.title}</strong>
                   <p>{scene.visualBeat}</p>
                   <p className="muted">{scene.narration}</p>
                   <p className="muted">{scene.durationSeconds} second target duration</p>
                   <p className="eyebrow">Prompt Preview</p>
                   <p className="muted">{prompt?.compiledPrompt ?? "Prompt not yet persisted."}</p>
+                  <SceneReviewActions
+                    projectId={projectId}
+                    sceneId={scene.id}
+                    reviewState={review?.reviewState ?? "pending"}
+                    readyForNextStage={review?.readyForNextStage ?? false}
+                    existingNote={review?.note ?? null}
+                  />
                 </article>
               );
             })}

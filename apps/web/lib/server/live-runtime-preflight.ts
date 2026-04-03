@@ -216,6 +216,17 @@ export const runProjectCreationPreflight = async (): Promise<LiveRuntimeReadines
       readiness.blockingIssues.push(message);
       readiness.ok = false;
     }
+
+    if (!process.env.WORKFLOW_SIGNING_SECRET?.trim()) {
+      readiness.warnings.push(
+        "WORKFLOW_SIGNING_SECRET is not set. Python orchestrator triggers will still run, but the handoff request will be unsigned."
+      );
+      readiness.checks.push({
+        name: "python-orchestrator-signing-secret",
+        ok: true,
+        message: "Python orchestrator signing secret is not configured; requests will be sent unsigned."
+      });
+    }
   }
 
   return readiness;

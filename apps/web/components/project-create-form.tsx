@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startTransition, useState, type FormEvent } from "react";
-import { workspaceRoute } from "../lib/routes";
+import { dashboardRoute, projectRoute } from "../lib/routes";
 
 import {
   ASPECT_RATIO_OPTIONS,
@@ -24,6 +25,12 @@ type FormState = {
   aspectRatio: (typeof ASPECT_RATIO_OPTIONS)[number];
   provider: (typeof PROVIDER_OPTIONS)[number];
   guardrailsText: string;
+};
+
+type ReadinessCheck = {
+  name: string;
+  ok: boolean;
+  message: string;
 };
 
 const initialState: FormState = {
@@ -69,9 +76,11 @@ const DevicePreview = ({ platforms, aspectRatio }: { platforms: string[], aspect
 };
 
 export const ProjectCreateForm = ({ 
+  initialChecks = [],
   initialBlockingIssues = [],
   warnings = [] 
 }: { 
+  initialChecks?: ReadinessCheck[],
   initialBlockingIssues?: string[],
   warnings?: string[] 
 }) => {
@@ -79,7 +88,10 @@ export const ProjectCreateForm = ({
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState<string | null>(initialBlockingIssues[0] ?? null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isBlocked = initialBlockingIssues.length > 0;
+  const [blockingIssues, setBlockingIssues] = useState<string[]>(initialBlockingIssues);
+  const [readinessWarnings, setReadinessWarnings] = useState<string[]>(warnings);
+  const [readinessChecks, setReadinessChecks] = useState<ReadinessCheck[]>(initialChecks);
+  const isBlocked = blockingIssues.length > 0;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -109,7 +121,7 @@ export const ProjectCreateForm = ({
     }
 
     if (isBlocked) {
-      setError(initialBlockingIssues.join(" "));
+      setError(blockingIssues.join(" "));
       return;
     }
 
@@ -127,18 +139,33 @@ export const ProjectCreateForm = ({
       const result = (await response.json()) as {
         message?: string;
         project?: { id: string };
-        readiness?: { blockingIssues?: string[] };
+        readiness?: {
+          checks?: ReadinessCheck[];
+          blockingIssues?: string[];
+          warnings?: string[];
+        };
       };
 
       if (!response.ok || !result.project?.id) {
         const readinessIssues = result.readiness?.blockingIssues ?? [];
+        const readinessWarnings = result.readiness?.warnings ?? [];
+        const readinessChecks = result.readiness?.checks ?? [];
+        if (readinessIssues.length > 0) {
+          setBlockingIssues(readinessIssues);
+        }
+        if (readinessWarnings.length > 0) {
+          setReadinessWarnings(readinessWarnings);
+        }
+        if (readinessChecks.length > 0) {
+          setReadinessChecks(readinessChecks);
+        }
         const message = readinessIssues.length > 0 ? [result.message, ...readinessIssues].filter(Boolean).join(" ") : result.message;
         throw new Error(message ?? "Failed to create project.");
       }
 
       const projectId = result.project.id;
       startTransition(() => {
-        router.push(workspaceRoute);
+        router.push(projectRoute(projectId));
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create project.");
@@ -155,17 +182,34 @@ export const ProjectCreateForm = ({
     }));
   };
 
+  const creationStatusCopy = isBlocked
+    ? "Live project creation is blocked by the current runtime readiness state."
+    : "The intake is ready to open a real project once the brief is tight enough to execute.";
+
   return (
     <>
-      {/* Left Sidebar (Inputs) */}
-      <aside className="studio-sidebar-left" style={{ width: "340px", overflowY: "auto", position: "relative", zIndex: 10 }}>
-        <form id="project-form" onSubmit={onSubmit} style={{ padding: "32px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
-          
-          <div className="eyebrow" style={{ color: "var(--muted)", letterSpacing: "0.15em", marginBottom: "-12px", borderBottom: "1px solid rgba(0,0,0,0.06)", paddingBottom: "16px" }}>Project Setup</div>
-          
+      <aside className="studio-sidebar-left">
+        <div className="studio-side-panel">
+          <div className="studio-panel-intro">
+            <span className="eyebrow">Project Intake</span>
+            <h1>Shape the brief before Adam and the pipeline take over.</h1>
+            <p>Capture the objective, audience, and guardrails once so the downstream flow starts from clean intent.</p>
+          </div>
+
+          <form id="project-form" onSubmit={onSubmit} className="studio-form-stack">
+            <div className="studio-section-heading">
+              <span className="eyebrow">Core Brief</span>
+              <p>These fields drive scene planning, prompt generation, and the initial review lens.</p>
+            </div>
+
           {isBlocked ? (
             <div className="error-banner" style={{ borderRadius: "12px", fontSize: "0.85rem", padding: "12px" }}>
-              <strong style={{ display: "block" }}>Preflight Failing.</strong>
+              <strong style={{ display: "block", marginBottom: "8px" }}>Project creation is blocked.</strong>
+              <ul className="list-reset" style={{ display: "grid", gap: "8px", fontSize: "0.82rem" }}>
+                {blockingIssues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
             </div>
           ) : null}
 
@@ -193,35 +237,47 @@ export const ProjectCreateForm = ({
             <label htmlFor="guardrails">Guardrails & Exclusions</label>
             <textarea id="guardrails" value={form.guardrailsText} onChange={(e) => setForm((c) => ({ ...c, guardrailsText: e.target.value }))} placeholder="Avoid product UI claims..." style={{ minHeight: "100px" }} />
           </div>
-
-        </form>
+          </form>
+        </div>
       </aside>
 
-      {/* Center Hero Canvas */}
       <div className="studio-center-hero">
+        <div className="studio-preview-header">
+          <p className="eyebrow">Preview Framing</p>
+          <h2>Lock the delivery shape before generation begins.</h2>
+          <p>The device silhouette reflects the current platform, duration, and aspect-ratio choices so composition decisions happen early.</p>
+        </div>
+
         <DevicePreview platforms={form.platforms} aspectRatio={form.aspectRatio} />
 
-        {/* Floating Bottom Ribbon */}
+        <div className="studio-truth-note">
+          Visual framing only. Live scene, script, and render previews still begin after the project is created through the real workflow path.
+        </div>
+
         <div className="studio-bottom-ribbon" style={{ zIndex: 50 }}>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed", border: "0", background: "transparent" }}>Save Draft</button>
-            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed", border: "0", background: "transparent" }}>Publish Later</button>
+          <div className="studio-bottom-ribbon__note">
+            <span className="eyebrow">Creation Status</span>
+            <p>{creationStatusCopy}</p>
           </div>
-          <div style={{ display: "flex", gap: "16px" }}>
-            <button type="button" className="button button--secondary" disabled style={{ opacity: 0.5, cursor: "not-allowed" }}>Generate Preview</button>
+
+          <div className="studio-bottom-ribbon__actions">
+            <Link href={dashboardRoute} className="button button--outline" prefetch={false}>
+              Open Console
+            </Link>
             <button type="submit" form="project-form" className="button" disabled={isSubmitting || isBlocked}>
-              {isBlocked ? "System Offline" : isSubmitting ? "Orchestrating..." : "Initialize & Move to Workspace"}
+              {isBlocked ? "System Offline" : isSubmitting ? "Orchestrating..." : "Initialize & Open Project"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Right Sidebar (Settings) */}
-      <aside className="studio-sidebar-right" style={{ width: "340px", overflowY: "auto", position: "relative", zIndex: 10 }}>
-        <div style={{ padding: "32px 24px", display: "flex", flexDirection: "column", gap: "28px" }}>
-          
-          <div className="eyebrow" style={{ color: "var(--muted)", letterSpacing: "0.15em", marginBottom: "-12px", borderBottom: "1px solid rgba(0,0,0,0.06)", paddingBottom: "16px" }}>Export Options</div>
-          
+      <aside className="studio-sidebar-right">
+        <div className="studio-side-panel">
+          <div className="studio-section-heading">
+            <span className="eyebrow">Delivery Setup</span>
+            <p>Lock the output container, provider, and readiness conditions before Adam opens the project.</p>
+          </div>
+
           <div className="field">
             <label>Target Platforms</label>
             <div className="tag-row" style={{ gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
@@ -264,15 +320,30 @@ export const ProjectCreateForm = ({
           </div>
 
           {error ? <p className="error-banner">{error}</p> : null}
-          {warnings.length > 0 ? (
+
+          <div className="empty-state" style={{ marginTop: "8px" }}>
+            <span className="eyebrow">Creation Readiness</span>
+            <ul className="list-reset" style={{ marginTop: "10px", display: "grid", gap: "10px", fontSize: "0.82rem" }}>
+              {readinessChecks.map((check) => (
+                <li key={check.name}>
+                  <strong style={{ display: "block", marginBottom: "4px" }}>
+                    {check.ok ? "Ready" : "Blocked"}: {check.name}
+                  </strong>
+                  <span>{check.message}</span>
+                </li>
+              ))}
+              {readinessChecks.length < 1 ? <li>No readiness checks were returned for this environment.</li> : null}
+            </ul>
+          </div>
+
+          {readinessWarnings.length > 0 ? (
             <div className="empty-state" style={{ marginTop: "16px" }}>
               <span className="eyebrow">Warnings</span>
               <ul className="list-reset" style={{ marginTop: "8px", fontSize: "0.8rem" }}>
-                {warnings.map((warning) => (<li key={warning}>{warning}</li>))}
+                {readinessWarnings.map((warning) => (<li key={warning}>{warning}</li>))}
               </ul>
             </div>
           ) : null}
-
         </div>
       </aside>
     </>

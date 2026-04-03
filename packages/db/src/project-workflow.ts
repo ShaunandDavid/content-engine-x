@@ -18,6 +18,7 @@ import {
   type ClipRecord,
   type CreateProjectWorkflowResult,
   type JobStatus,
+  type PromptGenerationBundle,
   type ProjectBriefInput,
   type ProjectRecord,
   type ProjectWorkspace,
@@ -29,6 +30,12 @@ import {
   type WorkflowStage
 } from "@content-engine/shared";
 
+import {
+  buildNormalizedIntakeFromProjectBrief,
+  buildPromptGenerationBundle,
+  buildPromptGenerationInput
+} from "./adam-intake-normalization.js";
+import { selectAdamProviderForTask } from "./adam-model-router.js";
 import {
   appendAdamAuditEvent,
   createAdamArtifactRecord,
@@ -297,6 +304,34 @@ const toAssetRecord = (row: AssetRow): AssetRecord => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
+
+const markProjectBootstrapFailure = async (input: {
+  client: SupabaseClient;
+  projectId: string;
+  workflowRunId?: string | null;
+  currentStage: WorkflowStage;
+  errorMessage: string;
+}) => {
+  await input.client
+    .from("projects")
+    .update({
+      status: "failed",
+      current_stage: input.currentStage,
+      error_message: input.errorMessage
+    })
+    .eq("id", input.projectId);
+
+  if (input.workflowRunId) {
+    await input.client
+      .from("workflow_runs")
+      .update({
+        status: "failed",
+        current_stage: input.currentStage,
+        error_message: input.errorMessage
+      })
+      .eq("id", input.workflowRunId);
+  }
+};
 
 const toWorkflowRunRecord = (row: WorkflowRunRow): WorkflowRunRecord => ({
   id: row.id,
@@ -822,6 +857,7 @@ export const createProjectWorkflow = async (
 
   const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
 
+  try {
   const { data: briefRowData, error: briefError } = await client
     .from("briefs")
     .insert({
@@ -851,9 +887,22 @@ export const createProjectWorkflow = async (
     payload
   });
 
-  const concept = buildConcept(payload, adamPreplan.result?.planningArtifact);
-  const scenes = buildScenes(payload, concept);
-  const promptDrafts = buildPromptDrafts(payload, concept, scenes, process.env.OPENAI_SORA_MODEL ?? "sora-2");
+  const promptGenerationProvider = selectAdamProviderForTask({
+    taskType: "prompt_generation",
+    metadata: {
+      source: "project_workflow_bootstrap",
+      workflowKind: ADAM_WORKFLOW_KIND
+    }
+  });
+  const normalizedIntake = buildNormalizedIntakeFromProjectBrief({
+    payload,
+    routingDecision: promptGenerationProvider.decision,
+    adamPlanningArtifact: adamPreplan.result?.planningArtifact,
+    adamReasoningArtifact: adamPreplan.result?.reasoningArtifact
+  });
+  const promptGenerationInput = buildPromptGenerationInput(normalizedIntake);
+  const promptBundle = buildPromptGenerationBundle(promptGenerationInput);
+  const { concept, scenes, prompts: promptDrafts } = promptBundle;
   const stageAttempts = buildStageAttempts();
   const stateSnapshot: Record<string, unknown> & { project_id: string | null } = {
     project_id: projectRow.id,
@@ -896,7 +945,10 @@ export const createProjectWorkflow = async (
     errors: [],
     metadata: {
       source: "web_dashboard",
-      adam_preplan_status: adamPreplan.result ? "completed" : "skipped"
+      adam_preplan_status: adamPreplan.result ? "completed" : "skipped",
+      intake_provider: promptGenerationProvider.decision.provider,
+      intake_model: promptGenerationProvider.decision.model,
+      normalized_intake: normalizedIntake
     },
     adam_preplan: buildAdamPreplanLegacyLink(adamPreplan.result, adamPreplan.errorMessage),
     ...(adamPreplan.result
@@ -1018,6 +1070,16 @@ export const createProjectWorkflow = async (
     workflowRun: toWorkflowRunRecord(workflowRunRow),
     auditLogs: auditRows.map(toAuditLogRecord)
   };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to complete project bootstrap.";
+    await markProjectBootstrapFailure({
+      client,
+      projectId: projectRow.id,
+      currentStage: "prompt_creation",
+      errorMessage: message
+    });
+    throw error;
+  }
 };
 
 const buildAsyncInitializationAuditEvents = ({
@@ -1508,6 +1570,8 @@ export const initializeAsyncProjectWorkflow = async (
 
   const projectRow = assertData(projectRowData as ProjectRow | null, projectError, "Failed to create project");
 
+  try {
+
   const { data: briefRowData, error: briefError } = await client
     .from("briefs")
     .insert({
@@ -1637,6 +1701,16 @@ export const initializeAsyncProjectWorkflow = async (
     workflowRun: toWorkflowRunRecord(workflowRunRow),
     auditLogs: auditRows.map(toAuditLogRecord)
   };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize async project bootstrap.";
+    await markProjectBootstrapFailure({
+      client,
+      projectId: projectRow.id,
+      currentStage: "brief_intake",
+      errorMessage: message
+    });
+    throw error;
+  }
 };
 
 export const getProjectWorkspace = async (

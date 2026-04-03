@@ -31,7 +31,15 @@ export const adamFeedbackActorTypeValues = ["operator", "system", "service"] as 
 export const adamFeedbackCategoryValues = ["general", "planning", "reasoning", "artifact", "quality"] as const;
 export const adamFeedbackValueValues = ["positive", "negative", "needs_revision", "approved"] as const;
 export const adamRouterProviderValues = ["openai", "anthropic", "google"] as const;
-export const adamRouterTaskTypeValues = ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"] as const;
+export const adamRouterTaskTypeValues = [
+  "text_planning",
+  "intake_structuring",
+  "prompt_generation",
+  "reasoning",
+  "voice_response",
+  "feedback_summary",
+  "general"
+] as const;
 export const adamVoiceTurnStateValues = ["idle", "listening", "thinking", "speaking", "error"] as const;
 export const adamVoiceInputModeValues = ["text", "speech_text"] as const;
 export const adamVoiceOutputModeValues = ["text", "speech"] as const;
@@ -243,6 +251,54 @@ export const adamVoiceRequestSchema = z.object({
 export const adamVoiceResponseSchema = z.object({
   session: adamVoiceSessionStateSchema,
   replyText: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const adamChatRequestSchema = z.object({
+  sessionId: z.string().uuid().optional(),
+  turnId: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
+  inputMode: adamVoiceInputModeSchema.default("text"),
+  currentState: adamVoiceTurnStateSchema.optional(),
+  message: z.string().min(1).max(4000),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export const adamChatResponseSchema = z.object({
+  session: adamVoiceSessionStateSchema,
+  replyText: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const adamTranscriptionRequestSchema = z.object({
+  transcript: z.string().min(1).max(4000),
+  source: z.enum(["browser_speech", "text_fallback"]).default("text_fallback"),
+  sessionId: z.string().uuid().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export const adamTranscriptionResponseSchema = z.object({
+  transcript: z.string().min(1).max(4000),
+  normalizedTranscript: z.string().min(1).max(4000),
+  source: z.enum(["browser_speech", "text_fallback"]),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const adamTtsRequestSchema = z.object({
+  sessionId: z.string().uuid().optional(),
+  text: z.string().min(1).max(4000),
+  preferredVoice: z.string().min(1).max(120).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export const adamTtsResponseSchema = z.object({
+  supported: z.boolean(),
+  playbackMode: z.enum(["audio_data", "browser_speech_synthesis", "none"]),
+  text: z.string().min(1).max(4000),
+  voiceHint: z.string().min(1).max(120).nullish(),
+  audioData: z.string().min(1).optional(),
+  audioMimeType: z.string().min(1).optional(),
+  message: z.string().min(1),
   metadata: z.record(z.string(), z.unknown())
 });
 

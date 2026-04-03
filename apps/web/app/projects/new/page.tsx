@@ -12,6 +12,7 @@ export default async function NewProjectPage() {
       </div>
       <div className="studio-macro-body">
         <ProjectCreateForm 
+          initialChecks={readiness.checks}
           initialBlockingIssues={readiness.blockingIssues} 
           warnings={readiness.warnings}
         />

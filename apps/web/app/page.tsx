@@ -8,7 +8,7 @@ import { dashboardRoute } from "../lib/routes";
 export default function AdamHomepage() {
   return (
     <main className="adam-home-main">
-      <AdamTopNav />
+      <AdamTopNav currentRoute="home" />
       <div className="adam-center-content">
         <AdamVoiceSurface />
 

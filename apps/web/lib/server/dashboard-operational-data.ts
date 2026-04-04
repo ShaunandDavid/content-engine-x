@@ -1,6 +1,8 @@
 import { createServiceSupabaseClient, getLatestPublishJobForProject, getLatestRenderForProject } from "@content-engine/db";
 import type { JobStatus, WorkflowStage } from "@content-engine/shared";
 
+import "./ensure-runtime-env";
+
 import { stageLabels } from "../dashboard-data";
 import { runLiveRuntimePreflight, type LiveRuntimeReadinessResult } from "./live-runtime-preflight";
 import { isPythonOrchestratorEnabled } from "./python-orchestrator";

@@ -1,6 +1,8 @@
 import { createServiceSupabaseClient, supabaseConfigSchema } from "@content-engine/db";
 import { soraConfigSchema } from "@content-engine/sora-provider";
 
+import "./ensure-runtime-env";
+
 import { assertPythonOrchestratorConfigured, isPythonOrchestratorEnabled } from "./python-orchestrator";
 
 export type LiveRuntimeReadinessCheck = {

@@ -521,6 +521,11 @@ p {
   text-decoration: none;
 }
 
+.adam-header-link--active,
+.adam-console-link--active {
+  color: #1a1a1a;
+}
+
 .adam-header-center a:hover {
   color: #1a1a1a;
 }
@@ -554,11 +559,24 @@ p {
   border: 1px solid #ccc;
   background: transparent;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--ink);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
 }
 
 .adam-avatar-circle--disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.adam-avatar-circle--active {
+  border-color: rgba(21, 24, 33, 0.22);
+  background: rgba(21, 24, 33, 0.06);
 }
 
 .adam-center-content {

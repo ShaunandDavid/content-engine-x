@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import "../../../lib/server/ensure-runtime-env";
+
 import { appendAuditLog, createProjectWorkflow, initializeAsyncProjectWorkflow, updateProjectWorkflowState } from "@content-engine/db";
 import { projectBriefInputSchema } from "@content-engine/shared";
 

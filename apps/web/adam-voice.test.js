@@ -87,6 +87,7 @@ const sharedMocks = {
 test("createAdamVoiceResponse returns a generic text-compatible voice session when no project context is provided", async () => {
   const loadTsModule = createTsModuleLoader({
     "@content-engine/shared": sharedMocks,
+    "./ensure-runtime-env": {},
     "./project-data": {
       getProjectWorkspaceOrDemo: async () => null
     },
@@ -94,6 +95,12 @@ test("createAdamVoiceResponse returns a generic text-compatible voice session wh
       getAdamWorkspaceDetail: async () => null,
       getAdamReviewReadiness: () => null,
       getAdamReviewDetails: () => null
+    },
+    "./adam-project-creation": {
+      maybeCreateAdamProjectFromMessage: async () => ({
+        matchedIntent: false,
+        created: false
+      })
     }
   });
   const module = loadTsModule(helperFile);
@@ -142,6 +149,7 @@ test("createAdamVoiceResponse uses project-context Adam detail to produce a cont
   const providerCalls = [];
   const loadTsModule = createTsModuleLoader({
     "@content-engine/shared": sharedMocks,
+    "./ensure-runtime-env": {},
     "./project-data": {
       getProjectWorkspaceOrDemo: async () => ({
         project: { id: "project-1", name: "Prototype Project" }
@@ -177,6 +185,12 @@ test("createAdamVoiceResponse uses project-context Adam detail to produce a cont
           }
         };
       }
+    },
+    "./adam-project-creation": {
+      maybeCreateAdamProjectFromMessage: async () => ({
+        matchedIntent: false,
+        created: false
+      })
     }
   });
   const module = loadTsModule(helperFile);

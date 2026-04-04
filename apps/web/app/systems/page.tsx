@@ -99,7 +99,7 @@ export default async function SystemsPage() {
 
   return (
     <main className="systems-page">
-      <AdamTopNav />
+      <AdamTopNav currentRoute="systems" />
       <div className="systems-page__body">
         <section className="systems-hero">
           <div className="systems-hero__copy">

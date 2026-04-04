@@ -44,7 +44,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="console-page">
-      <AdamTopNav />
+      <AdamTopNav currentRoute="dashboard" />
 
       <div className="console-layout">
         <section className="console-hero">

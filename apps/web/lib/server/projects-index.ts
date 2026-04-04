@@ -1,6 +1,8 @@
 import { createServiceSupabaseClient, supabaseConfigSchema } from "@content-engine/db";
 import type { JobStatus, Platform, ProviderName, WorkflowStage } from "@content-engine/shared";
 
+import "./ensure-runtime-env";
+
 export type ProjectIndexItem = {
   id: string;
   name: string;

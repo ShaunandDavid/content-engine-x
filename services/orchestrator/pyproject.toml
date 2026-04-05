@@ -9,6 +9,7 @@ description = "LangGraph orchestration layer for CONTENT ENGINE X"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.116.1,<0.117.0",
+  "httpx>=0.28.0,<0.29.0",
   "langgraph>=0.3.18,<0.4.0",
   "pydantic>=2.11.1,<3.0.0",
   "psycopg[binary]>=3.2.9,<4.0.0",
@@ -21,3 +22,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+content_engine_x_orchestrator = ["adam-compatibility.json"]

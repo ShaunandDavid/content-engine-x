@@ -22,9 +22,10 @@ type GenerateAdamReplyResult = {
 const DEFAULT_SYSTEM_PROMPT =
   "You are Adam, a concise voice-first project copilot for CONTENT ENGINE X. Speak clearly, briefly, and helpfully. Prefer direct answers. When project context exists, use it. When something is missing, say exactly what is missing.";
 
-const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const DEFAULT_OPENAI_MODEL = "gpt-5.4";
+const DEFAULT_OPENAI_MODEL = "gpt-4o";
+const DEFAULT_PROVIDER_TIMEOUT_MS = 15000;
 
 const normalizePrimaryProvider = (value: string | undefined): "claude" | "gemini" | "openai" => {
   switch (value?.toLowerCase()) {

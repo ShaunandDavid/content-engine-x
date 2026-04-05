@@ -521,6 +521,8 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                 ),
             )
 
+        final_stage = state.get("current_stage", WorkflowStage.PROMPT_CREATION.value)
+
         cursor.execute(
             """
             update public.workflow_runs
@@ -536,7 +538,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
             """,
             (
                 JobStatus.COMPLETED.value,
-                WorkflowStage.PROMPT_CREATION.value,
+                final_stage,
                 to_jsonb(state),
                 to_jsonb(stage_attempts),
                 now,
@@ -557,7 +559,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
             """,
             (
                 JobStatus.COMPLETED.value,
-                WorkflowStage.PROMPT_CREATION.value,
+                final_stage,
                 now,
                 project_id,
             ),
@@ -698,7 +700,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     event_type="workflow.completed",
                     entity_type="workflow_run",
                     entity_id=workflow_run_id,
-                    stage=WorkflowStage.PROMPT_CREATION.value,
+                    stage=final_stage,
                     payload={"source": "python_orchestrator_runtime"},
                 ),
             )
@@ -709,7 +711,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     workflow_run_id,
                     state_snapshot=state,
                     status=JobStatus.COMPLETED.value,
-                    current_stage=WorkflowStage.PROMPT_CREATION.value,
+                    current_stage=final_stage,
                     completed_at=now,
                     output_refs=_build_artifact_refs(output_artifact_ids),
                 ),

@@ -5,7 +5,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript/lib/typescript.js";
 
 const require = createRequire(import.meta.url);
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -59,7 +59,15 @@ test("selectAdamProviderForTask keeps the compatibility-safe OpenAI default when
           provider: "openai",
           label: "OpenAI / GPT",
           defaultModel: "gpt-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          supportedTaskTypes: [
+            "text_planning",
+            "intake_structuring",
+            "prompt_generation",
+            "reasoning",
+            "voice_response",
+            "feedback_summary",
+            "general"
+          ],
           selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
         },
@@ -67,7 +75,7 @@ test("selectAdamProviderForTask keeps the compatibility-safe OpenAI default when
           provider: "anthropic",
           label: "Anthropic / Claude",
           defaultModel: "claude-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
         },
@@ -75,7 +83,7 @@ test("selectAdamProviderForTask keeps the compatibility-safe OpenAI default when
           provider: "google",
           label: "Google / Gemini",
           defaultModel: "gemini-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
         }
@@ -104,7 +112,15 @@ test("selectAdamProviderForTask honors an explicit alternate provider request wi
           provider: "openai",
           label: "OpenAI / GPT",
           defaultModel: "gpt-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          supportedTaskTypes: [
+            "text_planning",
+            "intake_structuring",
+            "prompt_generation",
+            "reasoning",
+            "voice_response",
+            "feedback_summary",
+            "general"
+          ],
           selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
         },
@@ -112,7 +128,7 @@ test("selectAdamProviderForTask honors an explicit alternate provider request wi
           provider: "anthropic",
           label: "Anthropic / Claude",
           defaultModel: "claude-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
         },
@@ -120,7 +136,7 @@ test("selectAdamProviderForTask honors an explicit alternate provider request wi
           provider: "google",
           label: "Google / Gemini",
           defaultModel: "gemini-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
         }
@@ -151,7 +167,15 @@ test("selectAdamProviderForTask falls back when an explicit provider does not su
           provider: "openai",
           label: "OpenAI / GPT",
           defaultModel: "gpt-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "voice_response", "feedback_summary", "general"],
+          supportedTaskTypes: [
+            "text_planning",
+            "intake_structuring",
+            "prompt_generation",
+            "reasoning",
+            "voice_response",
+            "feedback_summary",
+            "general"
+          ],
           selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
         },
@@ -159,7 +183,7 @@ test("selectAdamProviderForTask falls back when an explicit provider does not su
           provider: "anthropic",
           label: "Anthropic / Claude",
           defaultModel: "claude-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
         },
@@ -167,7 +191,7 @@ test("selectAdamProviderForTask falls back when an explicit provider does not su
           provider: "google",
           label: "Google / Gemini",
           defaultModel: "gemini-default",
-          supportedTaskTypes: ["text_planning", "reasoning", "feedback_summary", "general"],
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
           selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
           resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
         }
@@ -186,4 +210,60 @@ test("selectAdamProviderForTask falls back when an explicit provider does not su
   assert.equal(result.decision.model, "gemini-voice");
   assert.match(result.decision.routingReason, /does not support/i);
   assert.match(result.decision.routingReason, /fell back/i);
+});
+
+test("selectAdamProviderForTask supports intake and prompt-generation routing without changing the default provider", () => {
+  const module = loadTsModule(routerFile, {
+    "@content-engine/shared": {
+      adamModelRoutingDecisionSchema: { parse: (value) => value }
+    },
+    "./adam-provider-adapters.js": {
+      adamProviderAdapters: {
+        openai: {
+          provider: "openai",
+          label: "OpenAI / GPT",
+          defaultModel: "gpt-default",
+          supportedTaskTypes: [
+            "text_planning",
+            "intake_structuring",
+            "prompt_generation",
+            "reasoning",
+            "voice_response",
+            "feedback_summary",
+            "general"
+          ],
+          selectionBasis: "Compatibility default provider for the current single-model Adam flow.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gpt-default"
+        },
+        anthropic: {
+          provider: "anthropic",
+          label: "Anthropic / Claude",
+          defaultModel: "claude-default",
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate text reasoning provider without default fan-out.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "claude-default"
+        },
+        google: {
+          provider: "google",
+          label: "Google / Gemini",
+          defaultModel: "gemini-default",
+          supportedTaskTypes: ["text_planning", "intake_structuring", "prompt_generation", "reasoning", "feedback_summary", "general"],
+          selectionBasis: "Available as an explicit alternate provider behind the same routing boundary.",
+          resolveModel: (_taskType, preferredModel) => preferredModel?.trim() || "gemini-default"
+        }
+      }
+    }
+  });
+
+  const intakeResult = module.selectAdamProviderForTask({
+    taskType: "intake_structuring"
+  });
+  const promptResult = module.selectAdamProviderForTask({
+    taskType: "prompt_generation",
+    preferredProvider: "google"
+  });
+
+  assert.equal(intakeResult.decision.provider, "openai");
+  assert.equal(promptResult.decision.provider, "google");
+  assert.equal(promptResult.decision.model, "gemini-default");
 });

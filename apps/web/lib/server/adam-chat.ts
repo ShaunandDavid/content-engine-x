@@ -3,9 +3,12 @@ import { randomUUID } from "node:crypto";
 import type { AdamChatRequest, AdamChatResponse } from "@content-engine/shared";
 import { adamChatResponseSchema, adamVoiceSessionStateSchema } from "@content-engine/shared";
 
+import "./ensure-runtime-env";
+
 import { getProjectWorkspaceOrDemo } from "./project-data";
 import { getAdamReviewDetails, getAdamReviewReadiness, getAdamWorkspaceDetail } from "./adam-project-data";
 import { generateAdamReply } from "./adam-providers";
+import { maybeCreateAdamProjectFromMessage } from "./adam-project-creation";
 
 const buildProjectContext = (input: {
   projectName: string;
@@ -41,6 +44,7 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
   let provider = "local_fallback";
   let model = "local_fallback_v1";
   let usage: { inputTokens?: number | null; outputTokens?: number | null } | undefined;
+  let createdProject: Record<string, unknown> | null = null;
 
   if (request.projectId) {
     const workspace = await getProjectWorkspaceOrDemo(request.projectId);
@@ -66,16 +70,32 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
   }
 
   if (state !== "error") {
-    const providerResult = await generateAdamReply({
-      message: request.message,
-      projectContext,
-      systemPrompt: process.env.ADAM_SYSTEM_PROMPT
-    });
+    const projectCreationResult = await maybeCreateAdamProjectFromMessage(request.message);
 
-    replyText = providerResult.replyText;
-    provider = providerResult.provider;
-    model = providerResult.model;
-    usage = providerResult.usage;
+    if (projectCreationResult.matchedIntent) {
+      replyText = projectCreationResult.replyText ?? "Adam could not create the requested project.";
+      provider = projectCreationResult.provider ?? "local_fallback";
+      model = projectCreationResult.model ?? "project_creation_failed";
+      usage = projectCreationResult.usage;
+      errorMessage = projectCreationResult.created ? null : projectCreationResult.errorMessage ?? null;
+
+      if (projectCreationResult.project) {
+        projectId = projectCreationResult.project.id;
+        runId = projectCreationResult.project.workflowRunId;
+        createdProject = projectCreationResult.project;
+      }
+    } else {
+      const providerResult = await generateAdamReply({
+        message: request.message,
+        projectContext,
+        systemPrompt: process.env.ADAM_SYSTEM_PROMPT
+      });
+
+      replyText = providerResult.replyText;
+      provider = providerResult.provider;
+      model = providerResult.model;
+      usage = providerResult.usage;
+    }
   }
 
   const session = adamVoiceSessionStateSchema.parse({
@@ -96,7 +116,8 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
       currentState: request.currentState ?? "idle",
       provider,
       model,
-      usage: usage ?? null
+      usage: usage ?? null,
+      createdProject
     }
   });
 
@@ -107,7 +128,8 @@ export const createAdamChatResponse = async (request: AdamChatRequest): Promise<
       source: "adam_chat_v1",
       provider,
       model,
-      usage: usage ?? null
+      usage: usage ?? null,
+      createdProject
     }
   });
 };

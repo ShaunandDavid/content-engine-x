@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import "../../../../lib/server/ensure-runtime-env";
+
 import { createAdamTextPlanningLoop, getAdamTextPlanningLoop } from "@content-engine/db";
 import { adamTextPlanningInputSchema } from "@content-engine/shared";
 

@@ -10,6 +10,8 @@ import type {
 } from "@content-engine/shared";
 import { adamChatResponseSchema, adamTranscriptionResponseSchema, adamTtsResponseSchema } from "@content-engine/shared";
 
+import type { AdamOrbSignalSource } from "../components/adam/adam-orb";
+
 type RecognitionAlternative = {
   transcript: string;
 };
@@ -42,11 +44,13 @@ type RecognitionInstance = {
 };
 
 type RecognitionConstructor = new () => RecognitionInstance;
+type BrowserAudioContextConstructor = typeof AudioContext;
 
 declare global {
   interface Window {
     webkitSpeechRecognition?: RecognitionConstructor;
     SpeechRecognition?: RecognitionConstructor;
+    webkitAudioContext?: BrowserAudioContextConstructor;
   }
 }
 
@@ -57,6 +61,16 @@ const getSpeechRecognitionConstructor = (): RecognitionConstructor | null => {
 
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
 };
+
+const getAudioContextConstructor = (): BrowserAudioContextConstructor | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.AudioContext ?? window.webkitAudioContext ?? null;
+};
+
+const clampSignal = (value: number) => Math.min(1, Math.max(0.08, value));
 
 const getErrorMessageForRecognition = (errorCode: string) => {
   switch (errorCode) {
@@ -74,6 +88,67 @@ const getErrorMessageForRecognition = (errorCode: string) => {
   }
 };
 
+const createObjectUrlFromBase64 = (audioData: string, mimeType: string) => {
+  const binary = window.atob(audioData);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  const blob = new Blob([bytes], { type: mimeType });
+  return URL.createObjectURL(blob);
+};
+
+const createDataUrlFromBase64 = (audioData: string, mimeType: string) => `data:${mimeType};base64,${audioData}`;
+
+const createArrayBufferFromBase64 = (audioData: string) => {
+  const binary = window.atob(audioData);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return bytes.buffer.slice(0);
+};
+
+const getTtsMetadataString = (response: AdamTtsResponse, key: string) => {
+  const value = response.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+};
+
+const writeAscii = (view: DataView, offset: number, value: string) => {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
+};
+
+const createSilentWavObjectUrl = (durationMs = 120) => {
+  const sampleRate = 8000;
+  const sampleCount = Math.max(1, Math.floor((sampleRate * durationMs) / 1000));
+  const bytesPerSample = 2;
+  const dataLength = sampleCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, "data");
+  view.setUint32(40, dataLength, true);
+
+  return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+};
+
 export const useAdamVoice = () => {
   const [voiceState, setVoiceState] = useState<AdamVoiceTurnState>("idle");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -82,8 +157,13 @@ export const useAdamVoice = () => {
   const [error, setError] = useState<string | null>(null);
   const [textFallbackOpen, setTextFallbackOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [textFocusRequestKey, setTextFocusRequestKey] = useState(0);
   const [isAudioPlaybackAvailable, setIsAudioPlaybackAvailable] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Click the orb to start talking with Adam.");
+  const [playbackMessage, setPlaybackMessage] = useState("Adam will use the active playback path when a reply is ready.");
+  const [playbackMode, setPlaybackMode] = useState<AdamTtsResponse["playbackMode"]>("none");
+  const [orbSignalLevel, setOrbSignalLevel] = useState(0.18);
+  const [orbSignalSource, setOrbSignalSource] = useState<AdamOrbSignalSource>("idle_motion");
 
   const recognitionRef = useRef<RecognitionInstance | null>(null);
   const finalizedTranscriptRef = useRef("");
@@ -92,30 +172,82 @@ export const useAdamVoice = () => {
   const currentStateRef = useRef<AdamVoiceTurnState>("idle");
   const sessionIdRef = useRef<string | null>(null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeAudioElementRef = useRef<HTMLAudioElement | null>(null);
   const activeAudioUrlRef = useRef<string | null>(null);
+  const playbackUnlockedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const microphoneStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackAudioContextRef = useRef<AudioContext | null>(null);
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
+  const analyserDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const playbackAnalyserNodeRef = useRef<AnalyserNode | null>(null);
+  const playbackAnalyserDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const mediaElementSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const activeBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const activePlaybackGainRef = useRef<GainNode | null>(null);
+  const analyserFrameRef = useRef<number | null>(null);
+  const speechBoundaryPulseRef = useRef(0.18);
+  const speechBoundaryFrameRef = useRef<number | null>(null);
+  const playbackCadenceCleanupRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    currentStateRef.current = voiceState;
-  }, [voiceState]);
+  const setVoiceTurnState = (nextState: AdamVoiceTurnState) => {
+    currentStateRef.current = nextState;
+    setVoiceState(nextState);
+  };
+
+  const applyIdleSignal = () => {
+    setOrbSignalSource("idle_motion");
+    setOrbSignalLevel(0.18);
+  };
+
+  const applyThinkingSignal = () => {
+    setOrbSignalSource("state_only");
+    setOrbSignalLevel(0.46);
+  };
+
+  const applyListeningFallbackSignal = () => {
+    setOrbSignalSource("state_only");
+    setOrbSignalLevel(0.72);
+  };
+
+  const applySpeakingFallbackSignal = () => {
+    setOrbSignalSource("state_only");
+    setOrbSignalLevel(0.52);
+  };
+
+  const applyErrorSignal = () => {
+    setOrbSignalSource("state_only");
+    setOrbSignalLevel(0.12);
+  };
 
   useEffect(() => {
     isMountedRef.current = true;
-    setIsAudioPlaybackAvailable(
-      typeof window !== "undefined" && ("speechSynthesis" in window || typeof Audio !== "undefined")
-    );
+    setIsAudioPlaybackAvailable(typeof window !== "undefined" && ("speechSynthesis" in window || "Audio" in window));
+    applyIdleSignal();
 
     return () => {
       isMountedRef.current = false;
       recognitionRef.current?.stop();
+      microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
-      activeAudioRef.current?.pause();
-      if (activeAudioUrlRef.current) {
-        URL.revokeObjectURL(activeAudioUrlRef.current);
-        activeAudioUrlRef.current = null;
+      stopActiveAudioElement();
+      activeAudioElementRef.current?.remove();
+      activeAudioElementRef.current = null;
+      if (analyserFrameRef.current !== null) {
+        window.cancelAnimationFrame(analyserFrameRef.current);
+      }
+      if (speechBoundaryFrameRef.current !== null) {
+        window.cancelAnimationFrame(speechBoundaryFrameRef.current);
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        void audioContextRef.current.close().catch(() => undefined);
+      }
+      if (playbackAudioContextRef.current && playbackAudioContextRef.current.state !== "closed") {
+        void playbackAudioContextRef.current.close().catch(() => undefined);
       }
     };
   }, []);
@@ -126,106 +258,320 @@ export const useAdamVoice = () => {
     setFinalTranscript("");
   };
 
-  const resetToIdle = (message = "Click the orb to start talking with Adam.") => {
-    setVoiceState("idle");
-    setStatusMessage(message);
+  const stopSignalLoops = () => {
+    playbackCadenceCleanupRef.current?.();
+    playbackCadenceCleanupRef.current = null;
+
+    if (analyserFrameRef.current !== null) {
+      window.cancelAnimationFrame(analyserFrameRef.current);
+      analyserFrameRef.current = null;
+    }
+
+    if (speechBoundaryFrameRef.current !== null) {
+      window.cancelAnimationFrame(speechBoundaryFrameRef.current);
+      speechBoundaryFrameRef.current = null;
+    }
   };
 
-  const interruptPlayback = () => {
+  const teardownAudioGraph = () => {
+    stopSignalLoops();
+    analyserNodeRef.current?.disconnect();
+    mediaStreamSourceRef.current?.disconnect();
+    mediaElementSourceRef.current?.disconnect();
+    analyserNodeRef.current = null;
+    analyserDataRef.current = null;
+    mediaStreamSourceRef.current = null;
+    mediaElementSourceRef.current = null;
+
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      const audioContext = audioContextRef.current;
+      audioContextRef.current = null;
+      void audioContext.close().catch(() => undefined);
+    } else {
+      audioContextRef.current = null;
+    }
+  };
+
+  const stopMicrophoneStream = () => {
+    microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
+    microphoneStreamRef.current = null;
+  };
+
+  const stopBufferedPlayback = () => {
+    const currentBufferSource = activeBufferSourceRef.current;
+    if (currentBufferSource) {
+      currentBufferSource.onended = null;
+      try {
+        currentBufferSource.stop(0);
+      } catch {}
+      currentBufferSource.disconnect();
+      activeBufferSourceRef.current = null;
+    }
+
+    playbackAnalyserNodeRef.current?.disconnect();
+    activePlaybackGainRef.current?.disconnect();
+    playbackAnalyserNodeRef.current = null;
+    playbackAnalyserDataRef.current = null;
+    activePlaybackGainRef.current = null;
+  };
+
+  const stopActiveAudioElement = () => {
+    const currentAudio = activeAudioElementRef.current;
+    if (currentAudio) {
+      currentAudio.onended = null;
+      currentAudio.onerror = null;
+      currentAudio.onplaying = null;
+      currentAudio.ontimeupdate = null;
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      currentAudio.src = "";
+      currentAudio.load();
+    }
+
+    if (activeAudioUrlRef.current) {
+      URL.revokeObjectURL(activeAudioUrlRef.current);
+      activeAudioUrlRef.current = null;
+    }
+  };
+
+  const getOrCreateAudioElement = () => {
+    if (activeAudioElementRef.current) {
+      return activeAudioElementRef.current;
+    }
+
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return null;
+    }
+
+    const audioElement = document.createElement("audio");
+    audioElement.preload = "auto";
+    audioElement.crossOrigin = "anonymous";
+    audioElement.setAttribute("playsinline", "");
+    audioElement.setAttribute("webkit-playsinline", "");
+    audioElement.style.display = "none";
+    document.body.appendChild(audioElement);
+    activeAudioElementRef.current = audioElement;
+    return audioElement;
+  };
+
+  const ensurePlaybackAudioContextUnlocked = async () => {
+    const AudioContextConstructor = getAudioContextConstructor();
+    if (!AudioContextConstructor) {
+      return null;
+    }
+
+    let playbackAudioContext = playbackAudioContextRef.current;
+    if (!playbackAudioContext || playbackAudioContext.state === "closed") {
+      playbackAudioContext = new AudioContextConstructor();
+      playbackAudioContextRef.current = playbackAudioContext;
+    }
+
+    if (playbackAudioContext.state === "suspended") {
+      await playbackAudioContext.resume();
+    }
+
+    return playbackAudioContext;
+  };
+
+  const primeAudioPlaybackForGesture = async () => {
+    const audioElement = getOrCreateAudioElement();
+    if (!audioElement) {
+      return;
+    }
+
+    const silentAudioUrl = createSilentWavObjectUrl();
+
+    try {
+      audioElement.muted = true;
+      audioElement.src = silentAudioUrl;
+      audioElement.currentTime = 0;
+      await audioElement.play();
+      audioElement.pause();
+      audioElement.currentTime = 0;
+      playbackUnlockedRef.current = true;
+    } catch {
+      playbackUnlockedRef.current = false;
+    } finally {
+      audioElement.muted = false;
+      audioElement.src = "";
+      audioElement.load();
+      URL.revokeObjectURL(silentAudioUrl);
+    }
+
+    try {
+      const playbackAudioContext = await ensurePlaybackAudioContextUnlocked();
+      if (playbackAudioContext) {
+        const silentBuffer = playbackAudioContext.createBuffer(1, 1, 22050);
+        const source = playbackAudioContext.createBufferSource();
+        const gain = playbackAudioContext.createGain();
+        gain.gain.value = 0;
+        source.buffer = silentBuffer;
+        source.connect(gain);
+        gain.connect(playbackAudioContext.destination);
+        source.start();
+        source.stop(playbackAudioContext.currentTime + 0.001);
+      }
+    } catch {
+      // Keep the media-element unlock result as the source of truth when Web Audio cannot be primed.
+    }
+  };
+
+  const stopPlaybackInfrastructure = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
 
     activeUtteranceRef.current = null;
-    activeAudioRef.current?.pause();
-    activeAudioRef.current = null;
-    if (activeAudioUrlRef.current) {
-      URL.revokeObjectURL(activeAudioUrlRef.current);
-      activeAudioUrlRef.current = null;
+    stopBufferedPlayback();
+    stopActiveAudioElement();
+    teardownAudioGraph();
+  };
+
+  const resetToIdle = (message = "Click the orb to start talking with Adam.") => {
+    setVoiceTurnState("idle");
+    setStatusMessage(message);
+    applyIdleSignal();
+  };
+
+  const setVoiceErrorState = (message: string, nextError: string) => {
+    stopPlaybackInfrastructure();
+    stopMicrophoneStream();
+    setTextFallbackOpen(true);
+    setTextFocusRequestKey((current) => current + 1);
+    setVoiceTurnState("error");
+    setStatusMessage(message);
+    setError(nextError);
+    applyErrorSignal();
+  };
+
+  const startCadenceSignal = (source: AdamOrbSignalSource) => {
+    stopSignalLoops();
+    speechBoundaryPulseRef.current = 0.28;
+
+    const animateCadence = () => {
+      speechBoundaryPulseRef.current = Math.max(0.08, speechBoundaryPulseRef.current - 0.065);
+      if (!isMountedRef.current || currentStateRef.current !== "speaking") {
+        speechBoundaryFrameRef.current = null;
+        return;
+      }
+
+      setOrbSignalSource(source);
+      setOrbSignalLevel(clampSignal(0.26 + speechBoundaryPulseRef.current * 0.72));
+      speechBoundaryFrameRef.current = window.requestAnimationFrame(animateCadence);
+    };
+
+    speechBoundaryFrameRef.current = window.requestAnimationFrame(animateCadence);
+  };
+
+  const startMicrophoneSignalMonitoring = async (stream: MediaStream) => {
+    const AudioContextConstructor = getAudioContextConstructor();
+    if (!AudioContextConstructor) {
+      applyListeningFallbackSignal();
+      return;
     }
+
+    try {
+      teardownAudioGraph();
+      const audioContext = new AudioContextConstructor();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.84;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserNodeRef.current = analyser;
+      analyserDataRef.current = new Uint8Array(analyser.fftSize);
+      mediaStreamSourceRef.current = source;
+
+      const tick = () => {
+        const data = analyserDataRef.current;
+        const node = analyserNodeRef.current;
+
+        if (!data || !node || !isMountedRef.current || currentStateRef.current !== "listening") {
+          analyserFrameRef.current = null;
+          return;
+        }
+
+        node.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let index = 0; index < data.length; index += 1) {
+          const normalized = (data[index] - 128) / 128;
+          sum += normalized * normalized;
+        }
+
+        const rms = Math.sqrt(sum / data.length);
+        const boostedSignal = clampSignal(0.18 + Math.max(0, rms - 0.015) * 5.2);
+
+        setOrbSignalSource("microphone_rms");
+        setOrbSignalLevel(boostedSignal);
+        analyserFrameRef.current = window.requestAnimationFrame(tick);
+      };
+
+      tick();
+    } catch {
+      applyListeningFallbackSignal();
+    }
+  };
+
+  const startAudioPlaybackSignalMonitoring = (audioElement: HTMLAudioElement, onPlaybackStart?: () => void) => {
+    startCadenceSignal("tts_playback_cadence");
+    const pulseCadence = () => {
+      onPlaybackStart?.();
+      speechBoundaryPulseRef.current = 1;
+    };
+
+    audioElement.onplaying = pulseCadence;
+    audioElement.ontimeupdate = pulseCadence;
+    playbackCadenceCleanupRef.current = () => {
+      audioElement.onplaying = null;
+      audioElement.ontimeupdate = null;
+    };
+  };
+
+  const startBufferedPlaybackSignalMonitoring = () => {
+    const analyser = playbackAnalyserNodeRef.current;
+    const data = playbackAnalyserDataRef.current;
+    if (!analyser || !data) {
+      startCadenceSignal("tts_playback_cadence");
+      return;
+    }
+
+    stopSignalLoops();
+    const tick = () => {
+      if (!isMountedRef.current || currentStateRef.current !== "speaking") {
+        analyserFrameRef.current = null;
+        return;
+      }
+
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        const normalized = (data[index] - 128) / 128;
+        sum += normalized * normalized;
+      }
+
+      const rms = Math.sqrt(sum / data.length);
+      const boostedSignal = clampSignal(0.22 + Math.max(0, rms - 0.01) * 5.6);
+      setOrbSignalSource("tts_audio_rms");
+      setOrbSignalLevel(boostedSignal);
+      analyserFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    tick();
+  };
+
+  const interruptPlayback = () => {
+    stopPlaybackInfrastructure();
+    setPlaybackMode("none");
+    setPlaybackMessage("Adam playback was interrupted.");
+    setError(null);
     resetToIdle("Adam playback interrupted.");
-  };
-
-  const playBrowserSpeechFallback = (text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return false;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    activeUtteranceRef.current = utterance;
-    setVoiceState("speaking");
-    setStatusMessage("Adam is speaking.");
-    utterance.onend = () => {
-      if (!isMountedRef.current) {
-        return;
-      }
-      activeUtteranceRef.current = null;
-      resetToIdle("Adam is ready for another turn.");
-    };
-    utterance.onerror = () => {
-      if (!isMountedRef.current) {
-        return;
-      }
-      activeUtteranceRef.current = null;
-      setError("Adam could not play audio back, but the reply text is available below.");
-      resetToIdle("Adam replied in text-only mode.");
-    };
-    window.speechSynthesis.speak(utterance);
-    return true;
-  };
-
-  const playAudioData = async (audioBase64: string, audioMimeType?: string) => {
-    if (typeof window === "undefined" || typeof Audio === "undefined") {
-      return false;
-    }
-
-    const binary = window.atob(audioBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-
-    if (activeAudioUrlRef.current) {
-      URL.revokeObjectURL(activeAudioUrlRef.current);
-      activeAudioUrlRef.current = null;
-    }
-
-    const blob = new Blob([bytes], { type: audioMimeType ?? "audio/mpeg" });
-    const objectUrl = URL.createObjectURL(blob);
-    const audio = new Audio(objectUrl);
-    activeAudioUrlRef.current = objectUrl;
-    activeAudioRef.current = audio;
-    setVoiceState("speaking");
-    setStatusMessage("Adam is speaking.");
-
-    audio.onended = () => {
-      if (!isMountedRef.current) {
-        return;
-      }
-      activeAudioRef.current = null;
-      if (activeAudioUrlRef.current) {
-        URL.revokeObjectURL(activeAudioUrlRef.current);
-        activeAudioUrlRef.current = null;
-      }
-      resetToIdle("Adam is ready for another turn.");
-    };
-
-    audio.onerror = () => {
-      if (!isMountedRef.current) {
-        return;
-      }
-      activeAudioRef.current = null;
-      if (activeAudioUrlRef.current) {
-        URL.revokeObjectURL(activeAudioUrlRef.current);
-        activeAudioUrlRef.current = null;
-      }
-      setError("Adam could not play ElevenLabs audio, but the reply text is available below.");
-      resetToIdle("Adam replied in text-only mode.");
-    };
-
-    await audio.play();
-    return true;
   };
 
   const playReply = async (replyText: string, sessionId: string | null) => {
@@ -252,31 +598,278 @@ export const useAdamVoice = () => {
       }
 
       const ttsResponse: AdamTtsResponse = parsed.data;
-      if (ttsResponse.supported && ttsResponse.playbackMode === "audio_data" && ttsResponse.audioBase64) {
-        try {
-          const played = await playAudioData(ttsResponse.audioBase64, ttsResponse.audioMimeType);
-          if (played) {
+      const selectedVoiceName = getTtsMetadataString(ttsResponse, "voiceName") ?? ttsResponse.voiceHint ?? "Will";
+
+      if (
+        ttsResponse.supported &&
+        ttsResponse.playbackMode === "audio_data" &&
+        ttsResponse.audioData &&
+        ttsResponse.audioMimeType &&
+        typeof window !== "undefined"
+      ) {
+        const audioElement = getOrCreateAudioElement();
+        if (!audioElement) {
+          throw new Error("Server audio is unavailable in this browser runtime.");
+        }
+
+        const serverAudioData = ttsResponse.audioData;
+        stopActiveAudioElement();
+        const audioUrl = createObjectUrlFromBase64(serverAudioData, ttsResponse.audioMimeType);
+        const dataUrl = createDataUrlFromBase64(serverAudioData, ttsResponse.audioMimeType);
+        activeAudioUrlRef.current = audioUrl;
+        setPlaybackMode("audio_data");
+        setPlaybackMessage("Adam prepared server audio and is waiting for this device to start playback.");
+        setVoiceTurnState("thinking");
+        setStatusMessage("Adam is starting audio on this device.");
+        setError(null);
+        applyThinkingSignal();
+
+        let didStartPlayback = false;
+
+        const markPlaybackStarted = () => {
+          if (didStartPlayback || !isMountedRef.current) {
             return;
           }
-        } catch (audioError) {
-          console.warn("Adam ElevenLabs audio playback failed in the browser, attempting browser speech fallback.", {
-            error: audioError instanceof Error ? audioError.message : "unknown_error",
-            sessionId
+
+          didStartPlayback = true;
+          playbackUnlockedRef.current = true;
+          setVoiceTurnState("speaking");
+          setStatusMessage("Adam is speaking.");
+          setError(null);
+          applySpeakingFallbackSignal();
+          setPlaybackMessage(`Playing Adam through ElevenLabs using ${selectedVoiceName}.`);
+        };
+
+        const finalizePlaybackFailure = () => {
+          stopPlaybackInfrastructure();
+          setPlaybackMessage(
+            `${selectedVoiceName} server audio was generated, but this device could not play it. Adam's reply is still available in text.`
+          );
+          setError("This device blocked server-audio playback. Tap again to retry audio on a fresh gesture.");
+          resetToIdle("Adam replied in text while playback was blocked.");
+        };
+
+        const waitForAudioReadiness = async () =>
+          new Promise<void>((resolve, reject) => {
+            if (audioElement.readyState >= 2) {
+              resolve();
+              return;
+            }
+
+            const timeoutHandle = window.setTimeout(() => {
+              cleanup();
+              reject(new Error("Adam audio did not become ready on this device."));
+            }, 4000);
+
+            const handleReady = () => {
+              cleanup();
+              resolve();
+            };
+
+            const handleError = () => {
+              cleanup();
+              reject(new Error("Adam audio source failed before playback could begin."));
+            };
+
+            const cleanup = () => {
+              window.clearTimeout(timeoutHandle);
+              audioElement.removeEventListener("loadeddata", handleReady);
+              audioElement.removeEventListener("canplay", handleReady);
+              audioElement.removeEventListener("error", handleError);
+            };
+
+            audioElement.addEventListener("loadeddata", handleReady);
+            audioElement.addEventListener("canplay", handleReady);
+            audioElement.addEventListener("error", handleError);
           });
+
+        const playAudioSource = async (sourceUrl: string) => {
+          audioElement.src = sourceUrl;
+          audioElement.defaultMuted = false;
+          audioElement.muted = false;
+          audioElement.volume = 1;
+          audioElement.currentTime = 0;
+          audioElement.load();
+          await waitForAudioReadiness();
+          await new Promise<void>((resolve, reject) => {
+            const timeoutHandle = window.setTimeout(() => {
+              reject(new Error("Adam audio playback timed out before the device accepted the source."));
+            }, 6000);
+
+            audioElement
+              .play()
+              .then(() => {
+                window.clearTimeout(timeoutHandle);
+                resolve();
+              })
+              .catch((playbackError) => {
+                window.clearTimeout(timeoutHandle);
+                reject(playbackError);
+              });
+          });
+        };
+
+        const playBufferedAudioSource = async () => {
+          const playbackAudioContext = await ensurePlaybackAudioContextUnlocked();
+          if (!playbackAudioContext) {
+            throw new Error("Web Audio playback is unavailable in this browser runtime.");
+          }
+
+          stopBufferedPlayback();
+          const decodedAudio = await playbackAudioContext.decodeAudioData(createArrayBufferFromBase64(serverAudioData));
+          const analyser = playbackAudioContext.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.84;
+
+          const gain = playbackAudioContext.createGain();
+          gain.gain.value = 1;
+
+          const source = playbackAudioContext.createBufferSource();
+          source.buffer = decodedAudio;
+          source.connect(analyser);
+          analyser.connect(gain);
+          gain.connect(playbackAudioContext.destination);
+
+          playbackAnalyserNodeRef.current = analyser;
+          playbackAnalyserDataRef.current = new Uint8Array(analyser.fftSize);
+          activePlaybackGainRef.current = gain;
+          activeBufferSourceRef.current = source;
+
+          source.onended = () => {
+            if (!isMountedRef.current) {
+              return;
+            }
+
+            stopPlaybackInfrastructure();
+            setPlaybackMode("none");
+            resetToIdle("Adam is ready for another turn.");
+          };
+
+          source.start(0);
+          markPlaybackStarted();
+          startBufferedPlaybackSignalMonitoring();
+        };
+
+        audioElement.onended = () => {
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          stopPlaybackInfrastructure();
+          setPlaybackMode("none");
+          resetToIdle("Adam is ready for another turn.");
+        };
+
+        audioElement.onerror = () => {
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          finalizePlaybackFailure();
+        };
+
+        startAudioPlaybackSignalMonitoring(audioElement, markPlaybackStarted);
+
+        try {
+          await playAudioSource(audioUrl);
+          if (!didStartPlayback) {
+            markPlaybackStarted();
+          }
+          return;
+        } catch {
+          try {
+            await playAudioSource(dataUrl);
+            if (!didStartPlayback) {
+              markPlaybackStarted();
+            }
+            return;
+          } catch {
+            try {
+              await playBufferedAudioSource();
+              return;
+            } catch {
+              finalizePlaybackFailure();
+              return;
+            }
+            return;
+          }
         }
       }
 
-      if (ttsResponse.supported && ttsResponse.playbackMode === "browser_speech_synthesis" && playBrowserSpeechFallback(ttsResponse.text)) {
+      if (
+        ttsResponse.supported &&
+        ttsResponse.playbackMode === "browser_speech_synthesis" &&
+        typeof window !== "undefined" &&
+        "speechSynthesis" in window
+      ) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(ttsResponse.text);
+        activeUtteranceRef.current = utterance;
+        setPlaybackMode("browser_speech_synthesis");
+        setPlaybackMessage("Adam is preparing browser speech playback on this device.");
+        setVoiceTurnState("thinking");
+        setStatusMessage("Adam is starting audio on this device.");
+        setError(null);
+        applyThinkingSignal();
+
+        let didSpeechStart = false;
+        const speechStartTimeout = window.setTimeout(() => {
+          if (!didSpeechStart && isMountedRef.current) {
+            stopPlaybackInfrastructure();
+            setPlaybackMode("none");
+            setError("This device did not start browser speech playback. Adam's reply is still available in text.");
+            resetToIdle("Adam replied in text-only mode.");
+          }
+        }, 3000);
+
+        utterance.onstart = () => {
+          didSpeechStart = true;
+          window.clearTimeout(speechStartTimeout);
+          setPlaybackMessage(ttsResponse.message);
+          setVoiceTurnState("speaking");
+          setStatusMessage("Adam is speaking.");
+          setError(null);
+          applySpeakingFallbackSignal();
+          startCadenceSignal("speech_boundary_cadence");
+        };
+
+        utterance.onboundary = () => {
+          speechBoundaryPulseRef.current = 1;
+        };
+        utterance.onend = () => {
+          window.clearTimeout(speechStartTimeout);
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          stopPlaybackInfrastructure();
+          setPlaybackMode("none");
+          resetToIdle("Adam is ready for another turn.");
+        };
+        utterance.onerror = () => {
+          window.clearTimeout(speechStartTimeout);
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          stopPlaybackInfrastructure();
+          setPlaybackMode("none");
+          setError("Adam could not play audio back, but the reply text is available below.");
+          resetToIdle("Adam replied in text-only mode.");
+        };
+
+        window.speechSynthesis.speak(utterance);
         return;
       }
 
-      if (playBrowserSpeechFallback(ttsResponse.text)) {
-        return;
-      }
-
+      setPlaybackMode("none");
+      setPlaybackMessage("Adam replied in text-only mode.");
       resetToIdle("Adam replied in text-only mode.");
     } catch (playbackError) {
-      setError(playbackError instanceof Error ? playbackError.message : "Adam playback failed.");
+      const message = playbackError instanceof Error ? playbackError.message : "Adam playback failed.";
+      setPlaybackMode("none");
+      setPlaybackMessage("Adam prepared a reply, but playback could not start on this device.");
+      setError(message);
       resetToIdle("Adam replied in text-only mode.");
     }
   };
@@ -284,16 +877,18 @@ export const useAdamVoice = () => {
   const submitTranscript = async (transcript: string, source: "browser_speech" | "text_fallback") => {
     const trimmedTranscript = transcript.trim();
     if (!trimmedTranscript) {
-      setError("There was no transcript to send to Adam.");
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Adam did not receive a usable transcript.");
-      return;
+      setVoiceErrorState("Adam did not receive a usable transcript.", "There was no transcript to send to Adam.");
+      return false;
     }
 
+    stopPlaybackInfrastructure();
+    stopMicrophoneStream();
     setError(null);
-    setVoiceState("thinking");
+    setPlaybackMode("none");
+    setPlaybackMessage("Adam is preparing voice output.");
+    setVoiceTurnState("thinking");
     setStatusMessage("Adam is processing your request.");
+    applyThinkingSignal();
     setInterimTranscript("");
     setFinalTranscript(trimmedTranscript);
 
@@ -350,12 +945,16 @@ export const useAdamVoice = () => {
       sessionIdRef.current = chat.session.sessionId;
       setAssistantReply(chat.replyText);
       await playReply(chat.replyText, chat.session.sessionId);
+      return true;
     } catch (submitError) {
       setAssistantReply("");
-      setError(submitError instanceof Error ? submitError.message : "Adam voice processing failed.");
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Adam hit a voice error. Type instead or try again.");
+      setPlaybackMode("none");
+      setPlaybackMessage("Adam could not prepare voice output.");
+      setVoiceErrorState(
+        "Adam hit a voice error. Type instead or try again.",
+        submitError instanceof Error ? submitError.message : "Adam voice processing failed."
+      );
+      return false;
     }
   };
 
@@ -371,33 +970,43 @@ export const useAdamVoice = () => {
 
     setError(null);
     setAssistantReply("");
+    setPlaybackMode("none");
+    setPlaybackMessage("Adam is waiting for live voice input.");
     resetListeningBuffers();
+    setTextFallbackOpen(false);
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Voice capture is unavailable in this browser.");
-      setError("Your browser does not support microphone capture. You can type to Adam instead.");
+      setVoiceErrorState(
+        "Voice capture is unavailable in this browser.",
+        "Your browser does not support microphone capture. You can type to Adam instead."
+      );
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      microphoneStreamRef.current = stream;
     } catch (permissionError) {
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Microphone access was denied.");
-      setError(permissionError instanceof Error ? permissionError.message : "Microphone access was denied.");
+      setVoiceErrorState(
+        "Microphone access was denied.",
+        permissionError instanceof Error ? permissionError.message : "Microphone access was denied."
+      );
       return;
     }
 
     const Recognition = getSpeechRecognitionConstructor();
     if (!Recognition) {
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Live voice capture is unavailable in this browser.");
-      setError("Live speech recognition is not available here. You can type to Adam instead.");
+      stopMicrophoneStream();
+      setVoiceErrorState(
+        "Live voice capture is unavailable in this browser.",
+        "Live speech recognition is not available here. You can type to Adam instead."
+      );
       return;
     }
 
@@ -411,8 +1020,13 @@ export const useAdamVoice = () => {
     recognition.lang = "en-US";
     recognition.maxAlternatives = 1;
     recognition.onstart = () => {
-      setVoiceState("listening");
+      setVoiceTurnState("listening");
       setStatusMessage("Adam is listening.");
+      applyListeningFallbackSignal();
+
+      if (microphoneStreamRef.current) {
+        void startMicrophoneSignalMonitoring(microphoneStreamRef.current);
+      }
     };
     recognition.onresult = (event) => {
       let nextFinal = finalizedTranscriptRef.current;
@@ -434,13 +1048,14 @@ export const useAdamVoice = () => {
     };
     recognition.onerror = (event) => {
       recognitionRef.current = null;
-      setTextFallbackOpen(true);
-      setVoiceState("error");
-      setStatusMessage("Adam could not complete that voice turn.");
-      setError(getErrorMessageForRecognition(event.error));
+      stopMicrophoneStream();
+      teardownAudioGraph();
+      setVoiceErrorState("Adam could not complete that voice turn.", getErrorMessageForRecognition(event.error));
     };
     recognition.onend = () => {
       recognitionRef.current = null;
+      stopMicrophoneStream();
+      teardownAudioGraph();
       const capturedTranscript = finalizedTranscriptRef.current.trim();
 
       if (didCancelListeningRef.current) {
@@ -450,7 +1065,8 @@ export const useAdamVoice = () => {
       }
 
       const shouldSubmit =
-        shouldSubmitAfterListeningRef.current || (currentStateRef.current === "listening" && Boolean(capturedTranscript));
+        shouldSubmitAfterListeningRef.current ||
+        (currentStateRef.current === "listening" && Boolean(capturedTranscript));
       shouldSubmitAfterListeningRef.current = false;
 
       if (shouldSubmit && capturedTranscript) {
@@ -459,10 +1075,7 @@ export const useAdamVoice = () => {
       }
 
       if (!capturedTranscript) {
-        setTextFallbackOpen(true);
-        setVoiceState("error");
-        setStatusMessage("Adam did not capture any speech.");
-        setError("No speech was captured. Try again or type instead.");
+        setVoiceErrorState("Adam did not capture any speech.", "No speech was captured. Try again or type instead.");
         return;
       }
 
@@ -478,8 +1091,9 @@ export const useAdamVoice = () => {
     }
 
     shouldSubmitAfterListeningRef.current = true;
-    setVoiceState("thinking");
+    setVoiceTurnState("thinking");
     setStatusMessage("Finalizing your transcript for Adam.");
+    applyThinkingSignal();
     recognitionRef.current.stop();
   };
 
@@ -489,13 +1103,23 @@ export const useAdamVoice = () => {
       shouldSubmitAfterListeningRef.current = false;
       recognitionRef.current.stop();
     } else {
+      stopMicrophoneStream();
+      teardownAudioGraph();
       resetToIdle("Voice turn cancelled.");
     }
     setInterimTranscript("");
   };
 
   const submitTextFallback = async () => {
-    await submitTranscript(textInput, "text_fallback");
+    await primeAudioPlaybackForGesture();
+    const didSubmit = await submitTranscript(textInput, "text_fallback");
+    if (didSubmit) {
+      setTextInput("");
+      setTextFallbackOpen(true);
+      setTextFocusRequestKey((current) => current + 1);
+    }
+
+    return didSubmit;
   };
 
   const restartSession = () => {
@@ -503,16 +1127,22 @@ export const useAdamVoice = () => {
       interruptPlayback();
     }
 
+    recognitionRef.current?.stop();
+    stopMicrophoneStream();
+    stopPlaybackInfrastructure();
     setError(null);
     setAssistantReply("");
     setTextInput("");
     setTextFallbackOpen(false);
+    setPlaybackMode("none");
+    setPlaybackMessage("Adam will use the active playback path when a reply is ready.");
     resetListeningBuffers();
     resetToIdle();
   };
 
-  const handleOrbPress = () => {
+  const handleOrbPress = async () => {
     if (voiceState === "idle" || voiceState === "error") {
+      await primeAudioPlaybackForGesture();
       void startListening();
       return;
     }
@@ -527,6 +1157,25 @@ export const useAdamVoice = () => {
     }
   };
 
+  const signalTruthLabel =
+    voiceState === "listening"
+      ? orbSignalSource === "microphone_rms"
+        ? "Orb signal is tracking live microphone energy."
+        : "Orb signal is using a listening-state fallback because live mic energy is unavailable."
+      : voiceState === "speaking"
+        ? orbSignalSource === "tts_audio_rms"
+          ? "Orb signal is tracking real server audio energy."
+          : orbSignalSource === "tts_playback_cadence"
+            ? "Orb signal is following live server-audio playback cadence on the mobile-safe playback path."
+          : orbSignalSource === "speech_boundary_cadence"
+            ? "Orb signal is following browser speech cadence because server audio data is not active."
+            : "Orb signal is using a speaking-state fallback."
+        : voiceState === "thinking"
+          ? "Orb signal is driven by Adam's processing state."
+          : voiceState === "error"
+            ? "Orb signal is degraded because voice input or playback is unavailable."
+            : "Orb signal is in ambient idle mode.";
+
   return {
     voiceState,
     interimTranscript,
@@ -535,8 +1184,14 @@ export const useAdamVoice = () => {
     error,
     textFallbackOpen,
     textInput,
+    textFocusRequestKey,
     statusMessage,
+    playbackMessage,
+    playbackMode,
     isAudioPlaybackAvailable,
+    orbSignalLevel,
+    orbSignalSource,
+    signalTruthLabel,
     setTextInput,
     setTextFallbackOpen,
     handleOrbPress,

@@ -7,6 +7,7 @@ import { FormCard } from "../../../../components/form-card";
 import { RenderActions } from "../../../../components/render-actions";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
+import { getRenderReadiness } from "../../../../lib/server/project-flow-readiness";
 
 export default async function FinalRenderPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -42,6 +43,12 @@ async function FinalRenderContent({
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const masterAsset = latestRender?.masterAssetId ? assetsById.get(latestRender.masterAssetId) : undefined;
   const thumbnailAsset = latestRender?.thumbnailAssetId ? assetsById.get(latestRender.thumbnailAssetId) : undefined;
+  const renderReadiness = getRenderReadiness(workspace);
+  const canStartRender = renderReadiness.canStartRender;
+  const renderDisabledReason =
+    canStartRender || isDemoProject
+      ? null
+      : renderReadiness.blockingIssues.join(" ");
 
   return (
     <DashboardShell
@@ -65,7 +72,17 @@ async function FinalRenderContent({
           Final render completed and persisted.
         </p>
       ) : null}
-      <RenderActions projectId={projectId} isDemoProject={isDemoProject} />
+      {!isDemoProject && latestRender?.status !== "completed" && !canStartRender ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          {renderReadiness.blockingIssues.join(" ")}
+        </div>
+      ) : null}
+      <RenderActions
+        projectId={projectId}
+        isDemoProject={isDemoProject}
+        canStartRender={canStartRender}
+        disabledReason={renderDisabledReason}
+      />
       <div className="render-grid">
         <FormCard title="Assembly Pipeline" description="FFmpeg stages run in deterministic order for reproducibility.">
           <ul className="list-reset">

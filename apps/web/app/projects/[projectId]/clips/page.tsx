@@ -6,6 +6,7 @@ import { FormCard } from "../../../../components/form-card";
 import { StatusChip } from "../../../../components/status-chip";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
+import { getClipGenerationReadiness } from "../../../../lib/server/project-flow-readiness";
 
 export default async function ClipReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -31,6 +32,12 @@ async function ClipReviewContent({
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const activeClipCount = workspace.clips.filter((clip) => ["pending", "queued", "running"].includes(clip.status)).length;
   const failedClipCount = workspace.clips.filter((clip) => clip.status === "failed").length;
+  const clipReadiness = getClipGenerationReadiness(workspace);
+  const canGenerate = clipReadiness.canGenerate;
+  const generateDisabledReason =
+    canGenerate || isDemoProject
+      ? null
+      : clipReadiness.blockingIssues.join(" ");
 
   return (
     <DashboardShell
@@ -61,11 +68,18 @@ async function ClipReviewContent({
           before treating this project as ready.
         </p>
       ) : null}
+      {!isDemoProject && !canGenerate ? (
+        <div className="empty-state" style={{ marginBottom: "20px" }}>
+          {clipReadiness.blockingIssues.join(" ")}
+        </div>
+      ) : null}
       <ClipReviewActions
         projectId={projectId}
         activeClipCount={activeClipCount}
         clipCount={workspace.clips.length}
         isDemoProject={isDemoProject}
+        canGenerate={canGenerate}
+        generateDisabledReason={generateDisabledReason}
       />
       <FormCard title="Generation Queue" description="The clip layer is provider-agnostic but exposes provider-specific job IDs.">
         {workspace.clips.length ? (

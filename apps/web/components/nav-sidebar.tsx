@@ -1,29 +1,17 @@
 import Link from "next/link";
 
-import {
-  adamPlanRoute,
-  clipReviewRoute,
-  homeRoute,
-  newProjectRoute,
-  projectAdamRoute,
-  projectRoute,
-  projectsRoute,
-  publishRoute,
-  renderRoute,
-  sceneReviewRoute,
-  workspaceRoute
-} from "../lib/routes";
+import { accountRoute, clipReviewRoute, dashboardRoute, projectAdamRoute, projectRoute, projectsRoute, publishRoute, renderRoute, sceneReviewRoute, workspaceRoute } from "../lib/routes";
 
-const coreItems = [
-  { href: homeRoute, label: "Home" },
-  { href: workspaceRoute, label: "Workspace" },
+const coreNavItems = [
+  { href: dashboardRoute, label: "Console" },
   { href: projectsRoute, label: "Projects" },
-  { href: newProjectRoute, label: "New Project" },
-  { href: adamPlanRoute, label: "Adam Plan" }
+  { href: workspaceRoute, label: "Workspace" },
+  { href: "/projects/new", label: "New Project" },
+  { href: accountRoute, label: "Account" }
 ];
 
-const projectItems = (projectId?: string) =>
-  projectId
+const projectNavItems = (projectId?: string) => [
+  ...(projectId
     ? [
         { href: projectRoute(projectId), label: "Overview" },
         { href: projectAdamRoute(projectId), label: "Adam" },
@@ -32,43 +20,39 @@ const projectItems = (projectId?: string) =>
         { href: renderRoute(projectId), label: "Render" },
         { href: publishRoute(projectId), label: "Publish" }
       ]
-    : [];
+    : [])
+];
 
 export const NavSidebar = ({ projectId }: { projectId?: string }) => (
   <aside className="sidebar">
     <div className="brand-block">
       <span className="brand-block__eyebrow">CONTENT ENGINE X</span>
-      <h1>ADAM Studio</h1>
-      <p>One connected surface for planning, review, and production handoff.</p>
+      <h1>Operator Console</h1>
+      <p>Brief to publish pipeline for short-form video systems.</p>
     </div>
-
-    <div className="sidebar__section">
-      <p className="sidebar__section-title">Core Routes</p>
-      <nav className="sidebar__nav">
-        {coreItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-    </div>
-
-    {projectId ? (
-      <div className="sidebar__section">
-        <p className="sidebar__section-title">Project Workflow</p>
-        <nav className="sidebar__nav">
-          {projectItems(projectId).map((item) => (
+    <nav className="sidebar__nav">
+      {coreNavItems.map((item) => (
+        <Link key={item.href} href={item.href}>
+          {item.label}
+        </Link>
+      ))}
+      {projectId ? (
+        <>
+          <hr style={{ margin: "24px 0 16px", border: "none", borderTop: "1px solid var(--line)" }} />
+          <span className="brand-block__eyebrow" style={{ paddingLeft: "16px", marginBottom: "8px", display: "block" }}>PROJECT</span>
+          {projectNavItems(projectId).map((item) => (
             <Link key={item.href} href={item.href}>
               {item.label}
             </Link>
           ))}
-        </nav>
-      </div>
-    ) : null}
-
-    <div className="sidebar__meta">
-      <span className="truth-pill">Live System</span>
-      <p>Navigation is wired to real routes only. Empty states are shown when live data is unavailable.</p>
-    </div>
+        </>
+      ) : null}
+      <hr style={{ margin: "24px 0 16px", border: "none", borderTop: "1px solid var(--line)" }} />
+      <span className="brand-block__eyebrow" style={{ paddingLeft: "16px", marginBottom: "8px", display: "block" }}>SYSTEMS</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Pipelines is offline and not operational yet.">Pipelines</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Storage is offline and not operational yet.">Storage</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Integrations is offline and not operational yet.">Integrations</span>
+      <span className="sidebar__link sidebar__link--disabled" title="Settings is offline and not operational yet.">Settings</span>
+    </nav>
   </aside>
 );

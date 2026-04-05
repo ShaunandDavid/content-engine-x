@@ -6,20 +6,17 @@ export default async function NewProjectPage() {
   const readiness = await runProjectCreationPreflight();
 
   return (
-    <main className="studio-page-shell">
-      <AdamTopNav currentRoute="projects" />
-      <section className="studio-page-intro">
-        <span className="eyebrow">Project Initialization</span>
-        <h1>Start a real project from the new premium creation surface.</h1>
-        <p>Creation is truth-gated against the current environment before the workflow handoff begins.</p>
-      </section>
-      <section className="studio-macro-body studio-macro-body--builder">
-        <ProjectCreateForm
+    <div className="studio-macro-shell">
+      <div className="studio-macro-header">
+        <AdamTopNav />
+      </div>
+      <div className="studio-macro-body">
+        <ProjectCreateForm 
           initialChecks={readiness.checks}
-          initialBlockingIssues={readiness.blockingIssues}
+          initialBlockingIssues={readiness.blockingIssues} 
           warnings={readiness.warnings}
         />
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

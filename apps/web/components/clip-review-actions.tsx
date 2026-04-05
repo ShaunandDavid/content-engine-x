@@ -7,12 +7,16 @@ export const ClipReviewActions = ({
   projectId,
   activeClipCount,
   clipCount,
-  isDemoProject
+  isDemoProject,
+  canGenerate = true,
+  generateDisabledReason = null
 }: {
   projectId: string;
   activeClipCount: number;
   clipCount: number;
   isDemoProject: boolean;
+  canGenerate?: boolean;
+  generateDisabledReason?: string | null;
 }) => {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -80,12 +84,13 @@ export const ClipReviewActions = ({
       });
       const result = (await response.json()) as {
         message?: string;
+        blockingIssues?: string[];
         readiness?: { blockingIssues?: string[] };
       };
 
       if (!response.ok) {
-        const readinessIssues = result.readiness?.blockingIssues ?? [];
-        const message = readinessIssues.length > 0 ? [result.message, ...readinessIssues].filter(Boolean).join(" ") : result.message;
+        const blockingIssues = result.blockingIssues ?? result.readiness?.blockingIssues ?? [];
+        const message = blockingIssues.length > 0 ? [result.message, ...blockingIssues].filter(Boolean).join(" ") : result.message;
         throw new Error(message ?? "Clip generation failed.");
       }
 
@@ -100,10 +105,10 @@ export const ClipReviewActions = ({
   return (
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
-        <button className="button" type="button" onClick={generateMissingClips} disabled={isGenerating || isPolling}>
+        <button className="button" type="button" onClick={generateMissingClips} disabled={isGenerating || isPolling || !canGenerate}>
           {isGenerating ? "Submitting..." : clipCount > 0 ? "Generate Missing Clips" : "Start Clip Generation"}
         </button>
-        <button className="button button--secondary" type="button" onClick={() => void pollNow()} disabled={isPolling || isGenerating}>
+        <button className="button button--secondary" type="button" onClick={() => void pollNow()} disabled={isPolling || isGenerating || clipCount < 1}>
           {isPolling ? "Polling..." : "Poll Status Now"}
         </button>
       </div>
@@ -112,6 +117,7 @@ export const ClipReviewActions = ({
           ? `Automatic polling is active for ${activeClipCount} in-flight clip${activeClipCount === 1 ? "" : "s"}.`
           : "No in-flight clips. Polling will resume automatically when new generations are queued."}
       </p>
+      {!canGenerate && generateDisabledReason ? <p className="empty-state">{generateDisabledReason}</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}
     </div>
   );

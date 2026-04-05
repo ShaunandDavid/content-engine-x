@@ -5,7 +5,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript/lib/typescript.js";
 
 const require = createRequire(import.meta.url);
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");

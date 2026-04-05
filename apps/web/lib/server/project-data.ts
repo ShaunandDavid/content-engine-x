@@ -1,6 +1,8 @@
 import type { ProjectWorkspace, PromptRecord, SceneRecord } from "@content-engine/shared";
 import { getProjectWorkspace } from "@content-engine/db";
 
+import "./ensure-runtime-env";
+
 import { demoProject } from "../dashboard-data";
 
 const toDemoWorkspace = (): ProjectWorkspace => ({

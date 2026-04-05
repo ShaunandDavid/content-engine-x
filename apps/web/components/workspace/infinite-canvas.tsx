@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef, useState, type PointerEvent, type WheelEvent } from "react";
+import { forwardRef, useEffect, useRef, useState, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 
 export type CanvasTransform = {
   x: number;
@@ -8,16 +8,114 @@ export type CanvasTransform = {
   scale: number;
 };
 
-type InfiniteCanvasProps = {
-  children: React.ReactNode;
+type LegacyInfiniteCanvasProps = {
+  children: ReactNode;
+};
+
+type StudioInfiniteCanvasProps = {
+  children: ReactNode;
   transform: CanvasTransform;
   onTransformChange: (transform: CanvasTransform) => void;
   gridEnabled: boolean;
 };
 
+type InfiniteCanvasProps = LegacyInfiniteCanvasProps | StudioInfiniteCanvasProps;
+
+const isStudioInfiniteCanvas = (props: InfiniteCanvasProps): props is StudioInfiniteCanvasProps =>
+  "transform" in props && typeof props.onTransformChange === "function";
+
+const LegacyInfiniteCanvas = forwardRef<HTMLDivElement, LegacyInfiniteCanvasProps>(function LegacyInfiniteCanvas(
+  { children },
+  ref
+) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [transform, setTransform] = useState<CanvasTransform>({ x: 36, y: 32, scale: 1 });
+  const [isPanning, setIsPanning] = useState(false);
+
+  const setRefs = (element: HTMLDivElement | null) => {
+    containerRef.current = element;
+
+    if (typeof ref === "function") {
+      ref(element);
+      return;
+    }
+
+    if (ref) {
+      ref.current = element;
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Only intercept if we clicked the background, not an artifact node.
+    if ((e.target as HTMLElement).classList.contains("ws-canvas-bg")) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setIsPanning(true);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isPanning) return;
+    setTransform(prev => ({
+      ...prev,
+      x: prev.x + e.movementX,
+      y: prev.y + e.movementY
+    }));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsPanning(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom logic mapping
+      const zoomSensitivity = 0.005;
+      const zoomDelta = -e.deltaY * zoomSensitivity;
+      setTransform(prev => ({
+        ...prev,
+        scale: Math.min(Math.max(0.1, prev.scale + zoomDelta), 3)
+      }));
+    } else {
+      // Native trackpad panning
+      setTransform(prev => ({
+        ...prev,
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY
+      }));
+    }
+  };
+
+  return (
+    <div
+      ref={setRefs}
+      className="ws-canvas-viewport"
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
+      <div className="ws-canvas-bg" style={{ cursor: isPanning ? "grabbing" : "grab" }} />
+      <div 
+        className="ws-canvas-plane"
+        style={{ 
+          transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+          transformOrigin: "0 0"
+        }}
+      >
+        <div className="ws-canvas-content">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const clampScale = (value: number) => Math.min(1.75, Math.max(0.5, value));
 
-export const InfiniteCanvas = forwardRef<HTMLDivElement, InfiniteCanvasProps>(function InfiniteCanvas(
+const StudioInfiniteCanvas = forwardRef<HTMLDivElement, StudioInfiniteCanvasProps>(function StudioInfiniteCanvas(
   { children, transform, onTransformChange, gridEnabled },
   ref
 ) {
@@ -108,6 +206,16 @@ export const InfiniteCanvas = forwardRef<HTMLDivElement, InfiniteCanvasProps>(fu
     setIsPanning(true);
   };
 
+  const endPan = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    startPointRef.current = null;
+    originRef.current = null;
+    pointerIdRef.current = null;
+    setIsPanning(false);
+  };
+
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!isPanning || !startPointRef.current || !originRef.current) {
       return;
@@ -123,16 +231,6 @@ export const InfiniteCanvas = forwardRef<HTMLDivElement, InfiniteCanvasProps>(fu
       x: originRef.current.x + (event.clientX - startPointRef.current.x),
       y: originRef.current.y + (event.clientY - startPointRef.current.y)
     });
-  };
-
-  const endPan = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    startPointRef.current = null;
-    originRef.current = null;
-    pointerIdRef.current = null;
-    setIsPanning(false);
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -181,5 +279,13 @@ export const InfiniteCanvas = forwardRef<HTMLDivElement, InfiniteCanvasProps>(fu
         <div className="studio-canvas__content">{children}</div>
       </div>
     </div>
+  );
+});
+
+export const InfiniteCanvas = forwardRef<HTMLDivElement, InfiniteCanvasProps>(function InfiniteCanvas(props, ref) {
+  return isStudioInfiniteCanvas(props) ? (
+    <StudioInfiniteCanvas {...props} ref={ref} />
+  ) : (
+    <LegacyInfiniteCanvas {...props} ref={ref} />
   );
 });

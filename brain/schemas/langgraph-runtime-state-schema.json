@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "brain/schemas/langgraph-runtime-state-schema.json",
-  "title": "Adam LangGraph Runtime State",
-  "description": "Canonical versioned runtime state contract for Adam LangGraph workflows.",
+  "title": "Enoch LangGraph Runtime State",
+  "description": "Canonical versioned runtime state contract for Enoch LangGraph workflows.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

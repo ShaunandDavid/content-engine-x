@@ -14,9 +14,9 @@ import type {
   WorkflowRunRecord,
   WorkflowStage
 } from "./core.js";
-import type { AdamGovernanceDecision, AdamLangGraphRuntimeState, AdamModelDecision, AdamStageHistoryEntry } from "./adam.js";
+import type { EnochGovernanceDecision, EnochLangGraphRuntimeState, EnochModelDecision, EnochStageHistoryEntry } from "./enoch.js";
 
-export type StageExecution = AdamStageHistoryEntry;
+export type StageExecution = EnochStageHistoryEntry;
 
 // Compatibility adapter over canonical governance-decision semantics for the
 // current approval-oriented workflow surfaces.
@@ -91,6 +91,6 @@ export interface CreateProjectWorkflowResult extends ProjectWorkspace {
   workflowRun: WorkflowRunRecord;
 }
 
-export type AdamRuntimeState = AdamLangGraphRuntimeState;
-export type GovernanceDecisionRecord = AdamGovernanceDecision;
-export type ModelDecisionRecord = AdamModelDecision;
+export type EnochRuntimeState = EnochLangGraphRuntimeState;
+export type GovernanceDecisionRecord = EnochGovernanceDecision;
+export type ModelDecisionRecord = EnochModelDecision;

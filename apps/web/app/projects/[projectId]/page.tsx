@@ -6,10 +6,10 @@ import { getLatestRenderForProject } from "@content-engine/db";
 import { FormCard } from "../../../components/form-card";
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { demoProject, stageLabels } from "../../../lib/dashboard-data";
-import { getAdamWorkspaceSummary } from "../../../lib/server/adam-project-data";
+import { getEnochWorkspaceSummary } from "../../../lib/server/enoch-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
 import { getClipGenerationReadiness, getPublishReadiness, getRenderReadiness, getSceneReviewSummary } from "../../../lib/server/project-flow-readiness";
-import { clipReviewRoute, projectAdamRoute, publishRoute, renderRoute, sceneReviewRoute } from "../../../lib/routes";
+import { clipReviewRoute, projectEnochRoute, publishRoute, renderRoute, sceneReviewRoute } from "../../../lib/routes";
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -33,7 +33,7 @@ async function ProjectDetailContent({
   }
 
   const isDemoProject = projectId === demoProject.id;
-  const adamSummary = getAdamWorkspaceSummary(workspace);
+  const enochSummary = getEnochWorkspaceSummary(workspace);
   const sceneReviewSummary = getSceneReviewSummary(workspace);
   const clipReadiness = getClipGenerationReadiness(workspace);
   const renderReadiness = getRenderReadiness(workspace);
@@ -207,42 +207,42 @@ async function ProjectDetailContent({
       </div>
 
       <FormCard
-        title="Adam Preplan"
-        description="Additive Adam reasoning and planning context linked to this project before downstream generation."
+        title="Enoch Preplan"
+        description="Additive Enoch reasoning and planning context linked to this project before downstream generation."
       >
-        {adamSummary.status === "completed" ? (
+        {enochSummary.status === "completed" ? (
           <div className="stack">
-            <div className="adam-preplan-summary-grid">
+            <div className="enoch-preplan-summary-grid">
               <article className="payload-card">
                 <p className="eyebrow">Core Goal</p>
-                <strong>{adamSummary.coreGoal}</strong>
+                <strong>{enochSummary.coreGoal}</strong>
               </article>
               <article className="payload-card">
                 <p className="eyebrow">Audience</p>
-                <strong>{adamSummary.audience}</strong>
+                <strong>{enochSummary.audience}</strong>
               </article>
               <article className="payload-card">
                 <p className="eyebrow">Recommended Angle</p>
-                <strong>{adamSummary.recommendedAngle}</strong>
+                <strong>{enochSummary.recommendedAngle}</strong>
               </article>
               <article className="payload-card">
                 <p className="eyebrow">Reasoning Summary</p>
-                <strong>{adamSummary.reasoningSummary}</strong>
+                <strong>{enochSummary.reasoningSummary}</strong>
               </article>
             </div>
             <div className="button-row">
-              <Link className="button button--secondary" href={projectAdamRoute(projectId)}>
-                Open Adam Detail
+              <Link className="button button--secondary" href={projectEnochRoute(projectId)}>
+                Open Project Enoch
               </Link>
             </div>
           </div>
-        ) : adamSummary.status === "skipped" ? (
+        ) : enochSummary.status === "skipped" ? (
           <div className="empty-state">
-            Adam preplanning was skipped for this project. {adamSummary.errorMessage ?? "Legacy planning remained active."}
+            Enoch preplanning was skipped for this project. {enochSummary.errorMessage ?? "Legacy planning remained active."}
           </div>
         ) : (
           <div className="empty-state">
-            No Adam preplanning is linked to this project yet. The current Content Engine X planning flow remains available.
+            No Enoch preplanning is linked to this project yet. The current Content Engine X planning flow remains available.
           </div>
         )}
       </FormCard>

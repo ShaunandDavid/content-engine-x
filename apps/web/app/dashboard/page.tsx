@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { AdamTopNav } from "../../components/adam/adam-top-nav";
+import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { clipReviewRoute, projectRoute } from "../../lib/routes";
 import { getOperationalDashboardData } from "../../lib/server/dashboard-operational-data";
 
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="console-page">
-      <AdamTopNav currentRoute="dashboard" />
+      <EnochTopNav currentRoute="dashboard" />
 
       <div className="console-layout">
         <section className="console-hero">

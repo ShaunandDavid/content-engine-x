@@ -14,7 +14,7 @@ const particles = Array.from({ length: 44 }, (_, index) => ({
 const codeRows = Array.from({ length: 12 }, (_, rowIndex) => ({
   id: `row-${rowIndex}`,
   y: 66 + rowIndex * 27,
-  text: `${glyphs[rowIndex % glyphs.length]}  adam.runtime  ${glyphs[(rowIndex + 3) % glyphs.length]}  workflow.sync`
+  text: `${glyphs[rowIndex % glyphs.length]}  enoch.runtime  ${glyphs[(rowIndex + 3) % glyphs.length]}  workflow.sync`
 }));
 
 export const DigitalAppleVisual = () => (
@@ -30,17 +30,17 @@ export const DigitalAppleVisual = () => (
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <linearGradient id="adamAppleStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="enochAppleStroke" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
             <stop offset="55%" stopColor="rgba(186, 202, 241, 0.62)" />
             <stop offset="100%" stopColor="rgba(15, 23, 42, 0.18)" />
           </linearGradient>
-          <radialGradient id="adamAppleFill" cx="50%" cy="36%" r="72%">
+          <radialGradient id="enochAppleFill" cx="50%" cy="36%" r="72%">
             <stop offset="0%" stopColor="rgba(255,255,255,0.84)" />
             <stop offset="58%" stopColor="rgba(215,223,238,0.34)" />
             <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
           </radialGradient>
-          <clipPath id="adamAppleClip">
+          <clipPath id="enochAppleClip">
             <path d="M227 108C263 53 338 45 364 106C379 141 375 181 353 212C400 253 421 314 421 375C421 462 356 500 281 500C247 500 228 490 214 482C200 490 181 500 147 500C72 500 7 462 7 375C7 313 29 252 76 211C54 180 49 140 64 106C90 45 165 53 201 108C212 125 216 130 214 130C212 130 216 125 227 108Z" />
           </clipPath>
         </defs>
@@ -62,12 +62,12 @@ export const DigitalAppleVisual = () => (
         <g className="digital-apple-visual__body">
           <path
             d="M227 108C263 53 338 45 364 106C379 141 375 181 353 212C400 253 421 314 421 375C421 462 356 500 281 500C247 500 228 490 214 482C200 490 181 500 147 500C72 500 7 462 7 375C7 313 29 252 76 211C54 180 49 140 64 106C90 45 165 53 201 108C212 125 216 130 214 130C212 130 216 125 227 108Z"
-            fill="url(#adamAppleFill)"
-            stroke="url(#adamAppleStroke)"
+            fill="url(#enochAppleFill)"
+            stroke="url(#enochAppleStroke)"
             strokeWidth="1.4"
           />
 
-          <g clipPath="url(#adamAppleClip)">
+          <g clipPath="url(#enochAppleClip)">
             <rect x="0" y="0" width="460" height="520" fill="rgba(255,255,255,0.02)" />
 
             {codeRows.map((row) => (

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "brain/schemas/artifact-schema.json",
-  "title": "Adam Artifact",
-  "description": "Canonical persisted input or output record for Adam.",
+  "title": "Enoch Artifact",
+  "description": "Canonical persisted input or output record for Enoch.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

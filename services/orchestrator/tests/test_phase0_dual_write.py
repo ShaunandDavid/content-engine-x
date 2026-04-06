@@ -62,9 +62,9 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
         audit_events = []
 
         with patch.object(supabase_store, "get_connection", return_value=connection_context(connection)):
-            with patch.object(supabase_store, "_update_adam_run", side_effect=lambda conn, req: run_updates.append(req)):
+            with patch.object(supabase_store, "_update_enoch_run", side_effect=lambda conn, req: run_updates.append(req)):
                 with patch.object(
-                    supabase_store, "_append_adam_audit_event", side_effect=lambda conn, req: audit_events.append(req)
+                    supabase_store, "_append_enoch_audit_event", side_effect=lambda conn, req: audit_events.append(req)
                 ):
                     row = supabase_store.mark_workflow_running("run-1", {"metadata": {}})
 
@@ -79,7 +79,7 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
         connection = FakeConnection([{"id": "run-1", "project_id": "project-1"}])
 
         with patch.object(supabase_store, "get_connection", return_value=connection_context(connection)):
-            with patch.object(supabase_store, "_update_adam_run", side_effect=RuntimeError("boom")):
+            with patch.object(supabase_store, "_update_enoch_run", side_effect=RuntimeError("boom")):
                 row = supabase_store.mark_workflow_running("run-1", {"metadata": {}})
 
         self.assertEqual(row["project_id"], "project-1")
@@ -125,14 +125,14 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
         }
 
         with patch.object(supabase_store, "get_connection", return_value=connection_context(connection)):
-            with patch.object(supabase_store, "_create_adam_artifact", side_effect=lambda conn, req: artifacts.append(req)):
+            with patch.object(supabase_store, "_create_enoch_artifact", side_effect=lambda conn, req: artifacts.append(req)):
                 with patch.object(
-                    supabase_store, "_create_adam_model_decision", side_effect=lambda conn, req: model_decisions.append(req)
+                    supabase_store, "_create_enoch_model_decision", side_effect=lambda conn, req: model_decisions.append(req)
                 ):
                     with patch.object(
-                        supabase_store, "_append_adam_audit_event", side_effect=lambda conn, req: audit_events.append(req)
+                        supabase_store, "_append_enoch_audit_event", side_effect=lambda conn, req: audit_events.append(req)
                     ):
-                        with patch.object(supabase_store, "_update_adam_run", side_effect=lambda conn, req: run_updates.append(req)):
+                        with patch.object(supabase_store, "_update_enoch_run", side_effect=lambda conn, req: run_updates.append(req)):
                             supabase_store.persist_workflow_success("run-1", state)
 
         self.assertTrue(connection.committed)
@@ -148,9 +148,9 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
 
         with patch.object(supabase_store, "get_connection", return_value=connection_context(connection)):
             with patch.object(
-                supabase_store, "_append_adam_audit_event", side_effect=lambda conn, req: audit_events.append(req)
+                supabase_store, "_append_enoch_audit_event", side_effect=lambda conn, req: audit_events.append(req)
             ):
-                with patch.object(supabase_store, "_update_adam_run", side_effect=lambda conn, req: run_updates.append(req)):
+                with patch.object(supabase_store, "_update_enoch_run", side_effect=lambda conn, req: run_updates.append(req)):
                     supabase_store.persist_workflow_failure(
                         "run-1",
                         project_id="project-1",
@@ -167,7 +167,7 @@ class Phase0RuntimeDualWriteTests(unittest.TestCase):
         connection = FakeConnection()
 
         with patch.object(supabase_store, "get_connection", return_value=connection_context(connection)):
-            with patch.object(supabase_store, "_append_adam_audit_event", side_effect=RuntimeError("boom")):
+            with patch.object(supabase_store, "_append_enoch_audit_event", side_effect=RuntimeError("boom")):
                 supabase_store.persist_workflow_failure(
                     "run-1",
                     project_id="project-1",

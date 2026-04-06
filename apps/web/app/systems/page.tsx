@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { AdamTopNav } from "../../components/adam/adam-top-nav";
+import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { dashboardRoute } from "../../lib/routes";
+import { getEnochEnvValue } from "../../lib/server/enoch-env";
 import { runLiveRuntimePreflight } from "../../lib/server/live-runtime-preflight";
 import { isPythonOrchestratorEnabled } from "../../lib/server/python-orchestrator";
 
@@ -48,24 +49,24 @@ const getVoiceRuntimeCopy = () => {
 
   if (hasServerTts && hasVoiceId) {
     return {
-      heading: "Adam voice path",
+      heading: "Enoch voice path",
       status: "Server audio ready",
-      copy: "ElevenLabs is configured with a selected voice, so Adam can return server-rendered audio instead of only browser playback."
+      copy: "ElevenLabs is configured with a selected voice, so Enoch can return server-rendered audio instead of only browser playback."
     };
   }
 
   if (hasVoiceId) {
     return {
-      heading: "Adam voice path",
+      heading: "Enoch voice path",
       status: "Voice selected",
-      copy: "A voice is selected for Adam, but server audio is still gated by the current runtime key configuration."
+      copy: "A voice is selected for Enoch, but server audio is still gated by the current runtime key configuration."
     };
   }
 
   return {
-    heading: "Adam voice path",
+    heading: "Enoch voice path",
     status: "Browser fallback",
-    copy: "Adam can still speak through browser synthesis, but no server-side ElevenLabs voice is active in this runtime."
+    copy: "Enoch can still speak through browser synthesis, but no server-side ElevenLabs voice is active in this runtime."
   };
 };
 
@@ -78,14 +79,15 @@ export default async function SystemsPage() {
   const runtimeStateLabel = systemTone === "ready" ? "Runtime aligned" : "Needs operator attention";
   const voiceRuntime = getVoiceRuntimeCopy();
   const pythonEnabled = isPythonOrchestratorEnabled();
+  const provider = getEnochEnvValue("PROVIDER");
 
   const systemSignals = [
     {
-      heading: "Adam provider",
-      status: process.env.ADAM_PROVIDER?.trim() ? "Configured" : "Default route",
-      copy: process.env.ADAM_PROVIDER?.trim()
-        ? `Adam is set to ${process.env.ADAM_PROVIDER}.`
-        : "Adam will fall back to the default provider path exposed by the server runtime."
+      heading: "Enoch provider",
+      status: provider ? "Configured" : "Default route",
+      copy: provider
+        ? `Enoch is set to ${provider}.`
+        : "Enoch will fall back to the default provider path exposed by the server runtime."
     },
     voiceRuntime,
     {
@@ -99,7 +101,7 @@ export default async function SystemsPage() {
 
   return (
     <main className="systems-page">
-      <AdamTopNav currentRoute="systems" />
+      <EnochTopNav currentRoute="systems" />
       <div className="systems-page__body">
         <section className="systems-hero">
           <div className="systems-hero__copy">
@@ -189,7 +191,7 @@ export default async function SystemsPage() {
               <div className="systems-panel__header">
                 <div>
                   <p className="systems-panel-label">Runtime modules</p>
-                  <h2>Adam and orchestration</h2>
+                  <h2>Enoch and orchestration</h2>
                 </div>
               </div>
               <div className="systems-service-grid">
@@ -236,9 +238,9 @@ export default async function SystemsPage() {
 
               <div className="systems-route-list">
                 <Link href="/" className="systems-route-card" prefetch={false}>
-                  <span className="systems-route-card__label">Adam</span>
+                  <span className="systems-route-card__label">Enoch</span>
                   <strong>Voice runtime surface</strong>
-                  <p>Talk to Adam through the current branch runtime and server pipeline.</p>
+                  <p>Talk to Enoch through the current branch runtime and server pipeline.</p>
                 </Link>
                 <Link href="/projects/new" className="systems-route-card" prefetch={false}>
                   <span className="systems-route-card__label">Projects</span>

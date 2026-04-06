@@ -10,22 +10,22 @@ from uuid import UUID, uuid4
 from psycopg import connect
 from psycopg.rows import dict_row
 
-from .adam_contracts import (
-    ADAM_STATE_VERSION,
+from .enoch_contracts import (
+    ENOCH_STATE_VERSION,
     DEFAULT_ENTRYPOINT,
     DEFAULT_TENANT_ID,
     DEFAULT_WORKFLOW_KIND,
     DEFAULT_WORKFLOW_VERSION,
     ArtifactRole,
 )
-from .adam_persistence import (
-    AdamArtifactWriteRequest,
-    AdamAuditEventWriteRequest,
-    AdamModelDecisionWriteRequest,
-    AdamRunUpdateRequest,
+from .enoch_persistence import (
+    EnochArtifactWriteRequest,
+    EnochAuditEventWriteRequest,
+    EnochModelDecisionWriteRequest,
+    EnochRunUpdateRequest,
 )
 from .config import load_settings
-from .models import AdamArtifact, AdamModelDecision, JobStatus, WorkflowStage
+from .models import EnochArtifact, EnochModelDecision, JobStatus, WorkflowStage
 from .state import utc_now
 
 logger = logging.getLogger(__name__)
@@ -94,10 +94,10 @@ def _safe_canonical_write(
     try:
         callback()
     except Exception:
-        # Canonical Adam dual-write is additive during migration and must not
+        # Canonical Enoch dual-write is additive during migration and must not
         # compromise the existing workflow persistence path.
         logger.warning(
-            "Canonical Adam dual-write failed during %s; continuing legacy persistence path. run_id=%s project_id=%s stage=%s",
+            "Canonical Enoch dual-write failed during %s; continuing legacy persistence path. run_id=%s project_id=%s stage=%s",
             operation,
             run_id,
             project_id,
@@ -107,7 +107,7 @@ def _safe_canonical_write(
         return
 
 
-def _build_adam_run_update_request(
+def _build_enoch_run_update_request(
     workflow_run_id: str,
     *,
     state_snapshot: dict[str, Any],
@@ -117,10 +117,10 @@ def _build_adam_run_update_request(
     started_at: str | None = None,
     completed_at: str | None = None,
     output_refs: list[str] | None = None,
-) -> AdamRunUpdateRequest:
+) -> EnochRunUpdateRequest:
     canonical_state = {
         **state_snapshot,
-        "state_version": state_snapshot.get("state_version", ADAM_STATE_VERSION),
+        "state_version": state_snapshot.get("state_version", ENOCH_STATE_VERSION),
         "workflow_run_id": state_snapshot.get("workflow_run_id", workflow_run_id),
         "run_id": state_snapshot.get("run_id", workflow_run_id),
         "tenant_id": state_snapshot.get("tenant_id", DEFAULT_TENANT_ID),
@@ -131,7 +131,7 @@ def _build_adam_run_update_request(
         "current_stage": current_stage,
     }
 
-    return AdamRunUpdateRequest(
+    return EnochRunUpdateRequest(
         run_id=workflow_run_id,
         status=status,
         current_stage=current_stage,
@@ -146,14 +146,14 @@ def _build_adam_run_update_request(
     )
 
 
-def _update_adam_run(
+def _update_enoch_run(
     connection: Any,
-    request: AdamRunUpdateRequest,
+    request: EnochRunUpdateRequest,
 ) -> None:
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            update public.adam_runs
+            update public.enoch_runs
             set
               status = coalesce(%s, status),
               current_stage = coalesce(%s, current_stage),
@@ -185,13 +185,13 @@ def _update_adam_run(
         )
 
 
-def _create_adam_artifact(connection: Any, request: AdamArtifactWriteRequest) -> None:
+def _create_enoch_artifact(connection: Any, request: EnochArtifactWriteRequest) -> None:
     artifact = request.artifact
 
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            insert into public.adam_artifacts (
+            insert into public.enoch_artifacts (
               id,
               tenant_id,
               run_id,
@@ -236,11 +236,11 @@ def _create_adam_artifact(connection: Any, request: AdamArtifactWriteRequest) ->
         )
 
 
-def _append_adam_audit_event(connection: Any, request: AdamAuditEventWriteRequest) -> None:
+def _append_enoch_audit_event(connection: Any, request: EnochAuditEventWriteRequest) -> None:
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            insert into public.adam_audit_events (
+            insert into public.enoch_audit_events (
               tenant_id,
               run_id,
               project_id,
@@ -272,13 +272,13 @@ def _append_adam_audit_event(connection: Any, request: AdamAuditEventWriteReques
         )
 
 
-def _create_adam_model_decision(connection: Any, request: AdamModelDecisionWriteRequest) -> None:
+def _create_enoch_model_decision(connection: Any, request: EnochModelDecisionWriteRequest) -> None:
     decision = request.decision
 
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            insert into public.adam_model_decisions (
+            insert into public.enoch_model_decisions (
               id,
               tenant_id,
               run_id,
@@ -366,14 +366,14 @@ def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) 
             ),
         )
 
-        # Canonical Adam dual-write begins here. This update is additive and
+        # Canonical Enoch dual-write begins here. This update is additive and
         # intentionally fail-open so the existing workflow persistence path
         # remains the primary source of availability during migration.
         _safe_canonical_write(
             lambda: (
-                _update_adam_run(
+                _update_enoch_run(
                     connection,
-                    _build_adam_run_update_request(
+                    _build_enoch_run_update_request(
                         workflow_run_id,
                         state_snapshot={
                             **state_snapshot,
@@ -384,9 +384,9 @@ def mark_workflow_running(workflow_run_id: str, state_snapshot: dict[str, Any]) 
                         started_at=now,
                     ),
                 ),
-                _append_adam_audit_event(
+                _append_enoch_audit_event(
                     connection,
-                    AdamAuditEventWriteRequest(
+                    EnochAuditEventWriteRequest(
                         tenant_id=state_snapshot.get("tenant_id", DEFAULT_TENANT_ID),
                         run_id=workflow_run_id,
                         project_id=workflow_row["project_id"],
@@ -567,7 +567,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
             output_artifact_ids: list[str] = []
 
             if concept:
-                concept_artifact = AdamArtifact(
+                concept_artifact = EnochArtifact(
                     artifact_id=str(uuid4()),
                     tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                     run_id=workflow_run_id,
@@ -582,9 +582,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     updated_at=now,
                     metadata={"source": "python_orchestrator_runtime"},
                 )
-                _create_adam_artifact(
+                _create_enoch_artifact(
                     connection,
-                    AdamArtifactWriteRequest(
+                    EnochArtifactWriteRequest(
                         artifact=concept_artifact,
                         project_id=project_id,
                     ),
@@ -592,7 +592,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                 output_artifact_ids.append(concept_artifact.artifact_id)
 
             if scenes:
-                scene_plan_artifact = AdamArtifact(
+                scene_plan_artifact = EnochArtifact(
                     artifact_id=str(uuid4()),
                     tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                     run_id=workflow_run_id,
@@ -607,9 +607,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     updated_at=now,
                     metadata={"source": "python_orchestrator_runtime", "count": len(scenes)},
                 )
-                _create_adam_artifact(
+                _create_enoch_artifact(
                     connection,
-                    AdamArtifactWriteRequest(
+                    EnochArtifactWriteRequest(
                         artifact=scene_plan_artifact,
                         project_id=project_id,
                     ),
@@ -617,7 +617,7 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                 output_artifact_ids.append(scene_plan_artifact.artifact_id)
 
             if prompts:
-                prompt_bundle_artifact = AdamArtifact(
+                prompt_bundle_artifact = EnochArtifact(
                     artifact_id=str(uuid4()),
                     tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                     run_id=workflow_run_id,
@@ -632,9 +632,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     updated_at=now,
                     metadata={"source": "python_orchestrator_runtime", "count": len(prompts)},
                 )
-                _create_adam_artifact(
+                _create_enoch_artifact(
                     connection,
-                    AdamArtifactWriteRequest(
+                    EnochArtifactWriteRequest(
                         artifact=prompt_bundle_artifact,
                         project_id=project_id,
                     ),
@@ -649,10 +649,10 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     }
                 )
                 for provider, model in provider_model_pairs:
-                    _create_adam_model_decision(
+                    _create_enoch_model_decision(
                         connection,
-                        AdamModelDecisionWriteRequest(
-                            decision=AdamModelDecision(
+                        EnochModelDecisionWriteRequest(
+                            decision=EnochModelDecision(
                                 decision_id=str(uuid4()),
                                 tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                                 run_id=workflow_run_id,
@@ -669,9 +669,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     )
 
             for event in audit_log:
-                _append_adam_audit_event(
+                _append_enoch_audit_event(
                     connection,
-                    AdamAuditEventWriteRequest(
+                    EnochAuditEventWriteRequest(
                         tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                         run_id=workflow_run_id,
                         project_id=project_id,
@@ -688,9 +688,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                     ),
                 )
 
-            _append_adam_audit_event(
+            _append_enoch_audit_event(
                 connection,
-                AdamAuditEventWriteRequest(
+                EnochAuditEventWriteRequest(
                     tenant_id=state.get("tenant_id", DEFAULT_TENANT_ID),
                     run_id=workflow_run_id,
                     project_id=project_id,
@@ -703,9 +703,9 @@ def persist_workflow_success(workflow_run_id: str, state: dict[str, Any]) -> Non
                 ),
             )
 
-            _update_adam_run(
+            _update_enoch_run(
                 connection,
-                _build_adam_run_update_request(
+                _build_enoch_run_update_request(
                     workflow_run_id,
                     state_snapshot=state,
                     status=JobStatus.COMPLETED.value,
@@ -814,9 +814,9 @@ def persist_workflow_failure(
         )
 
         def canonical_failure_write() -> None:
-            _append_adam_audit_event(
+            _append_enoch_audit_event(
                 connection,
-                AdamAuditEventWriteRequest(
+                EnochAuditEventWriteRequest(
                     tenant_id=snapshot.get("tenant_id", DEFAULT_TENANT_ID),
                     run_id=workflow_run_id,
                     project_id=project_id,
@@ -830,9 +830,9 @@ def persist_workflow_failure(
                 ),
             )
 
-            _update_adam_run(
+            _update_enoch_run(
                 connection,
-                _build_adam_run_update_request(
+                _build_enoch_run_update_request(
                     workflow_run_id,
                     state_snapshot=snapshot,
                     status=JobStatus.FAILED.value,

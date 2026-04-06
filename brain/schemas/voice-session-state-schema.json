@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Adam Voice Session State",
+  "title": "Enoch Voice Session State",
   "type": "object",
   "additionalProperties": false,
   "required": [

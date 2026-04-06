@@ -7,12 +7,12 @@ import { demoProject, stageLabels } from "../../lib/dashboard-data";
 import {
   clipReviewRoute,
   dashboardRoute,
-  projectAdamRoute,
+  projectEnochRoute,
   projectRoute,
   renderRoute,
   sceneReviewRoute
 } from "../../lib/routes";
-import { getAdamWorkspaceSummary } from "../../lib/server/adam-project-data";
+import { getEnochWorkspaceSummary } from "../../lib/server/enoch-project-data";
 import { getOperationalDashboardData } from "../../lib/server/dashboard-operational-data";
 import { getClipGenerationReadiness, getRenderReadiness, getSceneReviewSummary } from "../../lib/server/project-flow-readiness";
 import { getProjectWorkspaceOrDemo } from "../../lib/server/project-data";
@@ -75,7 +75,7 @@ export default async function WorkspacePage({
   const sceneReviewSummary = workspace ? getSceneReviewSummary(workspace) : null;
   const clipReadiness = workspace ? getClipGenerationReadiness(workspace) : null;
   const renderReadiness = workspace ? getRenderReadiness(workspace) : null;
-  const adamSummary = workspace ? getAdamWorkspaceSummary(workspace) : null;
+  const enochSummary = workspace ? getEnochWorkspaceSummary(workspace) : null;
 
   const completedClipCount = workspace?.clips.filter((clip) => clip.status === "completed").length ?? 0;
   const activeClipCount =
@@ -139,8 +139,8 @@ export default async function WorkspacePage({
 
   const toolbarActions = workspace ? (
     <>
-      <Link href={projectAdamRoute(workspace.project.id)} className="ws-btn ws-btn--subtle" prefetch={false}>
-        Ask Adam
+      <Link href={projectEnochRoute(workspace.project.id)} className="ws-btn ws-btn--subtle" prefetch={false}>
+        Ask Enoch
       </Link>
       <Link href={projectRoute(workspace.project.id)} className="ws-btn" prefetch={false}>
         Open Project
@@ -231,12 +231,12 @@ export default async function WorkspacePage({
           </li>
           <li>
             <div>
-              <strong>{workspace ? "Adam context" : "Workspace source"}</strong>
+              <strong>{workspace ? "Enoch context" : "Workspace source"}</strong>
               <p>
                 {workspace
-                  ? adamSummary?.status === "completed"
-                    ? adamSummary.recommendedAngle ?? "Adam planning is linked to this project."
-                    : "Adam preplanning is not linked yet, so the workspace is staying grounded in the persisted project graph."
+                  ? enochSummary?.status === "completed"
+                    ? enochSummary.recommendedAngle ?? "Enoch planning is linked to this project."
+                    : "Enoch preplanning is not linked yet, so the workspace is staying grounded in the persisted project graph."
                   : "This route no longer falls back to static composition copy when live state is missing."}
               </p>
             </div>
@@ -276,12 +276,12 @@ export default async function WorkspacePage({
           <strong>{workspace ? stageLabels[workspace.project.currentStage] : "Unavailable"}</strong>
         </article>
         <article className="ws-inspector-stat">
-          <span>Adam posture</span>
+          <span>Enoch posture</span>
           <strong>
             {workspace
-              ? adamSummary?.status === "completed"
+              ? enochSummary?.status === "completed"
                 ? "Linked to project context"
-                : adamSummary?.status === "skipped"
+                : enochSummary?.status === "skipped"
                   ? "Skipped for this workspace"
                   : "Not linked yet"
               : "No active project bound"}
@@ -325,8 +325,8 @@ export default async function WorkspacePage({
 
   const footer = workspace ? (
     <>
-      <Link href={projectAdamRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
-        Ask Adam
+      <Link href={projectEnochRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
+        Ask Enoch
       </Link>
       <Link href={nextExecution.href} className="ws-dock-item ws-dock-item--primary" prefetch={false}>
         {nextExecution.label}
@@ -437,22 +437,22 @@ export default async function WorkspacePage({
               )}
             </CanvasNode>
 
-            <CanvasNode id="adam-context" initialX={210} initialY={440} title="Adam Context">
+            <CanvasNode id="enoch-context" initialX={210} initialY={440} title="Enoch Context">
               <div className="ws-copy-block">
                 <p className="ws-node-eyebrow">Project grounding</p>
                 <p className="ws-prompt-quote">
-                  {adamSummary?.status === "completed"
-                    ? adamSummary.reasoningSummary ??
-                      adamSummary.recommendedAngle ??
-                      "Adam has linked planning context for this project."
-                    : adamSummary?.status === "skipped"
-                      ? adamSummary.errorMessage ?? "Adam preplanning was skipped for this project."
-                      : "No stored Adam preplanning is linked yet. The workspace remains grounded in the persisted brief, scenes, and prompts."}
+                  {enochSummary?.status === "completed"
+                    ? enochSummary.reasoningSummary ??
+                      enochSummary.recommendedAngle ??
+                      "Enoch has linked planning context for this project."
+                    : enochSummary?.status === "skipped"
+                      ? enochSummary.errorMessage ?? "Enoch preplanning was skipped for this project."
+                      : "No stored Enoch preplanning is linked yet. The workspace remains grounded in the persisted brief, scenes, and prompts."}
                 </p>
                 <ul className="ws-constraint-list">
-                  <li>{adamSummary?.coreGoal ?? workspace.brief?.objective ?? "No stored core goal yet."}</li>
-                  <li>{adamSummary?.audience ?? workspace.brief?.audience ?? "Audience context will appear once persisted."}</li>
-                  <li>{adamSummary?.recommendedAngle ?? "Use the project Adam route when deeper reasoning output is available."}</li>
+                  <li>{enochSummary?.coreGoal ?? workspace.brief?.objective ?? "No stored core goal yet."}</li>
+                  <li>{enochSummary?.audience ?? workspace.brief?.audience ?? "Audience context will appear once persisted."}</li>
+                  <li>{enochSummary?.recommendedAngle ?? "Use the project Enoch route when deeper reasoning output is available."}</li>
                 </ul>
               </div>
             </CanvasNode>

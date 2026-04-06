@@ -2,18 +2,18 @@ import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  adamCompatibilityTenantId,
-  adamArtifactSchema,
-  adamLangGraphRuntimeStateSchema,
-  adamModelDecisionSchema,
-  adamRunSchema,
+  enochCompatibilityTenantId,
+  enochArtifactSchema,
+  enochLangGraphRuntimeStateSchema,
+  enochModelDecisionSchema,
+  enochRunSchema,
   type AssetRecord,
   projectBriefInputSchema,
   type AuditLogRecord,
-  type AdamArtifact,
-  type AdamLangGraphRuntimeState,
-  type AdamModelDecision,
-  type AdamRun,
+  type EnochArtifact,
+  type EnochLangGraphRuntimeState,
+  type EnochModelDecision,
+  type EnochRun,
   type BriefRecord,
   type ClipRecord,
   type CreateProjectWorkflowResult,
@@ -34,15 +34,15 @@ import {
   buildNormalizedIntakeFromProjectBrief,
   buildPromptGenerationBundle,
   buildPromptGenerationInput
-} from "./adam-intake-normalization.js";
-import { selectAdamProviderForTask } from "./adam-model-router.js";
+} from "./enoch-intake-normalization.js";
+import { selectEnochProviderForTask } from "./enoch-model-router.js";
 import {
-  appendAdamAuditEvent,
-  createAdamArtifactRecord,
-  createAdamModelDecisionRecord,
-  createAdamRunRecord
-} from "./adam-write.js";
-import { createAdamContentEngineBridge, type AdamContentEngineBridgeResult } from "./adam-content-engine-bridge.js";
+  appendEnochAuditEvent,
+  createEnochArtifactRecord,
+  createEnochModelDecisionRecord,
+  createEnochRunRecord
+} from "./enoch-write.js";
+import { createEnochContentEngineBridge, type EnochContentEngineBridgeResult } from "./enoch-content-engine-bridge.js";
 import { createServiceSupabaseClient } from "./client.js";
 import { getSupabaseConfig } from "./config.js";
 
@@ -193,9 +193,9 @@ type AssetRow = {
 };
 
 const STAGE_COMPLETED: JobStatus = "completed";
-const ADAM_STATE_VERSION = "adam.phase0.v1";
-const ADAM_WORKFLOW_KIND = "content_engine_x.fast_path";
-const ADAM_WORKFLOW_VERSION = "phase0";
+const ENOCH_STATE_VERSION = "enoch.phase0.v1";
+const ENOCH_WORKFLOW_KIND = "content_engine_x.fast_path";
+const ENOCH_WORKFLOW_VERSION = "phase0";
 
 const toProjectRecord = (row: ProjectRow): ProjectRecord => ({
   id: row.id,
@@ -378,15 +378,20 @@ const assertData = <T>(data: T | null, error: { message: string } | null, contex
   return data;
 };
 
-const toAdamStageHistory = (stageAttempts: StageExecution[]) =>
+const toEnochStageHistory = (stageAttempts: StageExecution[]) =>
   stageAttempts.map((attempt) => ({
     stage: attempt.stage,
     status: attempt.status,
     attempt: attempt.attempt,
-    startedAt: attempt.startedAt,
-    completedAt: attempt.completedAt,
+    startedAt: normalizeIsoDateTime(attempt.startedAt),
+    completedAt: attempt.completedAt ? normalizeIsoDateTime(attempt.completedAt) : undefined,
     errorMessage: attempt.errorMessage
   }));
+
+const normalizeIsoDateTime = (value: string) => {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+};
 
 const buildCanonicalBootstrapState = (input: {
   workflowRunId: string;
@@ -406,22 +411,22 @@ const buildCanonicalBootstrapState = (input: {
   outputArtifactRefs?: string[];
   modelDecisionRefs?: string[];
   metadata?: Record<string, unknown>;
-}): AdamLangGraphRuntimeState =>
-  adamLangGraphRuntimeStateSchema.parse({
-    stateVersion: ADAM_STATE_VERSION,
+}): EnochLangGraphRuntimeState =>
+  enochLangGraphRuntimeStateSchema.parse({
+    stateVersion: ENOCH_STATE_VERSION,
     projectId: input.projectId,
     workflowRunId: input.workflowRunId,
     runId: input.workflowRunId,
-    tenantId: adamCompatibilityTenantId,
-    workflowKind: ADAM_WORKFLOW_KIND,
-    workflowVersion: ADAM_WORKFLOW_VERSION,
+    tenantId: enochCompatibilityTenantId,
+    workflowKind: ENOCH_WORKFLOW_KIND,
+    workflowVersion: ENOCH_WORKFLOW_VERSION,
     entrypoint: input.entrypoint,
     status: input.status,
     currentStage: input.currentStage,
     requestedStartStage: input.requestedStartStage ?? undefined,
     graphThreadId: input.graphThreadId ?? null,
-    stageHistory: toAdamStageHistory(input.stageAttempts ?? []),
-    stageAttempts: toAdamStageHistory(input.stageAttempts ?? []),
+    stageHistory: toEnochStageHistory(input.stageAttempts ?? []),
+    stageAttempts: toEnochStageHistory(input.stageAttempts ?? []),
     inputArtifactRefs: input.inputArtifactRefs ?? [],
     outputArtifactRefs: input.outputArtifactRefs ?? [],
     workingMemory: {},
@@ -454,12 +459,12 @@ const buildCanonicalRun = (input: {
   startedAt?: string | null;
   completedAt?: string | null;
   metadata?: Record<string, unknown>;
-}): AdamRun =>
-  adamRunSchema.parse({
+}): EnochRun =>
+  enochRunSchema.parse({
     runId: input.workflowRunId,
-    tenantId: adamCompatibilityTenantId,
-    workflowKind: ADAM_WORKFLOW_KIND,
-    workflowVersion: ADAM_WORKFLOW_VERSION,
+    tenantId: enochCompatibilityTenantId,
+    workflowKind: ENOCH_WORKFLOW_KIND,
+    workflowVersion: ENOCH_WORKFLOW_VERSION,
     status: input.status,
     currentStage: input.currentStage,
     requestedStartStage: input.requestedStartStage ?? undefined,
@@ -467,17 +472,17 @@ const buildCanonicalRun = (input: {
     graphThreadId: input.graphThreadId ?? null,
     inputRef: input.inputRef ?? null,
     outputRefs: input.outputRefs ?? [],
-    startedAt: input.startedAt ?? null,
-    completedAt: input.completedAt ?? null,
-    updatedAt: input.updatedAt,
+    startedAt: input.startedAt ? normalizeIsoDateTime(input.startedAt) : null,
+    completedAt: input.completedAt ? normalizeIsoDateTime(input.completedAt) : null,
+    updatedAt: normalizeIsoDateTime(input.updatedAt),
     metadata: input.metadata ?? {}
   });
 
-const buildAdamArtifact = (input: {
+const buildEnochArtifact = (input: {
   artifactId: string;
   runId: string;
   artifactType: string;
-  artifactRole: AdamArtifact["artifactRole"];
+  artifactRole: EnochArtifact["artifactRole"];
   status: JobStatus;
   schemaName: string;
   content: unknown;
@@ -485,25 +490,25 @@ const buildAdamArtifact = (input: {
   checksum?: string | null;
   createdAt: string;
   updatedAt?: string;
-}): AdamArtifact =>
-  adamArtifactSchema.parse({
+}): EnochArtifact =>
+  enochArtifactSchema.parse({
     artifactId: input.artifactId,
-    tenantId: adamCompatibilityTenantId,
+    tenantId: enochCompatibilityTenantId,
     runId: input.runId,
     artifactType: input.artifactType,
     artifactRole: input.artifactRole,
     status: input.status,
     schemaName: input.schemaName,
-    schemaVersion: ADAM_WORKFLOW_VERSION,
+    schemaVersion: ENOCH_WORKFLOW_VERSION,
     contentRef: null,
     content: input.content,
     checksum: input.checksum ?? null,
-    createdAt: input.createdAt,
-    updatedAt: input.updatedAt ?? input.createdAt,
+    createdAt: normalizeIsoDateTime(input.createdAt),
+    updatedAt: normalizeIsoDateTime(input.updatedAt ?? input.createdAt),
     metadata: input.metadata ?? {}
   });
 
-const buildAdamModelDecision = (input: {
+const buildEnochModelDecision = (input: {
   decisionId: string;
   runId: string;
   stage: WorkflowStage;
@@ -513,17 +518,17 @@ const buildAdamModelDecision = (input: {
   selectionReason: string;
   createdAt: string;
   metadata?: Record<string, unknown>;
-}): AdamModelDecision =>
-  adamModelDecisionSchema.parse({
+}): EnochModelDecision =>
+  enochModelDecisionSchema.parse({
     decisionId: input.decisionId,
-    tenantId: adamCompatibilityTenantId,
+    tenantId: enochCompatibilityTenantId,
     runId: input.runId,
     stage: input.stage,
     taskType: input.taskType,
     provider: input.provider,
     model: input.model,
     selectionReason: input.selectionReason,
-    createdAt: input.createdAt,
+    createdAt: normalizeIsoDateTime(input.createdAt),
     metadata: input.metadata ?? {}
   });
 
@@ -531,7 +536,7 @@ const safePersistCanonicalBootstrap = async (callback: () => Promise<void>) => {
   try {
     await callback();
   } catch (error) {
-    console.error("Canonical Adam bootstrap dual-write failed without affecting legacy flow.", error);
+    console.error("Canonical Enoch bootstrap dual-write failed without affecting legacy flow.", error);
   }
 };
 
@@ -542,20 +547,20 @@ const slugify = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 50);
 
-type AdamPreplanOutcome = {
-  result: AdamContentEngineBridgeResult | null;
+type EnochPreplanOutcome = {
+  result: EnochContentEngineBridgeResult | null;
   errorMessage: string | null;
 };
 
-const runAdamPreplanBridge = async (input: {
+const runEnochPreplanBridge = async (input: {
   client: SupabaseClient;
   projectId: string;
   workflowRunId: string;
   briefId: string;
   payload: ProjectBriefInput;
-}): Promise<AdamPreplanOutcome> => {
+}): Promise<EnochPreplanOutcome> => {
   try {
-    const result = await createAdamContentEngineBridge(
+    const result = await createEnochContentEngineBridge(
       {
         projectId: input.projectId,
         workflowRunId: input.workflowRunId,
@@ -570,13 +575,13 @@ const runAdamPreplanBridge = async (input: {
     const message =
       typeof error === "object" && error && "message" in error && typeof error.message === "string"
         ? error.message
-        : "Adam preplan integration failed.";
-    console.error("Adam preplan integration failed without affecting legacy Content Engine X flow.", error);
+        : "Enoch preplan integration failed.";
+    console.error("Enoch preplan integration failed without affecting legacy Content Engine X flow.", error);
     return { result: null, errorMessage: message };
   }
 };
 
-const buildAdamPreplanLegacyLink = (result: AdamContentEngineBridgeResult | null, errorMessage?: string | null) =>
+const buildEnochPreplanLink = (result: EnochContentEngineBridgeResult | null, errorMessage?: string | null) =>
   result
     ? {
         status: "completed" as const,
@@ -588,19 +593,19 @@ const buildAdamPreplanLegacyLink = (result: AdamContentEngineBridgeResult | null
       }
     : {
         status: "skipped" as const,
-        error_message: errorMessage ?? "Adam preplan integration was not available."
+        error_message: errorMessage ?? "Enoch preplan integration was not available."
       };
 
-const buildConcept = (input: ProjectBriefInput, adamPlanningArtifact?: { normalizedUserGoal: string; recommendedAngle: string; nextStepPlanningSummary: string; offerOrConcept: string }) => ({
-  title: `${input.projectName}: ${adamPlanningArtifact?.normalizedUserGoal ?? input.objective}`,
-  hook: adamPlanningArtifact
-    ? `Stop scrolling: ${adamPlanningArtifact.recommendedAngle}`
+const buildConcept = (input: ProjectBriefInput, enochPlanningArtifact?: { normalizedUserGoal: string; recommendedAngle: string; nextStepPlanningSummary: string; offerOrConcept: string }) => ({
+  title: `${input.projectName}: ${enochPlanningArtifact?.normalizedUserGoal ?? input.objective}`,
+  hook: enochPlanningArtifact
+    ? `Stop scrolling: ${enochPlanningArtifact.recommendedAngle}`
     : `Stop scrolling: ${input.objective.charAt(0).toLowerCase()}${input.objective.slice(1)}.`,
-  thesis: adamPlanningArtifact?.nextStepPlanningSummary ?? `Deliver one high-conviction point for ${input.audience}.`,
-  visualDirection: adamPlanningArtifact
-    ? `${input.tone} pacing, high-contrast frames, clear motion hierarchy. Build around ${adamPlanningArtifact.offerOrConcept.toLowerCase()} and keep the angle operator-ready.`
+  thesis: enochPlanningArtifact?.nextStepPlanningSummary ?? `Deliver one high-conviction point for ${input.audience}.`,
+  visualDirection: enochPlanningArtifact
+    ? `${input.tone} pacing, high-contrast frames, clear motion hierarchy. Build around ${enochPlanningArtifact.offerOrConcept.toLowerCase()} and keep the angle operator-ready.`
     : `${input.tone} pacing, high-contrast frames, clear motion hierarchy.`,
-  cta: `Save this and send it to someone working on ${(adamPlanningArtifact?.normalizedUserGoal ?? input.objective).toLowerCase()}.`
+  cta: `Save this and send it to someone working on ${(enochPlanningArtifact?.normalizedUserGoal ?? input.objective).toLowerCase()}.`
 });
 
 const getSceneDurations = (durationSeconds: number) => {
@@ -678,7 +683,7 @@ const buildAuditEvents = ({
   briefId,
   sceneIds,
   promptIds,
-  adamPreplan
+  enochPreplan
 }: {
   projectId: string;
   workflowRunId: string;
@@ -686,7 +691,7 @@ const buildAuditEvents = ({
   briefId: string;
   sceneIds: string[];
   promptIds: string[];
-  adamPreplan?: AdamPreplanOutcome;
+  enochPreplan?: EnochPreplanOutcome;
 }): AuditLogInsertRow[] => {
   const now = new Date().toISOString();
 
@@ -753,42 +758,42 @@ const buildAuditEvents = ({
     }
   ];
 
-  if (adamPreplan?.result) {
+  if (enochPreplan?.result) {
     events.splice(2, 0, {
       project_id: projectId,
       workflow_run_id: workflowRunId,
       actor_user_id: actorUserId,
       actor_type: "service",
-      action: "adam.preplan.completed",
-      entity_type: "adam_run",
-      entity_id: adamPreplan.result.runId,
+      action: "enoch.preplan.completed",
+      entity_type: "enoch_run",
+      entity_id: enochPreplan.result.runId,
       stage: "concept_generation",
       diff: null,
       metadata: {
-        source: "content_engine_x_adam_bridge",
-        planning_artifact_id: adamPreplan.result.planningArtifactId,
-        reasoning_artifact_id: adamPreplan.result.reasoningArtifactId
+        source: "content_engine_x_enoch_bridge",
+        planning_artifact_id: enochPreplan.result.planningArtifactId,
+        reasoning_artifact_id: enochPreplan.result.reasoningArtifactId
       },
       error_message: null,
       created_at: now,
       updated_at: now
     });
-  } else if (adamPreplan?.errorMessage) {
+  } else if (enochPreplan?.errorMessage) {
     events.splice(2, 0, {
       project_id: projectId,
       workflow_run_id: workflowRunId,
       actor_user_id: actorUserId,
       actor_type: "service",
-      action: "adam.preplan.skipped",
+      action: "enoch.preplan.skipped",
       entity_type: "workflow_run",
       entity_id: workflowRunId,
       stage: "concept_generation",
       diff: null,
       metadata: {
-        source: "content_engine_x_adam_bridge",
+        source: "content_engine_x_enoch_bridge",
         fallback: "legacy_concept_generation"
       },
-      error_message: adamPreplan.errorMessage,
+      error_message: enochPreplan.errorMessage,
       created_at: now,
       updated_at: now
     });
@@ -879,7 +884,7 @@ export const createProjectWorkflow = async (
 
   const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
 
-  const adamPreplan = await runAdamPreplanBridge({
+  const enochPreplan = await runEnochPreplanBridge({
     client,
     projectId: projectRow.id,
     workflowRunId,
@@ -887,18 +892,18 @@ export const createProjectWorkflow = async (
     payload
   });
 
-  const promptGenerationProvider = selectAdamProviderForTask({
+  const promptGenerationProvider = selectEnochProviderForTask({
     taskType: "prompt_generation",
     metadata: {
       source: "project_workflow_bootstrap",
-      workflowKind: ADAM_WORKFLOW_KIND
+      workflowKind: ENOCH_WORKFLOW_KIND
     }
   });
   const normalizedIntake = buildNormalizedIntakeFromProjectBrief({
     payload,
     routingDecision: promptGenerationProvider.decision,
-    adamPlanningArtifact: adamPreplan.result?.planningArtifact,
-    adamReasoningArtifact: adamPreplan.result?.reasoningArtifact
+    enochPlanningArtifact: enochPreplan.result?.planningArtifact,
+    enochReasoningArtifact: enochPreplan.result?.reasoningArtifact
   });
   const promptGenerationInput = buildPromptGenerationInput(normalizedIntake);
   const promptBundle = buildPromptGenerationBundle(promptGenerationInput);
@@ -945,16 +950,16 @@ export const createProjectWorkflow = async (
     errors: [],
     metadata: {
       source: "web_dashboard",
-      adam_preplan_status: adamPreplan.result ? "completed" : "skipped",
+      enoch_preplan_status: enochPreplan.result ? "completed" : "skipped",
       intake_provider: promptGenerationProvider.decision.provider,
       intake_model: promptGenerationProvider.decision.model,
       normalized_intake: normalizedIntake
     },
-    adam_preplan: buildAdamPreplanLegacyLink(adamPreplan.result, adamPreplan.errorMessage),
-    ...(adamPreplan.result
+    enoch_preplan: buildEnochPreplanLink(enochPreplan.result, enochPreplan.errorMessage),
+    ...(enochPreplan.result
       ? {
-          adam_reasoning: adamPreplan.result.reasoningArtifact.reasoning,
-          adam_plan: adamPreplan.result.planningArtifact
+          enoch_reasoning: enochPreplan.result.reasoningArtifact.reasoning,
+          enoch_plan: enochPreplan.result.planningArtifact
         }
       : {})
   };
@@ -1035,13 +1040,13 @@ export const createProjectWorkflow = async (
     briefId: briefRow.id,
     sceneIds: sceneRows.map((scene) => scene.id),
     promptIds: promptRows.map((prompt) => prompt.id),
-    adamPreplan
+    enochPreplan
   });
 
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
   const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist audit logs");
 
-  // Canonical Adam bootstrap dual-write begins here. This path is additive and
+  // Canonical Enoch bootstrap dual-write begins here. This path is additive and
   // intentionally fail-open so the existing project workflow remains the
   // primary source of availability during migration.
   await safePersistCanonicalBootstrap(async () => {
@@ -1087,13 +1092,13 @@ const buildAsyncInitializationAuditEvents = ({
   workflowRunId,
   actorUserId,
   briefId,
-  adamPreplan
+  enochPreplan
 }: {
   projectId: string;
   workflowRunId: string;
   actorUserId: string;
   briefId: string;
-  adamPreplan?: AdamPreplanOutcome;
+  enochPreplan?: EnochPreplanOutcome;
 }): AuditLogInsertRow[] => {
   const now = new Date().toISOString();
 
@@ -1153,42 +1158,42 @@ const buildAsyncInitializationAuditEvents = ({
     }
   ];
 
-  if (adamPreplan?.result) {
+  if (enochPreplan?.result) {
     events.splice(2, 0, {
       project_id: projectId,
       workflow_run_id: workflowRunId,
       actor_user_id: actorUserId,
       actor_type: "service",
-      action: "adam.preplan.completed",
-      entity_type: "adam_run",
-      entity_id: adamPreplan.result.runId,
+      action: "enoch.preplan.completed",
+      entity_type: "enoch_run",
+      entity_id: enochPreplan.result.runId,
       stage: "concept_generation",
       diff: null,
       metadata: {
-        source: "content_engine_x_adam_bridge",
-        planning_artifact_id: adamPreplan.result.planningArtifactId,
-        reasoning_artifact_id: adamPreplan.result.reasoningArtifactId
+        source: "content_engine_x_enoch_bridge",
+        planning_artifact_id: enochPreplan.result.planningArtifactId,
+        reasoning_artifact_id: enochPreplan.result.reasoningArtifactId
       },
       error_message: null,
       created_at: now,
       updated_at: now
     });
-  } else if (adamPreplan?.errorMessage) {
+  } else if (enochPreplan?.errorMessage) {
     events.splice(2, 0, {
       project_id: projectId,
       workflow_run_id: workflowRunId,
       actor_user_id: actorUserId,
       actor_type: "service",
-      action: "adam.preplan.skipped",
+      action: "enoch.preplan.skipped",
       entity_type: "workflow_run",
       entity_id: workflowRunId,
       stage: "concept_generation",
       diff: null,
       metadata: {
-        source: "content_engine_x_adam_bridge",
+        source: "content_engine_x_enoch_bridge",
         fallback: "python_orchestrator_handoff"
       },
-      error_message: adamPreplan.errorMessage,
+      error_message: enochPreplan.errorMessage,
       created_at: now,
       updated_at: now
     });
@@ -1216,7 +1221,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
   const promptBundleArtifactId = randomUUID();
   const modelDecisionId = randomUUID();
 
-  const briefArtifact = buildAdamArtifact({
+  const briefArtifact = buildEnochArtifact({
     artifactId: briefArtifactId,
     runId: input.workflowRun.id,
     artifactType: "brief",
@@ -1235,7 +1240,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
     metadata: { source: "project_workflow_bootstrap" }
   });
 
-  const conceptArtifact = buildAdamArtifact({
+  const conceptArtifact = buildEnochArtifact({
     artifactId: conceptArtifactId,
     runId: input.workflowRun.id,
     artifactType: "concept",
@@ -1248,7 +1253,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
     metadata: { source: "project_workflow_bootstrap" }
   });
 
-  const scenePlanArtifact = buildAdamArtifact({
+  const scenePlanArtifact = buildEnochArtifact({
     artifactId: scenePlanArtifactId,
     runId: input.workflowRun.id,
     artifactType: "scene_plan",
@@ -1269,7 +1274,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
     metadata: { source: "project_workflow_bootstrap", count: input.scenes.length }
   });
 
-  const promptBundleArtifact = buildAdamArtifact({
+  const promptBundleArtifact = buildEnochArtifact({
     artifactId: promptBundleArtifactId,
     runId: input.workflowRun.id,
     artifactType: "prompt_bundle",
@@ -1292,7 +1297,7 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
     metadata: { source: "project_workflow_bootstrap", count: input.prompts.length }
   });
 
-  const modelDecision = buildAdamModelDecision({
+  const modelDecision = buildEnochModelDecision({
     decisionId: modelDecisionId,
     runId: input.workflowRun.id,
     stage: "prompt_creation",
@@ -1375,28 +1380,28 @@ const persistCanonicalSyncBootstrapRecords = async (input: {
     }
   });
 
-  await createAdamRunRecord(
+  await createEnochRunRecord(
     {
       ...canonicalRun,
       projectId: input.project.id,
-      stateVersion: ADAM_STATE_VERSION,
+      stateVersion: ENOCH_STATE_VERSION,
       stateSnapshot: canonicalState
     },
     { client: input.client }
   );
 
-  await createAdamArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
-  await createAdamArtifactRecord({ ...conceptArtifact, projectId: input.project.id }, { client: input.client });
-  await createAdamArtifactRecord({ ...scenePlanArtifact, projectId: input.project.id }, { client: input.client });
-  await createAdamArtifactRecord({ ...promptBundleArtifact, projectId: input.project.id }, { client: input.client });
-  await createAdamModelDecisionRecord({ ...modelDecision, projectId: input.project.id }, { client: input.client });
+  await createEnochArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
+  await createEnochArtifactRecord({ ...conceptArtifact, projectId: input.project.id }, { client: input.client });
+  await createEnochArtifactRecord({ ...scenePlanArtifact, projectId: input.project.id }, { client: input.client });
+  await createEnochArtifactRecord({ ...promptBundleArtifact, projectId: input.project.id }, { client: input.client });
+  await createEnochModelDecisionRecord({ ...modelDecision, projectId: input.project.id }, { client: input.client });
 
   for (const event of input.auditEvents) {
-    await appendAdamAuditEvent(
+    await appendEnochAuditEvent(
       {
         runId: input.workflowRun.id,
         projectId: input.project.id,
-        tenantId: adamCompatibilityTenantId,
+        tenantId: enochCompatibilityTenantId,
         actorType: event.actorType,
         actorId: event.actorUserId ?? null,
         eventType: event.action,
@@ -1424,7 +1429,7 @@ const persistCanonicalAsyncBootstrapRecords = async (input: {
 }) => {
   const briefArtifactId = randomUUID();
 
-  const briefArtifact = buildAdamArtifact({
+  const briefArtifact = buildEnochArtifact({
     artifactId: briefArtifactId,
     runId: input.workflowRun.id,
     artifactType: "brief",
@@ -1490,24 +1495,24 @@ const persistCanonicalAsyncBootstrapRecords = async (input: {
     }
   });
 
-  await createAdamRunRecord(
+  await createEnochRunRecord(
     {
       ...canonicalRun,
       projectId: input.project.id,
-      stateVersion: ADAM_STATE_VERSION,
+      stateVersion: ENOCH_STATE_VERSION,
       stateSnapshot: canonicalState
     },
     { client: input.client }
   );
 
-  await createAdamArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
+  await createEnochArtifactRecord({ ...briefArtifact, projectId: input.project.id }, { client: input.client });
 
   for (const event of input.auditEvents) {
-    await appendAdamAuditEvent(
+    await appendEnochAuditEvent(
       {
         runId: input.workflowRun.id,
         projectId: input.project.id,
-        tenantId: adamCompatibilityTenantId,
+        tenantId: enochCompatibilityTenantId,
         actorType: event.actorType,
         actorId: event.actorUserId ?? null,
         eventType: event.action,
@@ -1594,7 +1599,7 @@ export const initializeAsyncProjectWorkflow = async (
 
   const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
 
-  const adamPreplan = await runAdamPreplanBridge({
+  const enochPreplan = await runEnochPreplanBridge({
     client,
     projectId: projectRow.id,
     workflowRunId,
@@ -1636,13 +1641,13 @@ export const initializeAsyncProjectWorkflow = async (
       source: "web_dashboard",
       execution_owner: "python_orchestrator",
       handoff_mode: "supabase_queue",
-      adam_preplan_status: adamPreplan.result ? "completed" : "skipped"
+      enoch_preplan_status: enochPreplan.result ? "completed" : "skipped"
     },
-    adam_preplan: buildAdamPreplanLegacyLink(adamPreplan.result, adamPreplan.errorMessage),
-    ...(adamPreplan.result
+    enoch_preplan: buildEnochPreplanLink(enochPreplan.result, enochPreplan.errorMessage),
+    ...(enochPreplan.result
       ? {
-          adam_reasoning: adamPreplan.result.reasoningArtifact.reasoning,
-          adam_plan: adamPreplan.result.planningArtifact
+          enoch_reasoning: enochPreplan.result.reasoningArtifact.reasoning,
+          enoch_plan: enochPreplan.result.planningArtifact
         }
       : {})
   };
@@ -1676,13 +1681,13 @@ export const initializeAsyncProjectWorkflow = async (
     workflowRunId,
     actorUserId: operatorUserId,
     briefId: briefRow.id,
-    adamPreplan
+    enochPreplan
   });
 
   const { data: auditRowsData, error: auditError } = await client.from("audit_logs").insert(auditEventRows).select("*");
   const auditRows = assertData(auditRowsData as AuditLogRow[] | null, auditError, "Failed to persist audit logs");
 
-  // Canonical Adam bootstrap dual-write begins here. This path is additive and
+  // Canonical Enoch bootstrap dual-write begins here. This path is additive and
   // intentionally fail-open so the existing project workflow remains the
   // primary source of availability during migration.
   await safePersistCanonicalBootstrap(async () => {

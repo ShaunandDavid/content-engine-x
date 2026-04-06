@@ -7,10 +7,10 @@ import type { LiveRuntimeReadinessResult } from "../../lib/server/live-runtime-p
 import type { ProjectIndexItem, ProjectsIndexResult } from "../../lib/server/projects-index";
 import { stageLabels } from "../../lib/dashboard-data";
 import {
-  adamPlanRoute,
+  enochPlanRoute,
   clipReviewRoute,
   newProjectRoute,
-  projectAdamRoute,
+  projectEnochRoute,
   projectRoute,
   projectsRoute,
   publishRoute,
@@ -18,34 +18,34 @@ import {
   sceneReviewRoute,
   workspaceRoute
 } from "../../lib/routes";
-import { AdamVoiceSurface } from "../adam/adam-voice-surface";
+import { EnochVoiceSurface } from "../enoch/enoch-voice-surface";
 import { CanvasNode } from "./canvas-node";
 import { InfiniteCanvas, type CanvasTransform } from "./infinite-canvas";
 
 type Props = {
   projectsResult: ProjectsIndexResult;
   creationReadiness: LiveRuntimeReadinessResult;
-  adamProviderLabel: string;
+  enochProviderLabel: string;
 };
 
 type NodeViewState = "compact" | "expanded" | "pinned";
-type SystemNodeKind = "adam" | "project-context" | "project-list" | "workflow";
-type UserNodeKind = "idea" | "artifact" | "planner" | "branch" | "adam-result";
+type SystemNodeKind = "enoch" | "project-context" | "project-list" | "workflow";
+type UserNodeKind = "idea" | "artifact" | "planner" | "branch" | "enoch-result";
 type StudioNodeKind = SystemNodeKind | UserNodeKind;
 type RouteTarget =
   | "workspace"
   | "projects"
   | "new_project"
-  | "adam_plan"
+  | "enoch_plan"
   | "project"
-  | "project_adam"
+  | "project_enoch"
   | "scenes"
   | "clips"
   | "render"
   | "publish";
 type ArtifactType = "brief" | "script" | "prompt" | "asset";
 type IdeaStatus = "seed" | "shaping" | "ready";
-type ComposerMode = "idea" | "artifact" | "planner" | "branch" | "adam";
+type ComposerMode = "idea" | "artifact" | "planner" | "branch" | "enoch";
 
 type BaseNode = {
   id: string;
@@ -61,8 +61,8 @@ type IdeaNode = BaseNode & { kind: "idea"; note: string; status: IdeaStatus };
 type ArtifactNode = BaseNode & { kind: "artifact"; artifactType: ArtifactType; note: string; routeTarget: RouteTarget };
 type PlannerNode = BaseNode & { kind: "planner"; focus: string; routeTarget: RouteTarget };
 type BranchNode = BaseNode & { kind: "branch"; objective: string; routeTarget: RouteTarget };
-type AdamResultNode = BaseNode & { kind: "adam-result"; prompt: string; reply: string; provider: string; model: string };
-type StudioNode = SystemNode | IdeaNode | ArtifactNode | PlannerNode | BranchNode | AdamResultNode;
+type EnochResultNode = BaseNode & { kind: "enoch-result"; prompt: string; reply: string; provider: string; model: string };
+type StudioNode = SystemNode | IdeaNode | ArtifactNode | PlannerNode | BranchNode | EnochResultNode;
 
 type ComposerState = {
   mode: ComposerMode;
@@ -87,12 +87,12 @@ const DEFAULT_COMPOSER: ComposerState = {
   mode: "idea",
   title: "",
   body: "",
-  routeTarget: "adam_plan",
+  routeTarget: "enoch_plan",
   artifactType: "brief"
 };
 
 const DEFAULT_NODES: StudioNode[] = [
-  { id: "system-adam", kind: "adam", title: "Adam Dock", x: 220, y: 180, state: "expanded" },
+  { id: "system-enoch", kind: "enoch", title: "Enoch Dock", x: 220, y: 180, state: "expanded" },
   { id: "system-project-context", kind: "project-context", title: "Project Context", x: 980, y: 150, state: "expanded" },
   { id: "system-workflow", kind: "workflow", title: "Workflow Routes", x: 1220, y: 780, state: "expanded" },
   { id: "system-project-list", kind: "project-list", title: "Recent Projects", x: 460, y: 1040, state: "expanded" }
@@ -102,9 +102,9 @@ const ROUTE_LABELS: Record<RouteTarget, string> = {
   workspace: "Workspace",
   projects: "Projects",
   new_project: "New Project",
-  adam_plan: "Adam Plan",
+  enoch_plan: "Enoch Plan",
   project: "Project Overview",
-  project_adam: "Project Adam Detail",
+  project_enoch: "Project Enoch Detail",
   scenes: "Scene Review",
   clips: "Clip Generation",
   render: "Render",
@@ -125,7 +125,7 @@ const formatTimestamp = (value: string) =>
   });
 
 const isSystemNode = (node: StudioNode): node is SystemNode =>
-  node.kind === "adam" || node.kind === "project-context" || node.kind === "project-list" || node.kind === "workflow";
+  node.kind === "enoch" || node.kind === "project-context" || node.kind === "project-list" || node.kind === "workflow";
 
 const getRouteHref = (routeTarget: RouteTarget, project: ProjectIndexItem | null) => {
   switch (routeTarget) {
@@ -135,12 +135,12 @@ const getRouteHref = (routeTarget: RouteTarget, project: ProjectIndexItem | null
       return projectsRoute;
     case "new_project":
       return newProjectRoute;
-    case "adam_plan":
-      return adamPlanRoute;
+    case "enoch_plan":
+      return enochPlanRoute;
     case "project":
       return project ? projectRoute(project.id) : null;
-    case "project_adam":
-      return project ? projectAdamRoute(project.id) : null;
+    case "project_enoch":
+      return project ? projectEnochRoute(project.id) : null;
     case "scenes":
       return project ? sceneReviewRoute(project.id) : null;
     case "clips":
@@ -161,7 +161,7 @@ const getNodeBounds = (node: StudioNode) => {
     pinned: 420
   };
   const heightByKind: Record<StudioNodeKind, number> = {
-    adam: node.state === "compact" ? 320 : 640,
+    enoch: node.state === "compact" ? 320 : 640,
     "project-context": node.state === "compact" ? 250 : 360,
     "project-list": node.state === "compact" ? 280 : 440,
     workflow: node.state === "compact" ? 320 : 520,
@@ -169,7 +169,7 @@ const getNodeBounds = (node: StudioNode) => {
     artifact: node.state === "compact" ? 240 : 340,
     planner: node.state === "compact" ? 240 : 340,
     branch: node.state === "compact" ? 240 : 340,
-    "adam-result": node.state === "compact" ? 220 : 320
+    "enoch-result": node.state === "compact" ? 220 : 320
   };
 
   return {
@@ -193,7 +193,7 @@ const getNextNodePosition = (transform: CanvasTransform, nodeCount: number, view
   };
 };
 
-export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLabel }: Props) => {
+export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderLabel }: Props) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const canvasActionsRef = useRef<HTMLDivElement | null>(null);
   const toolRailRef = useRef<HTMLElement | null>(null);
@@ -425,7 +425,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
     const title = composer.title.trim();
     const body = composer.body.trim();
 
-    if ((composer.mode === "adam" && !body) || (composer.mode !== "adam" && !title)) {
+    if ((composer.mode === "enoch" && !body) || (composer.mode !== "enoch" && !title)) {
       return;
     }
 
@@ -436,8 +436,8 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
     try {
       const position = getNextNodePosition(transform, nodes.length, viewportRef.current);
 
-      if (composer.mode === "adam") {
-        const response = await fetch("/api/adam/chat", {
+      if (composer.mode === "enoch") {
+        const response = await fetch("/api/enoch/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -457,7 +457,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
         };
 
         if (!response.ok || !payload.replyText) {
-          throw new Error(payload.message ?? "Adam could not shape that prompt right now.");
+          throw new Error(payload.message ?? "Enoch could not shape that prompt right now.");
         }
 
         const replyText = payload.replyText;
@@ -466,18 +466,18 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
           ...current,
           {
             id: createLocalId(),
-            kind: "adam-result",
-            title: title || "Adam shaping result",
+            kind: "enoch-result",
+            title: title || "Enoch shaping result",
             x: position.x,
             y: position.y,
             state: "expanded",
             prompt: body,
             reply: replyText,
-            provider: payload.session?.metadata?.provider ?? payload.metadata?.provider ?? adamProviderLabel,
+            provider: payload.session?.metadata?.provider ?? payload.metadata?.provider ?? enochProviderLabel,
             model: payload.session?.metadata?.model ?? payload.metadata?.model ?? "unknown"
           }
         ]);
-        setComposerStatus(`Adam replied through ${payload.session?.metadata?.provider ?? payload.metadata?.provider ?? adamProviderLabel}.`);
+        setComposerStatus(`Enoch replied through ${payload.session?.metadata?.provider ?? payload.metadata?.provider ?? enochProviderLabel}.`);
       } else if (composer.mode === "idea") {
         setNodes((current) => [
           ...current,
@@ -562,26 +562,26 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
   };
 
   const renderNodeBody = (node: StudioNode) => {
-    if (node.kind === "adam") {
+    if (node.kind === "enoch") {
       return (
-        <div className="studio-node__stack studio-node__stack--adam">
+        <div className="studio-node__stack studio-node__stack--enoch">
           <div className="studio-node__intro">
-            <span className="eyebrow">Live Adam</span>
-            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Ask Adam live while you build the board."}</h2>
-            <p>Voice and text fallback stay wired to the live Adam backend. Use the composer for shaping prompts, or interact directly here.</p>
+            <span className="eyebrow">Live Enoch</span>
+            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Ask Enoch live while you build the board."}</h2>
+            <p>Voice and text fallback stay wired to the live Enoch backend. Use the composer for shaping prompts, or interact directly here.</p>
             <div className="studio-node__link-row">
-              <Link href={adamPlanRoute} className="surface-link" prefetch={false}>
-                Open Adam Plan
+              <Link href={enochPlanRoute} className="surface-link" prefetch={false}>
+                Open Enoch Plan
               </Link>
               {selectedProject ? (
-                <Link href={projectAdamRoute(selectedProject.id)} className="surface-link" prefetch={false}>
-                  Open Project Adam Detail
+                <Link href={projectEnochRoute(selectedProject.id)} className="surface-link" prefetch={false}>
+                  Open Project Enoch Detail
                 </Link>
               ) : null}
             </div>
           </div>
-          <div className={`studio-node__adam studio-node__adam--${node.state}`}>
-            <AdamVoiceSurface />
+          <div className={`studio-node__enoch studio-node__enoch--${node.state}`}>
+            <EnochVoiceSurface />
           </div>
         </div>
       );
@@ -693,9 +693,9 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
               <strong>Workspace</strong>
               <span>Return to the lighter operations layer.</span>
             </Link>
-            <Link href={adamPlanRoute} className="studio-route-card" prefetch={false}>
-              <strong>Adam Plan</strong>
-              <span>Open planning artifacts and Adam reasoning.</span>
+            <Link href={enochPlanRoute} className="studio-route-card" prefetch={false}>
+              <strong>Enoch Plan</strong>
+              <span>Open planning artifacts and Enoch reasoning.</span>
             </Link>
           </div>
           {selectedProject ? (
@@ -899,13 +899,13 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
       );
     }
 
-    const resultNode = node as AdamResultNode;
+    const resultNode = node as EnochResultNode;
 
     return (
       <div className="studio-node__stack">
         <p className="studio-node__body-copy">{resultNode.prompt}</p>
         <div className="studio-response-card">
-          <span className="eyebrow">Adam Reply</span>
+          <span className="eyebrow">Enoch Reply</span>
           <p>{resultNode.reply}</p>
         </div>
         <div className="studio-node__link-row">
@@ -921,11 +921,11 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
       <div className="studio-board__topbar">
         <div className="studio-board__copy">
           <span className="eyebrow">Studio</span>
-          <h1>Creation board for shaping ideas, artifacts, branches, and Adam-guided routes.</h1>
-          <p>Studio is the open-ended creative surface. Drag nodes, build branches, shape artifacts, ask Adam live, and move directly into real project routes when the board is ready.</p>
+          <h1>Creation board for shaping ideas, artifacts, branches, and Enoch-guided routes.</h1>
+          <p>Studio is the open-ended creative surface. Drag nodes, build branches, shape artifacts, ask Enoch live, and move directly into real project routes when the board is ready.</p>
         </div>
         <div className="studio-board__controls">
-          <span className="truth-pill">Provider: {adamProviderLabel}</span>
+          <span className="truth-pill">Provider: {enochProviderLabel}</span>
           {projectsResult.ok && projectsResult.projects.length > 0 ? (
             <select
               value={selectedProject?.id ?? ""}
@@ -963,7 +963,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
               id={node.id}
               title={node.title}
               subtitle={
-                node.kind === "adam"
+                node.kind === "enoch"
                   ? "AI creation anchor"
                   : node.kind === "project-context"
                     ? selectedProject?.name ?? "Live project"
@@ -981,7 +981,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
                               ? "Planning block"
                               : node.kind === "branch"
                                 ? "Branch block"
-                                : "Adam response"
+                                : "Enoch response"
               }
               x={node.x}
               y={node.y}
@@ -1037,9 +1037,9 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
               <option value="artifact">Artifact Block</option>
               <option value="planner">Planning Block</option>
               <option value="branch">Branch Block</option>
-              <option value="adam">Ask Adam</option>
+              <option value="enoch">Ask Enoch</option>
             </select>
-            <input value={composer.title} onChange={(event) => setComposer((current) => ({ ...current, title: event.target.value }))} placeholder={composer.mode === "adam" ? "Optional node title" : "Block title"} />
+            <input value={composer.title} onChange={(event) => setComposer((current) => ({ ...current, title: event.target.value }))} placeholder={composer.mode === "enoch" ? "Optional node title" : "Block title"} />
             {composer.mode === "artifact" ? (
               <select value={composer.artifactType} onChange={(event) => setComposer((current) => ({ ...current, artifactType: event.target.value as ArtifactType }))}>
                 <option value="brief">Brief</option>
@@ -1048,7 +1048,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
                 <option value="asset">Asset</option>
               </select>
             ) : null}
-            {composer.mode !== "idea" && composer.mode !== "adam" ? (
+            {composer.mode !== "idea" && composer.mode !== "enoch" ? (
               <select value={composer.routeTarget} onChange={(event) => setComposer((current) => ({ ...current, routeTarget: event.target.value as RouteTarget }))}>
                 {Object.entries(ROUTE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -1057,16 +1057,16 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, adamProviderLa
                 ))}
               </select>
             ) : null}
-            <button type="submit" className="button button--solid" disabled={isSubmittingComposer || (composer.mode === "adam" ? !composer.body.trim() : !composer.title.trim())}>
-              {isSubmittingComposer ? "Working..." : composer.mode === "adam" ? "Ask Adam" : "Create"}
+            <button type="submit" className="button button--solid" disabled={isSubmittingComposer || (composer.mode === "enoch" ? !composer.body.trim() : !composer.title.trim())}>
+              {isSubmittingComposer ? "Working..." : composer.mode === "enoch" ? "Ask Enoch" : "Create"}
             </button>
           </div>
           <textarea
             value={composer.body}
             onChange={(event) => setComposer((current) => ({ ...current, body: event.target.value }))}
             placeholder={
-              composer.mode === "adam"
-                ? "Ask Adam to shape an idea, artifact, or branch using the live backend."
+              composer.mode === "enoch"
+                ? "Ask Enoch to shape an idea, artifact, or branch using the live backend."
                 : composer.mode === "idea"
                   ? "Capture the concept, audience, or angle."
                   : composer.mode === "artifact"

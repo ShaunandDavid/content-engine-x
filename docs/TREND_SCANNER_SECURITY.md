@@ -1,4 +1,4 @@
-# ADAM — TREND SCANNER SECURITY PROTOCOLS
+# ENOCH — TREND SCANNER SECURITY PROTOCOLS
 ## Anti-Detection, Rate Limiting, and Platform Compliance
 
 ---
@@ -11,7 +11,7 @@ Every platform interaction must follow this hierarchy:
 3. Browser-like scraping (last resort — highest ban risk)
 
 If caught violating platform ToS, you lose access permanently.
-Adam must protect himself.
+Enoch must protect himself.
 
 ---
 
@@ -53,7 +53,7 @@ class RateLimiter:
 **What NOT to do:**
 - No rapid-fire search queries (looks like scraping)
 - No following/unfollowing accounts programmatically
-- No liking/retweeting through Adam — read-only operations only
+- No liking/retweeting through Enoch — read-only operations only
 - No storing or redistributing tweet content verbatim (ToS violation)
 
 ---
@@ -63,7 +63,7 @@ class RateLimiter:
 **Use: Public JSON API (no auth needed for reads).**
 - Append `.json` to any subreddit URL: `reddit.com/r/technology/hot.json`
 - Reddit rate limits: 60 requests/minute for unauthenticated
-- Set a proper User-Agent header: `Adam/1.0 (Content Engine X by XenTeck; contact: dj@xenteck.com)`
+- Set a proper User-Agent header: `Enoch/1.0 (Content Engine X by XenTeck; contact: dj@xenteck.com)`
 - Reddit BLOCKS requests with generic User-Agents (python-requests, curl, etc.)
 - Space requests: minimum 1.5 seconds between calls, randomize 1.5-3.0 seconds
 - If you get 429: back off for 60 seconds, then resume at half speed
@@ -75,7 +75,7 @@ class RateLimiter:
 - Worth doing if you're scanning 20+ subreddits
 
 **What NOT to do:**
-- No posting, commenting, or voting through Adam
+- No posting, commenting, or voting through Enoch
 - No scraping user profiles or DMs
 - No bypassing rate limits with multiple accounts
 
@@ -141,11 +141,11 @@ class YouTubeQuotaTracker:
 ## Global Security Rules
 
 ### Request Fingerprinting
-Every HTTP request from Adam should look like a normal application, not a bot:
+Every HTTP request from Enoch should look like a normal application, not a bot:
 
 ```python
 HEADERS = {
-    "User-Agent": "Adam/1.0 (Content Research Engine; contact: dj@xenteck.com)",
+    "User-Agent": "Enoch/1.0 (Content Research Engine; contact: dj@xenteck.com)",
     "Accept": "application/json",
     "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "gzip, deflate",
@@ -158,7 +158,7 @@ HEADERS = {
 - Use connection pooling (httpx.AsyncClient with limits) — don't open/close connections rapidly
 
 ### Request Scheduling
-Adam should NOT scan all platforms simultaneously. Stagger them:
+Enoch should NOT scan all platforms simultaneously. Stagger them:
 
 ```
 Scan Schedule (per run):
@@ -216,7 +216,7 @@ Every scrape cycle should log:
 }
 ```
 
-Store in Supabase `audit_log` table — this is your proof that Adam behaves responsibly.
+Store in Supabase `audit_log` table — this is your proof that Enoch behaves responsibly.
 
 ---
 
@@ -241,7 +241,7 @@ The trend scanner is READ-ONLY — it never posts content. But the downstream pu
 
 ## Emergency Kill Switch
 
-If Adam detects any of these, ALL scanning and publishing stops immediately:
+If Enoch detects any of these, ALL scanning and publishing stops immediately:
 - Any platform returns a 403 Forbidden (account/app may be flagged)
 - More than 3 consecutive 429s from the same platform in one cycle
 - Any platform returns a "suspicious activity" or "verify your identity" response
@@ -251,7 +251,7 @@ Kill switch logs the event, sends a Telegram alert to DJ, and requires manual re
 
 ---
 
-## Summary: What Adam Can and Cannot Do
+## Summary: What Enoch Can and Cannot Do
 
 ### CAN DO (safe):
 - Read public tweets via API

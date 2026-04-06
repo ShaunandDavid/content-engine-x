@@ -106,16 +106,16 @@ export const ClipReviewActions = ({
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
         <button className="button" type="button" onClick={generateMissingClips} disabled={isGenerating || isPolling || !canGenerate}>
-          {isGenerating ? "Submitting..." : clipCount > 0 ? "Generate Missing Clips" : "Start Clip Generation"}
+          {isGenerating ? "Submitting..." : clipCount > 0 ? "Generate Remaining Clips" : "Start Generation"}
         </button>
         <button className="button button--secondary" type="button" onClick={() => void pollNow()} disabled={isPolling || isGenerating || clipCount < 1}>
-          {isPolling ? "Polling..." : "Poll Status Now"}
+          {isPolling ? "Refreshing..." : "Refresh Queue"}
         </button>
       </div>
       <p className="muted">
         {activeClipCount > 0
-          ? `Automatic polling is active for ${activeClipCount} in-flight clip${activeClipCount === 1 ? "" : "s"}.`
-          : "No in-flight clips. Polling will resume automatically when new generations are queued."}
+          ? `Live polling is active for ${activeClipCount} in-flight clip${activeClipCount === 1 ? "" : "s"}.`
+          : "No clips are in flight. Polling resumes automatically when new generations are queued."}
       </p>
       {!canGenerate && generateDisabledReason ? <p className="empty-state">{generateDisabledReason}</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}

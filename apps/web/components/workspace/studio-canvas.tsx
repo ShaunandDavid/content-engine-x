@@ -92,23 +92,23 @@ const DEFAULT_COMPOSER: ComposerState = {
 };
 
 const DEFAULT_NODES: StudioNode[] = [
-  { id: "system-enoch", kind: "enoch", title: "Enoch Dock", x: 220, y: 180, state: "expanded" },
+  { id: "system-enoch", kind: "enoch", title: "Voice Console", x: 220, y: 180, state: "expanded" },
   { id: "system-project-context", kind: "project-context", title: "Project Context", x: 980, y: 150, state: "expanded" },
-  { id: "system-workflow", kind: "workflow", title: "Workflow Routes", x: 1220, y: 780, state: "expanded" },
+  { id: "system-workflow", kind: "workflow", title: "Pipeline Routes", x: 1220, y: 780, state: "expanded" },
   { id: "system-project-list", kind: "project-list", title: "Recent Projects", x: 460, y: 1040, state: "expanded" }
 ];
 
 const ROUTE_LABELS: Record<RouteTarget, string> = {
-  workspace: "Workspace",
+  workspace: "Enoch Workspace",
   projects: "Projects",
-  new_project: "New Project",
-  enoch_plan: "Enoch Plan",
+  new_project: "Create a Project",
+  enoch_plan: "Enoch Planner",
   project: "Project Overview",
-  project_enoch: "Project Enoch Detail",
-  scenes: "Scene Review",
-  clips: "Clip Generation",
-  render: "Render",
-  publish: "Publish"
+  project_enoch: "Project Enoch",
+  scenes: "Scene Planner",
+  clips: "Generation Queue",
+  render: "Render Pipeline",
+  publish: "Publish Handoff"
 };
 
 const createLocalId = () =>
@@ -492,7 +492,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             status: "seed"
           }
         ]);
-        setComposerStatus("Idea block created.");
+        setComposerStatus("Idea note created.");
       } else if (composer.mode === "artifact") {
         setNodes((current) => [
           ...current,
@@ -508,7 +508,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             routeTarget: composer.routeTarget
           }
         ]);
-        setComposerStatus("Artifact block created.");
+        setComposerStatus("Artifact note created.");
       } else if (composer.mode === "planner") {
         setNodes((current) => [
           ...current,
@@ -523,7 +523,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             routeTarget: composer.routeTarget
           }
         ]);
-        setComposerStatus("Planning block created.");
+        setComposerStatus("Planning note created.");
       } else {
         setNodes((current) => [
           ...current,
@@ -538,7 +538,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             routeTarget: composer.routeTarget
           }
         ]);
-        setComposerStatus("Branch block created.");
+        setComposerStatus("Branch note created.");
       }
 
       setComposer((current) => ({ ...current, title: "", body: "" }));
@@ -566,16 +566,16 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       return (
         <div className="studio-node__stack studio-node__stack--enoch">
           <div className="studio-node__intro">
-            <span className="eyebrow">Live Enoch</span>
-            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Ask Enoch live while you build the board."}</h2>
-            <p>Voice and text fallback stay wired to the live Enoch backend. Use the composer for shaping prompts, or interact directly here.</p>
+            <span className="eyebrow">Project Enoch</span>
+            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Talk to Enoch while you shape the board."}</h2>
+            <p>Voice and typed turns stay wired to the live Enoch backend.</p>
             <div className="studio-node__link-row">
               <Link href={enochPlanRoute} className="surface-link" prefetch={false}>
-                Open Enoch Plan
+                Open Enoch Planner
               </Link>
               {selectedProject ? (
                 <Link href={projectEnochRoute(selectedProject.id)} className="surface-link" prefetch={false}>
-                  Open Project Enoch Detail
+                  Project Enoch
                 </Link>
               ) : null}
             </div>
@@ -615,10 +615,10 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <p className="studio-node__body-copy">Targets: {selectedProject.platforms.join(", ")}. Updated {formatTimestamp(selectedProject.updatedAt)}.</p>
               <div className="studio-node__link-row">
                 <Link href={projectRoute(selectedProject.id)} className="button button--solid" prefetch={false}>
-                  Open Project
+                  Open Overview
                 </Link>
                 <Link href={sceneReviewRoute(selectedProject.id)} className="button button--secondary" prefetch={false}>
-                  Scene Review
+                  Scene Planner
                 </Link>
               </div>
             </>
@@ -639,7 +639,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       }
 
       if (projectsResult.projects.length === 0) {
-        return <div className="empty-state">No live projects exist yet. Use the real project flow to create one, then Studio will hydrate its creation context around it.</div>;
+        return <div className="empty-state">No live projects exist yet. Create one and Studio will bind around it automatically.</div>;
       }
 
       const visibleProjects = node.state === "compact" ? projectsResult.projects.slice(0, 3) : projectsResult.projects.slice(0, 8);
@@ -658,7 +658,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
                 </span>
               </button>
               <Link href={projectRoute(project.id)} className="surface-link" prefetch={false}>
-                Open
+                Open Overview
               </Link>
             </div>
           ))}
@@ -671,10 +671,10 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       const routes = selectedProject
         ? [
             { title: "Project Overview", href: projectRoute(selectedProject.id), description: "Truth and next-step context." },
-            { title: "Scene Review", href: sceneReviewRoute(selectedProject.id), description: "Review, revise, and approve scenes." },
-            { title: "Clip Generation", href: clipReviewRoute(selectedProject.id), description: "Generate and inspect clips." },
-            { title: "Render", href: renderRoute(selectedProject.id), description: "Assemble a finished output." },
-            { title: "Publish", href: publishRoute(selectedProject.id), description: "Deliver when render and assets are ready." }
+            { title: "Scene Planner", href: sceneReviewRoute(selectedProject.id), description: "Review, revise, and approve scenes." },
+            { title: "Generation Queue", href: clipReviewRoute(selectedProject.id), description: "Generate and inspect clips." },
+            { title: "Render Pipeline", href: renderRoute(selectedProject.id), description: "Assemble a finished output." },
+            { title: "Publish Handoff", href: publishRoute(selectedProject.id), description: "Deliver when render and assets are ready." }
           ]
         : [];
 
@@ -682,7 +682,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
         <div className="studio-node__stack">
           <div className="studio-node__link-grid">
             <Link href={newProjectRoute} className="studio-route-card" prefetch={false}>
-              <strong>New Project</strong>
+              <strong>Create a Project</strong>
               <span>Start the live creation flow.</span>
             </Link>
             <Link href={projectsRoute} className="studio-route-card" prefetch={false}>
@@ -690,11 +690,11 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <span>Open the live project index.</span>
             </Link>
             <Link href={workspaceRoute} className="studio-route-card" prefetch={false}>
-              <strong>Workspace</strong>
+              <strong>Enoch Workspace</strong>
               <span>Return to the lighter operations layer.</span>
             </Link>
             <Link href={enochPlanRoute} className="studio-route-card" prefetch={false}>
-              <strong>Enoch Plan</strong>
+              <strong>Enoch Planner</strong>
               <span>Open planning artifacts and Enoch reasoning.</span>
             </Link>
           </div>
@@ -708,7 +708,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               ))}
             </div>
           ) : (
-            <div className="empty-state">Select a live project to unlock project-bound routes here.</div>
+            <div className="empty-state">Select a live project to unlock project routes here.</div>
           )}
           <ul className="list-reset studio-checklist">
             {checks.map((check) => (
@@ -730,12 +730,12 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <input
                 value={node.title}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as IdeaNode), title: event.target.value }))}
-                placeholder="Idea title"
+                placeholder="Idea note title"
               />
               <textarea
                 value={node.note}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as IdeaNode), note: event.target.value }))}
-                placeholder="Angle, audience, or why it matters."
+                placeholder="Capture the angle, audience, or why it matters."
               />
             </>
           ) : (
@@ -756,7 +756,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
                 })
               }
             >
-              Advance
+              Advance Status
             </button>
           </div>
         </div>
@@ -771,7 +771,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <input
                 value={node.title}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as ArtifactNode), title: event.target.value }))}
-                placeholder="Artifact title"
+                placeholder="Artifact note title"
               />
               <div className="studio-node__form-row">
                 <select
@@ -807,7 +807,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <textarea
                 value={node.note}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as ArtifactNode), note: event.target.value }))}
-                placeholder="What needs to be shaped or handed off."
+                placeholder="Describe what this artifact should become or hand off."
               />
             </>
           ) : (
@@ -829,7 +829,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <input
                 value={node.title}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as PlannerNode), title: event.target.value }))}
-                placeholder="Planning block title"
+                placeholder="Planning note title"
               />
               <select
                 value={node.routeTarget}
@@ -849,7 +849,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <textarea
                 value={node.focus}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as PlannerNode), focus: event.target.value }))}
-                placeholder="What this planning block is solving."
+                placeholder="Describe the planning problem this note resolves."
               />
             </>
           ) : (
@@ -868,7 +868,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <input
                 value={node.title}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as BranchNode), title: event.target.value }))}
-                placeholder="Branch title"
+                placeholder="Branch note title"
               />
               <select
                 value={node.routeTarget}
@@ -888,7 +888,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               <textarea
                 value={node.objective}
                 onChange={(event) => updateNode(node.id, (current) => ({ ...(current as BranchNode), objective: event.target.value }))}
-                placeholder="How this branch changes the direction or route."
+                placeholder="Describe how this branch changes the direction or route."
               />
             </>
           ) : (
@@ -905,7 +905,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       <div className="studio-node__stack">
         <p className="studio-node__body-copy">{resultNode.prompt}</p>
         <div className="studio-response-card">
-          <span className="eyebrow">Enoch Reply</span>
+          <span className="eyebrow">Enoch Response</span>
           <p>{resultNode.reply}</p>
         </div>
         <div className="studio-node__link-row">
@@ -921,8 +921,8 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       <div className="studio-board__topbar">
         <div className="studio-board__copy">
           <span className="eyebrow">Studio</span>
-          <h1>Creation board for shaping ideas, artifacts, branches, and Enoch-guided routes.</h1>
-          <p>Studio is the open-ended creative surface. Drag nodes, build branches, shape artifacts, ask Enoch live, and move directly into real project routes when the board is ready.</p>
+          <h1>Shape the creative pipeline in one place.</h1>
+          <p>Use Studio to map ideas, artifacts, branches, and route decisions around a live Project Enoch workflow.</p>
         </div>
         <div className="studio-board__controls">
           <span className="truth-pill">Provider: {enochProviderLabel}</span>
@@ -945,7 +945,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             Projects
           </Link>
           <Link href={newProjectRoute} className="button button--solid" prefetch={false}>
-            New Project
+            Create a Project
           </Link>
         </div>
       </div>
@@ -953,7 +953,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
       <div className="studio-board">
         <div className="studio-board__canvas-actions" ref={canvasActionsRef}>
           <button type="button" className="studio-board__fit-screen button button--secondary" onClick={fitCanvas}>
-            Fit Screen
+            Fit Canvas
           </button>
         </div>
         <InfiniteCanvas ref={viewportRef} transform={transform} onTransformChange={setTransform} gridEnabled={gridEnabled}>
@@ -964,7 +964,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               title={node.title}
               subtitle={
                 node.kind === "enoch"
-                  ? "AI creation anchor"
+                  ? "Voice and planning anchor"
                   : node.kind === "project-context"
                     ? selectedProject?.name ?? "Live project"
                     : node.kind === "project-list"
@@ -974,13 +974,13 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
                       : node.kind === "workflow"
                         ? "Real routes only"
                         : node.kind === "idea"
-                          ? "Idea block"
+                          ? "Idea note"
                           : node.kind === "artifact"
-                            ? "Artifact block"
+                            ? "Artifact note"
                             : node.kind === "planner"
-                              ? "Planning block"
+                              ? "Planning note"
                               : node.kind === "branch"
-                                ? "Branch block"
+                                ? "Branch note"
                                 : "Enoch response"
               }
               x={node.x}
@@ -1033,13 +1033,13 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
         <form className="studio-composer" onSubmit={handleComposerSubmit} ref={composerRef}>
           <div className="studio-composer__row">
             <select value={composer.mode} onChange={(event) => setComposer((current) => ({ ...current, mode: event.target.value as ComposerMode }))}>
-              <option value="idea">Idea Block</option>
-              <option value="artifact">Artifact Block</option>
-              <option value="planner">Planning Block</option>
-              <option value="branch">Branch Block</option>
+              <option value="idea">Idea Note</option>
+              <option value="artifact">Artifact Note</option>
+              <option value="planner">Planning Note</option>
+              <option value="branch">Branch Note</option>
               <option value="enoch">Ask Enoch</option>
             </select>
-            <input value={composer.title} onChange={(event) => setComposer((current) => ({ ...current, title: event.target.value }))} placeholder={composer.mode === "enoch" ? "Optional node title" : "Block title"} />
+            <input value={composer.title} onChange={(event) => setComposer((current) => ({ ...current, title: event.target.value }))} placeholder={composer.mode === "enoch" ? "Optional note title" : "Note title"} />
             {composer.mode === "artifact" ? (
               <select value={composer.artifactType} onChange={(event) => setComposer((current) => ({ ...current, artifactType: event.target.value as ArtifactType }))}>
                 <option value="brief">Brief</option>
@@ -1058,7 +1058,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
               </select>
             ) : null}
             <button type="submit" className="button button--solid" disabled={isSubmittingComposer || (composer.mode === "enoch" ? !composer.body.trim() : !composer.title.trim())}>
-              {isSubmittingComposer ? "Working..." : composer.mode === "enoch" ? "Ask Enoch" : "Create"}
+              {isSubmittingComposer ? "Working..." : composer.mode === "enoch" ? "Ask Enoch" : "Add Note"}
             </button>
           </div>
           <textarea
@@ -1066,7 +1066,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             onChange={(event) => setComposer((current) => ({ ...current, body: event.target.value }))}
             placeholder={
               composer.mode === "enoch"
-                ? "Ask Enoch to shape an idea, artifact, or branch using the live backend."
+                ? "Ask Enoch to shape an idea, artifact, or route using the live backend."
                 : composer.mode === "idea"
                   ? "Capture the concept, audience, or angle."
                   : composer.mode === "artifact"
@@ -1078,7 +1078,7 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
           />
           <div className="studio-composer__footer">
             <div className="studio-composer__signals">
-              <span className="truth-pill">Canvas saved locally</span>
+              <span className="truth-pill">Board saved locally</span>
               {selectedProject ? <span className="truth-pill">Project: {selectedProject.name}</span> : null}
               {composerStatus ? <span className="truth-pill">{composerStatus}</span> : null}
             </div>

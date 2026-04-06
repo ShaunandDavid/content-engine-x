@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getLatestRenderForProject } from "@content-engine/db";
@@ -8,6 +9,10 @@ import { RenderActions } from "../../../../components/render-actions";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { getRenderReadiness } from "../../../../lib/server/project-flow-readiness";
+
+export const metadata: Metadata = {
+  title: "Render Pipeline"
+};
 
 export default async function FinalRenderPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -52,8 +57,8 @@ async function FinalRenderContent({
 
   return (
     <DashboardShell
-      title="Final Render"
-      subtitle="Preview the media pipeline steps that turn reviewed clips into the delivery master."
+      title="Render Pipeline"
+      subtitle="Assemble approved clips into the final delivery render."
       status={projectId === demoProject.id ? demoProject.render.status : latestRender?.status ?? workspace.project.status}
       projectId={projectId}
     >
@@ -84,7 +89,7 @@ async function FinalRenderContent({
         disabledReason={renderDisabledReason}
       />
       <div className="render-grid">
-        <FormCard title="Assembly Pipeline" description="FFmpeg stages run in deterministic order for reproducibility.">
+        <FormCard title="Render Pipeline" description="FFmpeg stages run in deterministic order for reproducibility.">
           <ul className="list-reset">
             {renderOperations.map((operation) => (
               <li className="timeline-item" key={operation}>
@@ -95,7 +100,7 @@ async function FinalRenderContent({
           </ul>
         </FormCard>
 
-        <FormCard title="Brand Controls" description="Caption burn-in, logo overlay, end card, and audio bed will be layered here.">
+        <FormCard title="Delivery Assets" description="Caption burn-in, logo overlay, end card, and audio bed are tracked here.">
           {workspace.scenes.length ? (
             <div className="stack">
               <div className="payload-card">

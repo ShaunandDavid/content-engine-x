@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
@@ -5,6 +6,11 @@ import { dashboardRoute } from "../../lib/routes";
 import { getEnochEnvValue } from "../../lib/server/enoch-env";
 import { runLiveRuntimePreflight } from "../../lib/server/live-runtime-preflight";
 import { isPythonOrchestratorEnabled } from "../../lib/server/python-orchestrator";
+
+export const metadata: Metadata = {
+  title: "Runtime",
+  description: "Inspect the live runtime checks behind Project Enoch, voice, and downstream delivery."
+};
 
 type SystemsSignalTone = "ready" | "attention";
 
@@ -18,7 +24,7 @@ const pipelinePhases = [
     summary: "Scene planning, provider orchestration, and prompt execution stay aligned to the current runtime configuration."
   },
   {
-    title: "Assembly",
+    title: "Render",
     summary: "Render jobs and asset persistence depend on the storage, provider, and media pipeline checks below."
   },
   {
@@ -105,11 +111,10 @@ export default async function SystemsPage() {
       <div className="systems-page__body">
         <section className="systems-hero">
           <div className="systems-hero__copy">
-            <p className="systems-eyebrow">Systems Control Surface</p>
-            <h1>Keep the runtime legible before the workflow moves.</h1>
+            <p className="systems-eyebrow">Runtime</p>
+            <h1>Check the runtime before you run the pipeline.</h1>
             <p className="systems-hero__lede">
-              This page now reflects the same live readiness checks the server uses for project creation and operational
-              health. It is no longer a construction placeholder.
+              Project Enoch uses these live checks for project creation, voice, and downstream execution.
             </p>
             <div className="systems-chip-row">
               <span className={`systems-chip systems-chip--${systemTone}`}>{runtimeStateLabel}</span>
@@ -119,19 +124,19 @@ export default async function SystemsPage() {
           </div>
 
           <aside className={`systems-hero__status systems-hero__status--${systemTone}`}>
-            <p className="systems-panel-label">Runtime posture</p>
-            <h2>{blockingIssues.length > 0 ? "Resolve the blocking path before you trust downstream automation." : "Core systems are coherent enough to move through the live flow."}</h2>
+            <p className="systems-panel-label">Runtime Status</p>
+            <h2>{blockingIssues.length > 0 ? "Resolve the blocking path before you run Project Enoch." : "Core runtime paths are ready for the live flow."}</h2>
             <p>
               {blockingIssues.length > 0
                 ? blockingIssues[0]
-                : "The current environment has the minimum surface needed for live project state, operator resolution, and downstream pipeline visibility."}
+                : "The current environment has the minimum surface needed for live project state, voice, and downstream delivery."}
             </p>
             <div className="systems-hero__actions">
               <Link href={dashboardRoute} className="button button--solid" prefetch={false}>
-                Open Console
+                Open Pipeline
               </Link>
               <Link href="/projects/new" className="button button--outline" prefetch={false}>
-                Start Project
+                Create a Project
               </Link>
             </div>
           </aside>
@@ -143,9 +148,9 @@ export default async function SystemsPage() {
               <div className="systems-panel__header">
                 <div>
                   <p className="systems-panel-label">Live readiness</p>
-                  <h2>Dependency checks</h2>
+                  <h2>Runtime Checks</h2>
                 </div>
-                <p className="systems-panel-note">Evaluated at request time from the active server env.</p>
+                <p className="systems-panel-note">Evaluated on each request from the active server environment.</p>
               </div>
 
               <div className="systems-check-list">
@@ -167,9 +172,9 @@ export default async function SystemsPage() {
               <div className="systems-panel__header">
                 <div>
                   <p className="systems-panel-label">Pipeline map</p>
-                  <h2>Operational sequence</h2>
+                  <h2>Pipeline Sequence</h2>
                 </div>
-                <p className="systems-panel-note">Spline-usable now as premium stacked cards, later as a scene bridge if needed.</p>
+                <p className="systems-panel-note">The live route order from brief to delivery.</p>
               </div>
 
               <div className="systems-pipeline">
@@ -191,7 +196,7 @@ export default async function SystemsPage() {
               <div className="systems-panel__header">
                 <div>
                   <p className="systems-panel-label">Runtime modules</p>
-                  <h2>Enoch and orchestration</h2>
+                  <h2>Enoch Runtime</h2>
                 </div>
               </div>
               <div className="systems-service-grid">
@@ -208,8 +213,8 @@ export default async function SystemsPage() {
             <section className="systems-panel">
               <div className="systems-panel__header">
                 <div>
-                  <p className="systems-panel-label">Operator guidance</p>
-                  <h2>Current blockers and warnings</h2>
+                  <p className="systems-panel-label">Current state</p>
+                  <h2>Current Issues</h2>
                 </div>
               </div>
 
@@ -231,26 +236,26 @@ export default async function SystemsPage() {
             <section className="systems-panel">
               <div className="systems-panel__header">
                 <div>
-                  <p className="systems-panel-label">Working routes</p>
+                  <p className="systems-panel-label">Live routes</p>
                   <h2>Use the live product path</h2>
                 </div>
               </div>
 
               <div className="systems-route-list">
                 <Link href="/" className="systems-route-card" prefetch={false}>
-                  <span className="systems-route-card__label">Enoch</span>
-                  <strong>Voice runtime surface</strong>
-                  <p>Talk to Enoch through the current branch runtime and server pipeline.</p>
+                  <span className="systems-route-card__label">Project Enoch</span>
+                  <strong>Voice Console</strong>
+                  <p>Talk to Enoch through the live runtime and current voice path.</p>
                 </Link>
                 <Link href="/projects/new" className="systems-route-card" prefetch={false}>
-                  <span className="systems-route-card__label">Projects</span>
-                  <strong>Project creation</strong>
-                  <p>Open the intake surface that uses the same operator and database readiness checks.</p>
+                  <span className="systems-route-card__label">Create a Project</span>
+                  <strong>Project Brief</strong>
+                  <p>Open the intake surface backed by the same runtime and database checks.</p>
                 </Link>
                 <Link href={dashboardRoute} className="systems-route-card" prefetch={false}>
-                  <span className="systems-route-card__label">Console</span>
-                  <strong>Operational dashboard</strong>
-                  <p>Review live projects, queue state, and audit activity in the same runtime session.</p>
+                  <span className="systems-route-card__label">Pipeline</span>
+                  <strong>Project Queue</strong>
+                  <p>Review live projects, queue state, and runtime activity in one place.</p>
                 </Link>
               </div>
             </section>

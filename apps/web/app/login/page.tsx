@@ -1,16 +1,23 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Sign In",
+  description: "Sign in to Project Enoch inside Content Engine X."
+};
+
 export default function LoginPage() {
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "24px" }}>
-      <section className="panel-card" style={{ width: "min(480px, 100%)" }}>
+    <main className="auth-shell">
+      <section className="panel-card auth-card">
         <div className="panel-card__header">
-          <p className="eyebrow">Operator Access</p>
-          <h1>Sign in to the dashboard</h1>
-          <p>Supabase auth will plug into this screen in phase 2.</p>
+          <p className="eyebrow">Content Engine X</p>
+          <h1>Sign in to Project Enoch</h1>
+          <p>Authentication wiring lands here next.</p>
         </div>
         <div className="stack">
           <div className="field">
             <label htmlFor="email">Work email</label>
-            <input id="email" type="email" placeholder="operator@company.com" />
+            <input id="email" type="email" placeholder="team@company.com" />
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>

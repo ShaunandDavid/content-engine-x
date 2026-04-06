@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CanvasNode } from "../../components/workspace/canvas-node";
@@ -17,6 +18,11 @@ import { getOperationalDashboardData } from "../../lib/server/dashboard-operatio
 import { getClipGenerationReadiness, getRenderReadiness, getSceneReviewSummary } from "../../lib/server/project-flow-readiness";
 import { getProjectWorkspaceOrDemo } from "../../lib/server/project-data";
 
+export const metadata: Metadata = {
+  title: "Enoch Workspace",
+  description: "Review the live project graph, current stage, and the next operational move inside Project Enoch."
+};
+
 const formatLabel = (value: string) =>
   value
     .replace(/_/g, " ")
@@ -28,6 +34,8 @@ const truncate = (value: string, max = 120) => (value.length > max ? `${value.sl
 
 const normalizeProjectId = (value: string | string[] | undefined) =>
   typeof value === "string" && value.trim() ? value.trim() : null;
+
+const safeTruncate = (value: string, max = 120) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}...` : value);
 
 const summarizeRuntimeBlocker = (value: string | null) => {
   if (!value) {
@@ -87,19 +95,19 @@ export default async function WorkspacePage({
 
   const nextExecution = !workspace
     ? {
-        label: "Bind a live project",
+        label: "Create a Project",
         href: "/projects/new",
         summary: workspaceUnavailableReason
       }
     : !sceneReviewSummary?.allScenesReadyForNextStage
       ? {
-          label: "Review scenes",
+          label: "Scene Planner",
           href: sceneReviewRoute(workspace.project.id),
           summary: sceneReviewSummary?.blockingIssues[0] ?? "Scene review still needs operator attention."
         }
       : clipReadiness?.canGenerate
         ? {
-            label: workspace.clips.length > 0 ? "Open clips" : "Generate clips",
+            label: "Generation Queue",
             href: clipReviewRoute(workspace.project.id),
             summary:
               workspace.clips.length > 0
@@ -108,12 +116,12 @@ export default async function WorkspacePage({
           }
         : renderReadiness?.canStartRender
           ? {
-              label: "Assemble render",
+              label: "Render Pipeline",
               href: renderRoute(workspace.project.id),
               summary: "Completed clips and persisted assets are ready for final render assembly."
             }
           : {
-              label: "Open project",
+              label: "Open Overview",
               href: projectRoute(workspace.project.id),
               summary:
                 clipReadiness?.blockingIssues[0] ??
@@ -121,18 +129,18 @@ export default async function WorkspacePage({
                 "Open the project route to review the latest persisted workflow state."
             };
 
-  const toolbarTitle = workspace ? `Workspace // ${workspace.project.name}` : "Workspace // Live Staging";
+  const toolbarTitle = workspace ? `Enoch Workspace // ${workspace.project.name}` : "Enoch Workspace // Live Binding";
   const toolbarCenter = (
     <>
-      <span className="ws-toolbar-chip">{workspace ? stageLabels[workspace.project.currentStage] : "No live project bound"}</span>
-      <span className="ws-toolbar-chip">{workspace ? formatLabel(workspace.project.status) : "Runtime truth only"}</span>
+      <span className="ws-toolbar-chip">{workspace ? stageLabels[workspace.project.currentStage] : "No project bound"}</span>
+      <span className="ws-toolbar-chip">{workspace ? formatLabel(workspace.project.status) : "Runtime only"}</span>
       <span className="ws-toolbar-chip">
         {workspace ? `${workspace.scenes.length} scenes / ${workspace.prompts.length} prompts` : `${dashboard.recentProjects.length} recent projects`}
       </span>
       <span className="ws-toolbar-mobile-tip">
         {workspace
           ? `Bound to ${workspace.project.name}. Drag to review, pan to inspect, and use the live routes for downstream execution.`
-          : "No live project is bound yet. This surface is now waiting on persisted project state instead of a standalone demo shell."}
+          : "No live project is bound yet. This surface is waiting on persisted project state."}
       </span>
     </>
   );
@@ -140,10 +148,10 @@ export default async function WorkspacePage({
   const toolbarActions = workspace ? (
     <>
       <Link href={projectEnochRoute(workspace.project.id)} className="ws-btn ws-btn--subtle" prefetch={false}>
-        Ask Enoch
+        Project Enoch
       </Link>
       <Link href={projectRoute(workspace.project.id)} className="ws-btn" prefetch={false}>
-        Open Project
+        Overview
       </Link>
       <Link href={nextExecution.href} className="ws-btn ws-btn--primary" prefetch={false}>
         {nextExecution.label}
@@ -152,13 +160,13 @@ export default async function WorkspacePage({
   ) : (
     <>
       <Link href={dashboardRoute} className="ws-btn ws-btn--subtle" prefetch={false}>
-        Open Console
+        Open Pipeline
       </Link>
       <Link href="/projects/new" className="ws-btn" prefetch={false}>
-        Start Project
+        Create a Project
       </Link>
       <Link href="/systems" className="ws-btn ws-btn--primary" prefetch={false}>
-        Resolve Runtime
+        Fix Runtime
       </Link>
     </>
   );
@@ -166,7 +174,7 @@ export default async function WorkspacePage({
   const sidebar = (
     <>
       <div className="ws-truth-banner">
-        <strong>{workspace ? "Persisted project staging" : "Live workspace binding unavailable"}</strong>
+        <strong>{workspace ? "Live Project Binding" : "No Live Project Bound"}</strong>
         <p>
           {workspace
             ? `This canvas is grounded in the persisted ${isDemoWorkspace ? "demo" : "project"} workspace state. Downstream routes stay canonical.`
@@ -175,7 +183,7 @@ export default async function WorkspacePage({
       </div>
 
       <div className="ws-sidebar-section">
-        <p className="ws-sidebar-title">FLOW LANE</p>
+        <p className="ws-sidebar-title">Pipeline View</p>
         <ul className="ws-sidebar-list">
           <li>
             <div>
@@ -217,7 +225,7 @@ export default async function WorkspacePage({
       </div>
 
       <div className="ws-sidebar-section ws-sidebar-section--compact">
-        <p className="ws-sidebar-title">LOOK FOR</p>
+        <p className="ws-sidebar-title">Key Signals</p>
         <ul className="ws-sidebar-list">
           <li>
             <div>
@@ -260,9 +268,9 @@ export default async function WorkspacePage({
 
   const inspector = (
     <>
-      <p className="ws-inspector-title">PROJECT FOCUS</p>
+      <p className="ws-inspector-title">Project Focus</p>
       <div className="ws-inspector-card">
-        <h2>{workspace ? workspace.project.name : "Waiting for live project state"}</h2>
+        <h2>{workspace ? workspace.project.name : "No live project bound"}</h2>
         <p>
           {workspace
             ? workspace.brief?.rawBrief ?? "No raw brief has been persisted for this project yet."
@@ -302,7 +310,7 @@ export default async function WorkspacePage({
       {dashboard.recentProjects.length > 0 ? (
         <div className="ws-inspector-card">
           <h2>Recent projects</h2>
-          <p>Switch the workspace surface between real project records without leaving the staging route.</p>
+          <p>Switch the workspace between real project records without leaving this route.</p>
           <div className="ws-project-link-stack">
             {dashboard.recentProjects.map((project) => (
               <Link
@@ -326,25 +334,25 @@ export default async function WorkspacePage({
   const footer = workspace ? (
     <>
       <Link href={projectEnochRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
-        Ask Enoch
+        Project Enoch
       </Link>
       <Link href={nextExecution.href} className="ws-dock-item ws-dock-item--primary" prefetch={false}>
         {nextExecution.label}
       </Link>
       <Link href={projectRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
-        Open Project
+        Overview
       </Link>
     </>
   ) : (
     <>
       <Link href={dashboardRoute} className="ws-dock-item" prefetch={false}>
-        Open Console
+        Open Pipeline
       </Link>
       <Link href="/projects/new" className="ws-dock-item ws-dock-item--primary" prefetch={false}>
-        Start Project
+        Create a Project
       </Link>
       <Link href="/systems" className="ws-dock-item" prefetch={false}>
-        Open Systems
+        Open Runtime
       </Link>
     </>
   );
@@ -361,7 +369,7 @@ export default async function WorkspacePage({
       <InfiniteCanvas>
         {workspace ? (
           <>
-            <CanvasNode id="brief" initialX={120} initialY={110} title="Live Brief">
+            <CanvasNode id="brief" initialX={120} initialY={110} title="Project Brief">
               <div className="ws-copy-block">
                 <p className="ws-node-eyebrow">Objective</p>
                 <p className="ws-node-title">{workspace.brief?.objective ?? "No persisted objective is available yet."}</p>
@@ -383,7 +391,7 @@ export default async function WorkspacePage({
               </div>
             </CanvasNode>
 
-            <CanvasNode id="workflow-state" initialX={450} initialY={110} title="Workflow State">
+            <CanvasNode id="workflow-state" initialX={450} initialY={110} title="Pipeline State">
               <div className="ws-copy-block">
                 <div className="ws-chip-row">
                   <span className="ws-chip">{stageLabels[workspace.project.currentStage]}</span>
@@ -402,7 +410,7 @@ export default async function WorkspacePage({
                 <p className="ws-prompt-quote">
                   {latestAudit?.errorMessage
                     ? latestAudit.errorMessage
-                    : truncate(
+                    : safeTruncate(
                         workspace.project.errorMessage ??
                           workspace.workflowRun?.errorMessage ??
                           "The workspace is reading the persisted project graph directly, so stage and status updates stay canonical here."
@@ -411,7 +419,7 @@ export default async function WorkspacePage({
               </div>
             </CanvasNode>
 
-            <CanvasNode id="scene-stack" initialX={785} initialY={110} title="Scene Stack">
+            <CanvasNode id="scene-stack" initialX={785} initialY={110} title="Scene Planner">
               {workspace.scenes.length > 0 ? (
                 <ol className="ws-scene-list">
                   {workspace.scenes.slice(0, 4).map((scene) => {
@@ -422,7 +430,7 @@ export default async function WorkspacePage({
                         <strong>
                           {scene.ordinal}. {scene.title}
                         </strong>
-                        <span>{truncate(scene.visualBeat, 80)}</span>
+                        <span>{safeTruncate(scene.visualBeat, 80)}</span>
                         <span>
                           {review?.readyForNextStage ? "Ready for downstream execution." : `Review: ${formatLabel(review?.reviewState ?? "pending")}.`}
                         </span>
@@ -437,7 +445,7 @@ export default async function WorkspacePage({
               )}
             </CanvasNode>
 
-            <CanvasNode id="enoch-context" initialX={210} initialY={440} title="Enoch Context">
+            <CanvasNode id="enoch-context" initialX={210} initialY={440} title="Project Enoch">
               <div className="ws-copy-block">
                 <p className="ws-node-eyebrow">Project grounding</p>
                 <p className="ws-prompt-quote">
@@ -457,12 +465,12 @@ export default async function WorkspacePage({
               </div>
             </CanvasNode>
 
-            <CanvasNode id="output-shape" initialX={560} initialY={430} title="Output Shape">
+            <CanvasNode id="output-shape" initialX={560} initialY={430} title="Output Preview">
               <div className="ws-preview-frame">
                 <div className="ws-preview-frame__glow" />
                 <div className="ws-preview-frame__caption">
                   <strong>{workspace.project.name}</strong>
-                  <span>{truncate(workspace.brief?.objective ?? "Operator-defined output framing.", 76)}</span>
+                  <span>{safeTruncate(workspace.brief?.objective ?? "Project-defined output framing.", 76)}</span>
                 </div>
               </div>
               <div className="ws-chip-row">
@@ -497,7 +505,7 @@ export default async function WorkspacePage({
           </>
         ) : (
           <>
-            <CanvasNode id="binding-status" initialX={140} initialY={120} title="Workspace Binding">
+            <CanvasNode id="binding-status" initialX={140} initialY={120} title="Project Binding">
               <div className="ws-copy-block">
                 <p className="ws-node-eyebrow">Source of truth</p>
                 <p className="ws-node-title">The workspace is now waiting on a persisted project instead of rendering a detached prototype composition.</p>
@@ -505,7 +513,7 @@ export default async function WorkspacePage({
               </div>
             </CanvasNode>
 
-            <CanvasNode id="next-step" initialX={520} initialY={180} title="Next Step">
+            <CanvasNode id="next-step" initialX={520} initialY={180} title="Next Move">
               <ul className="ws-delivery-list">
                 <li>
                   <span>Project intake</span>
@@ -516,8 +524,8 @@ export default async function WorkspacePage({
                   <strong>{runtimeBlocker ?? "Workspace binding will activate automatically when project data is reachable."}</strong>
                 </li>
                 <li>
-                  <span>Operator route</span>
-                  <strong>Use Projects to create a record, then return here for real staging.</strong>
+                  <span>Next route</span>
+                  <strong>Use Projects to create a record, then return here for live staging.</strong>
                 </li>
               </ul>
             </CanvasNode>

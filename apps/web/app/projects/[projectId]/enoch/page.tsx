@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -13,6 +14,10 @@ import {
 } from "../../../../lib/server/enoch-project-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { projectRoute } from "../../../../lib/routes";
+
+export const metadata: Metadata = {
+  title: "Project Enoch"
+};
 
 export default async function ProjectEnochDetailPage({
   params,
@@ -47,20 +52,20 @@ export default async function ProjectEnochDetailPage({
 
   return (
     <DashboardShell
-      title="Project Enoch Detail"
-      subtitle="Stored Project Enoch planning and reasoning context linked to this Content Engine X project."
+      title="Project Enoch"
+      subtitle="Planning, reasoning, voice, and artifact context for this project."
       status={workspace.project.status}
       projectId={projectId}
     >
       <div className="button-row" style={{ marginBottom: "20px" }}>
         <Link className="button button--secondary" href={projectRoute(projectId)}>
-          Back to Project Overview
+          Back to Overview
         </Link>
       </div>
 
       <FormCard
-        title="Review Readiness"
-        description="A passive summary of whether the current Enoch output set looks ready for operator review."
+        title="Review Status"
+        description="A passive summary of whether the current Enoch output set looks ready for review."
       >
         <div className="stack">
           <div className="two-up">
@@ -95,8 +100,8 @@ export default async function ProjectEnochDetailPage({
       </FormCard>
 
       <FormCard
-        title="Readiness Details"
-        description="A passive breakdown of which expected Enoch review categories are available, missing, or incomplete."
+        title="Review Detail"
+        description="A breakdown of which expected Enoch review categories are available, missing, or incomplete."
       >
         <div className="stack">
           <div className="enoch-preplan-detail-grid">
@@ -125,7 +130,7 @@ export default async function ProjectEnochDetailPage({
       />
 
       <div className="page-grid">
-        <FormCard title="Bridge Status" description="The stored Enoch linkage for this project workspace.">
+        <FormCard title="Bridge Status" description="The stored Enoch linkage for this project.">
           <div className="stack">
             <div className="two-up">
               <div>
@@ -142,7 +147,7 @@ export default async function ProjectEnochDetailPage({
           </div>
         </FormCard>
 
-        <FormCard title="Planning Summary" description="The stored Enoch plan that informed pre-generation context.">
+        <FormCard title="Planning Summary" description="The stored Enoch plan that informed project context.">
           {enochDetail.planningArtifact ? (
             <div className="stack">
               <div className="two-up">
@@ -175,8 +180,8 @@ export default async function ProjectEnochDetailPage({
       </div>
 
       <FormCard
-        title="Reasoning Detail"
-        description="The persisted reasoning pass that Enoch generated before downstream content planning."
+        title="Reasoning"
+        description="The persisted reasoning pass that Enoch generated before downstream planning."
       >
         {enochDetail.reasoningArtifact ? (
           <div className="enoch-preplan-detail-grid">

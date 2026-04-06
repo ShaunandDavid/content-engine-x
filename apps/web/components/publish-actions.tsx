@@ -62,11 +62,11 @@ export const PublishActions = ({
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
         <button className="button" type="button" onClick={() => void sendPublishHandoff()} disabled={isSending || !canSendPublish}>
-          {isSending ? "Sending..." : "Send Publish Handoff"}
+          {isSending ? "Sending..." : "Send Handoff"}
         </button>
       </div>
       {!canSendPublish && disabledReason ? <p className="empty-state">{disabledReason}</p> : null}
-      <p className="muted">This action sends the persisted render payload to the configured n8n webhook and stores the attempt result.</p>
+      <p className="muted">This action sends the persisted render payload to the configured n8n webhook and stores the attempt.</p>
       {success ? <p className="status-chip status-chip--completed">{success}</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}
     </div>

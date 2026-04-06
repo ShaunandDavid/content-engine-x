@@ -1,9 +1,13 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
 import { EnochVoiceSurface } from "../components/enoch/enoch-voice-surface";
 import { EnochTopNav } from "../components/enoch/enoch-top-nav";
 import { dashboardRoute } from "../lib/routes";
+
+export const metadata: Metadata = {
+  title: "Enoch Voice Console",
+  description: "Talk to Enoch, review live route state, and move into the Project Enoch pipeline."
+};
 
 export default function EnochHomepage() {
   return (
@@ -13,15 +17,14 @@ export default function EnochHomepage() {
         <EnochVoiceSurface />
 
         <div className="enoch-home-text">
-          <p className="enoch-home-eyebrow">Voice-First Project Copilot</p>
-          <h1>Keep Enoch close to the real project state without losing the calm.</h1>
+          <p className="enoch-home-eyebrow">Project Enoch</p>
+          <h1>Voice control for the live project graph.</h1>
           <p>
-            Enoch listens, reasons server-side against the current workspace, and replies through the active runtime path.
-            The homepage now reflects that truth directly instead of faking confidence in the visual layer.
+            Project Enoch keeps voice, planning, and live route state aligned inside Content Engine X.
           </p>
           <div className="enoch-home-actions">
-            <Link href="/projects/new" className="button button--solid" prefetch={false}>START PROJECT FLOW</Link>
-            <Link href={dashboardRoute} className="button button--outline" prefetch={false}>OPEN CONSOLE</Link>
+            <Link href="/projects/new" className="button button--solid" prefetch={false}>Create a Project</Link>
+            <Link href={dashboardRoute} className="button button--outline" prefetch={false}>Open Pipeline</Link>
           </div>
         </div>
       </div>

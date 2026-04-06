@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
@@ -7,6 +8,10 @@ import { StatusChip } from "../../../../components/status-chip";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { getClipGenerationReadiness } from "../../../../lib/server/project-flow-readiness";
+
+export const metadata: Metadata = {
+  title: "Generation Queue"
+};
 
 export default async function ClipReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -41,8 +46,8 @@ async function ClipReviewContent({
 
   return (
     <DashboardShell
-      title="Clip Review"
-      subtitle="Track provider jobs, prompt lineage, and clip approval readiness."
+      title="Generation Queue"
+      subtitle="Track clip jobs, prompt lineage, and asset status."
       status={workspace.project.status}
       projectId={projectId}
     >

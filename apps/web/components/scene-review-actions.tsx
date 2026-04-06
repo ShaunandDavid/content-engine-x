@@ -73,7 +73,7 @@ export const SceneReviewActions = ({
   return (
     <div className="scene-review-actions">
       <div className="field">
-        <label htmlFor={`scene-review-note-${sceneId}`}>Operator note</label>
+        <label htmlFor={`scene-review-note-${sceneId}`}>Review note</label>
         <textarea
           id={`scene-review-note-${sceneId}`}
           value={note}
@@ -85,7 +85,7 @@ export const SceneReviewActions = ({
 
       <div className="button-row scene-review-actions__buttons">
         <button className="button button--secondary" type="button" disabled={isSubmitting} onClick={() => void submitAction("approve")}>
-          {isSubmitting ? "Updating..." : "Approve"}
+          {isSubmitting ? "Updating..." : "Approve Scene"}
         </button>
         <button
           className="button button--secondary"
@@ -94,13 +94,13 @@ export const SceneReviewActions = ({
           title={canMarkReady ? "Mark this approved scene ready for clip generation." : "Approve the scene before marking it ready."}
           onClick={() => void submitAction("mark_ready")}
         >
-          {readyForNextStage ? "Ready" : "Mark Ready"}
+          {readyForNextStage ? "Ready" : "Ready for Generation"}
         </button>
         <button className="button button--ghost" type="button" disabled={isSubmitting} onClick={() => void submitAction("request_revision")}>
-          Request Revision
+          Request Changes
         </button>
         <button className="button button--ghost" type="button" disabled={isSubmitting} onClick={() => void submitAction("reject")}>
-          Reject
+          Reject Scene
         </button>
       </div>
 

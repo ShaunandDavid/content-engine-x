@@ -70,8 +70,8 @@ export const EnochVoiceTestPanel = ({ projectId, initialRunId = null }: EnochVoi
 
   return (
     <FormCard
-      title="Voice Test"
-      description="Submit a manual voice-style turn to the Enoch voice seam and inspect the returned session state without using live audio."
+      title="Voice Console Test"
+      description="Send a manual Project Enoch voice turn without using live audio."
     >
       <div className="stack">
         <form className="stack" onSubmit={onSubmit}>
@@ -104,12 +104,12 @@ export const EnochVoiceTestPanel = ({ projectId, initialRunId = null }: EnochVoi
           </div>
 
           <div className="field">
-            <label htmlFor="enoch-voice-utterance">Voice-style turn payload</label>
+            <label htmlFor="enoch-voice-utterance">Voice prompt</label>
             <textarea
               id="enoch-voice-utterance"
               value={utterance}
               onChange={(event) => setUtterance(event.target.value)}
-              placeholder="Ask Enoch for a voice-style status update about this project's current planning and review state."
+              placeholder="Ask Enoch for a spoken project status update."
             />
           </div>
 
@@ -128,13 +128,13 @@ export const EnochVoiceTestPanel = ({ projectId, initialRunId = null }: EnochVoi
 
           <div className="button-row">
             <button className="button button--secondary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Testing Voice..." : "Submit Voice Turn"}
+              {isSubmitting ? "Testing..." : "Run Voice Turn"}
             </button>
           </div>
         </form>
 
         <article className="payload-card">
-          <p className="eyebrow">Voice Session Response</p>
+          <p className="eyebrow">Voice Session</p>
           {voiceResponse ? (
             <div className="stack">
               <div className="enoch-preplan-detail-grid">

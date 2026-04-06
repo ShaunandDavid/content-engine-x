@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
@@ -5,6 +6,11 @@ import { StatusChip } from "../../components/status-chip";
 import { stageLabels } from "../../lib/dashboard-data";
 import { newProjectRoute, projectEnochRoute, projectRoute } from "../../lib/routes";
 import { listRecentProjects } from "../../lib/server/projects-index";
+
+export const metadata: Metadata = {
+  title: "Projects",
+  description: "Open active Project Enoch briefs, review status, and jump into the next live route."
+};
 
 const formatUpdatedAt = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -23,15 +29,14 @@ export default async function ProjectsPage() {
 
       <section className="projects-hero">
         <div>
-          <span className="eyebrow">Projects</span>
-          <h1>Live project workflow, not a placeholder list.</h1>
+          <span className="eyebrow">Project Enoch</span>
+          <h1>Every active project, one place.</h1>
           <p>
-            Open active workspaces, check project status, and move directly into the routes that are actually wired to
-            the backend.
+            Open live projects, review status, and jump straight into the next route.
           </p>
         </div>
         <Link href={newProjectRoute} className="button" prefetch={false}>
-          New Project
+          Create a Project
         </Link>
       </section>
 
@@ -53,7 +58,7 @@ export default async function ProjectsPage() {
                 <p className="muted">Updated {formatUpdatedAt(project.updatedAt)}</p>
                 <div className="project-card__footer">
                   <Link href={projectRoute(project.id)} className="surface-link" prefetch={false}>
-                    Open Project
+                    Open Overview
                   </Link>
                   <Link href={projectEnochRoute(project.id)} className="surface-link" prefetch={false}>
                     Project Enoch
@@ -66,7 +71,7 @@ export default async function ProjectsPage() {
           <section className="panel-card">
             <div className="panel-card__body">
               <div className="empty-state">
-                No live projects have been created yet. Use the project flow to initialize the first one.
+                No live projects yet. Start the first Project Enoch brief to open the pipeline.
               </div>
             </div>
           </section>

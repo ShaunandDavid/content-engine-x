@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getLatestRenderForProject } from "@content-engine/db";
@@ -9,6 +10,10 @@ import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { getPublishReadiness } from "../../../../lib/server/project-flow-readiness";
 import { getProjectPublishState, PUBLISH_WEBHOOK_ENV_VAR } from "../../../../lib/server/publish-handoff";
+
+export const metadata: Metadata = {
+  title: "Publish Handoff"
+};
 
 export default async function PublishHandoffPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -95,7 +100,7 @@ async function PublishHandoffContent({
   return (
     <DashboardShell
       title="Publish Handoff"
-      subtitle="Review the payload that will be delivered to n8n for scheduling and platform distribution."
+      subtitle="Review the delivery payload before it leaves Content Engine X."
       status={isDemoProject ? "pending" : latestPublishJob?.status ?? latestRender?.status ?? workspace.project.status}
       projectId={projectId}
     >
@@ -126,7 +131,7 @@ async function PublishHandoffContent({
         disabledReason={publishDisabledReason}
       />
       <div className="publish-grid">
-        <FormCard title="Payload Preview" description="n8n receives a stable payload for publish automation.">
+        <FormCard title="Delivery Payload" description="n8n receives a stable payload for publish automation.">
           <div className="stack">
             <div className="payload-card">
               <strong>Title</strong>
@@ -147,7 +152,7 @@ async function PublishHandoffContent({
           </div>
         </FormCard>
 
-        <FormCard title="Webhook Shape" description="The final payload will include project, render, assets, and metadata.">
+        <FormCard title="Webhook Payload" description="The final payload includes project, render, assets, and metadata.">
           <div className="stack">
             {!isDemoProject ? (
               <div className="payload-card">

@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { clipReviewRoute, projectRoute } from "../../lib/routes";
 import { getOperationalDashboardData } from "../../lib/server/dashboard-operational-data";
+
+export const metadata: Metadata = {
+  title: "Pipeline",
+  description: "Track live project state, generation queue, and runtime blockers across Project Enoch."
+};
 
 const formatTimestamp = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -49,11 +55,10 @@ export default async function DashboardPage() {
       <div className="console-layout">
         <section className="console-hero">
           <div className="console-hero__copy">
-            <p className="console-kicker">Operator Console</p>
-            <h1>Keep the live pipeline readable.</h1>
+            <p className="console-kicker">Pipeline</p>
+            <h1>Keep Project Enoch in motion.</h1>
             <p>
-              Track project state, clip queue, and runtime blockers from one control surface instead of stitching
-              together partial status views.
+              Track project state, generation queue, and runtime blockers from one place.
             </p>
             <div className="console-chip-row">
               <span className={`console-chip console-chip--${blockingIssues.length > 0 ? "alert" : "ready"}`}>{runtimePosture}</span>
@@ -63,15 +68,15 @@ export default async function DashboardPage() {
           </div>
 
           <aside className="console-hero__card">
-            <p className="console-kicker">Current posture</p>
-            <h2>{dashboard.dataAvailable ? "The console is ready to coordinate the active flow." : "The console can still show readiness even when live project data is unavailable."}</h2>
+            <p className="console-kicker">Pipeline Status</p>
+            <h2>{dashboard.dataAvailable ? "The live route stack is ready." : "Runtime checks are still available."}</h2>
             <p>{runtimeSummary}</p>
             <div className="console-hero__actions">
               <Link href="/projects/new" className="button button--solid" prefetch={false}>
-                New Project
+                Create a Project
               </Link>
               <Link href="/systems" className="button button--outline" prefetch={false}>
-                Open Systems
+                Open Runtime
               </Link>
             </div>
           </aside>
@@ -85,11 +90,11 @@ export default async function DashboardPage() {
 
         <section className="metrics-ribbon">
           <div className="metric-card">
-            <span className="eyebrow">Loaded Projects</span>
+            <span className="eyebrow">Active Projects</span>
             <span className="metric-value">{dashboard.metrics.loadedProjects}</span>
           </div>
           <div className="metric-card">
-            <span className="eyebrow">Awaiting Review</span>
+            <span className="eyebrow">Scene Review</span>
             <span className="metric-value">{dashboard.metrics.awaitingReview}</span>
           </div>
           <div className="metric-card metric-card--highlight">
@@ -110,9 +115,9 @@ export default async function DashboardPage() {
           <div className="console-main-stream">
             <div className="console-panel">
               <div className="console-panel-header">
-                <h2>Recent Projects</h2>
+                <h2>Project Queue</h2>
                 <Link href="/projects/new" className="button button--small" prefetch={false}>
-                  New Project
+                  Create a Project
                 </Link>
               </div>
               <div className="console-list">
@@ -126,19 +131,19 @@ export default async function DashboardPage() {
                         </span>
                       </div>
                       <Link href={projectRoute(project.id)} className="button button--secondary button--small" prefetch={false}>
-                        Open Project
+                        Open Overview
                       </Link>
                     </div>
                   ))
                 ) : (
-                  <div className="empty-state">No live project records are available yet.</div>
+                  <div className="empty-state">No live projects are active yet.</div>
                 )}
               </div>
             </div>
 
             <div className="console-panel">
               <div className="console-panel-header">
-                <h2>Clip Queue</h2>
+                <h2>Generation Queue</h2>
               </div>
               <div className="console-list">
                 {dashboard.clipQueue.length ? (
@@ -151,19 +156,19 @@ export default async function DashboardPage() {
                         </span>
                       </div>
                       <Link href={clipReviewRoute(clip.projectId)} className="button button--secondary button--small" prefetch={false}>
-                        Open Clips
+                        Open Queue
                       </Link>
                     </div>
                   ))
                 ) : (
-                  <div className="empty-state">No live clip queue entries are currently persisted.</div>
+                  <div className="empty-state">No generation jobs are active right now.</div>
                 )}
               </div>
             </div>
 
             <section className="console-panel console-panel--timeline">
               <div className="console-panel-header">
-                <h2>Activity Timeline</h2>
+                <h2>Project Timeline</h2>
               </div>
               <div className="timeline-track">
                 {dashboard.activityTimeline.length ? (
@@ -177,7 +182,7 @@ export default async function DashboardPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="empty-state">No live activity records are available yet.</div>
+                  <div className="empty-state">No project activity has been recorded yet.</div>
                 )}
               </div>
             </section>
@@ -187,7 +192,7 @@ export default async function DashboardPage() {
             <div className="console-panel console-panel--flush">
               <div className="console-panel-header">
                 <span className="eyebrow" style={{ marginBottom: 0 }}>
-                  System Health
+                  Runtime Checks
                 </span>
               </div>
               <div className="health-block">
@@ -205,7 +210,7 @@ export default async function DashboardPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="empty-state">Runtime readiness checks are unavailable in this environment.</div>
+                  <div className="empty-state">Runtime checks are unavailable in this environment.</div>
                 )}
               </div>
             </div>
@@ -213,7 +218,7 @@ export default async function DashboardPage() {
             <div className="console-panel console-panel--flush">
               <div className="console-panel-header">
                 <span className="eyebrow" style={{ marginBottom: 0 }}>
-                  Operational Alerts
+                  Runtime Alerts
                 </span>
               </div>
               <div className="suggestion-card">
@@ -222,7 +227,7 @@ export default async function DashboardPage() {
                 ) : warnings.length ? (
                   <p>{warnings.join(" ")}</p>
                 ) : (
-                  <p>No blocking runtime alerts are currently reported by the live readiness checks.</p>
+                  <p>No runtime alerts are currently blocking Project Enoch.</p>
                 )}
               </div>
             </div>

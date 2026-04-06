@@ -116,15 +116,14 @@ export const EnochVoiceSurface = () => {
           <div className="enoch-voice-panel">
             {!finalTranscript && !interimTranscript && !assistantReply && !error ? (
               <article className="enoch-voice-card enoch-voice-card--intro">
-                <p className="enoch-voice-card-label">Live Voice Path</p>
+                <p className="enoch-voice-card-label">Voice Console</p>
                 <p className="enoch-voice-card-text">
-                  Enoch listens through the browser, reasons against the current runtime, and speaks back through the
-                  active playback path without moving the intelligence layer into the visual shell.
+                  Talk to Enoch against the live Content Engine X runtime, then listen on the active playback path.
                 </p>
                 <p className="enoch-voice-card-meta">
                   {isAudioPlaybackAvailable
-                    ? "Playback will use real server audio when available, otherwise the browser voice path."
-                    : "This browser can still use Enoch in text-first mode."}
+                    ? "Server audio uses the configured voice path when available. Browser playback stays available as backup."
+                    : "This browser can still use Project Enoch in typed mode."}
                 </p>
               </article>
             ) : null}
@@ -154,7 +153,7 @@ export const EnochVoiceSurface = () => {
             {voiceState === "listening" ? (
               <>
                 <button type="button" className="button button--secondary" onClick={handleOrbPress}>
-                  Stop & Send
+                  Stop and Send
                 </button>
                 <button type="button" className="button button--ghost" onClick={cancelListening}>
                   Cancel
@@ -176,31 +175,31 @@ export const EnochVoiceSurface = () => {
                 aria-expanded={textFallbackOpen}
                 aria-controls="enoch-voice-text-form"
               >
-                {textFallbackOpen ? "Hide Text Input" : "Type to Enoch"}
+                {textFallbackOpen ? "Hide Text Console" : "Type to Enoch"}
               </button>
             ) : null}
 
             <button type="button" className="button button--ghost" onClick={restartSession}>
-              Restart
+              New Session
             </button>
           </div>
 
           {textFallbackOpen ? (
             <form id="enoch-voice-text-form" className="enoch-voice-text-form" onSubmit={onSubmitTextFallback}>
-              <label htmlFor="enoch-voice-text-input">Text fallback</label>
-              <p className="enoch-voice-text-hint">Use typed mode for precise prompts. Press Ctrl+Enter to send.</p>
+              <label htmlFor="enoch-voice-text-input">Text Console</label>
+              <p className="enoch-voice-text-hint">Use typed turns when you need precision. Press Ctrl+Enter to send.</p>
               <textarea
                 id="enoch-voice-text-input"
                 ref={textInputRef}
                 value={textInput}
                 onChange={(event) => setTextInput(event.target.value)}
                 onKeyDown={onTextFallbackKeyDown}
-                placeholder="Ask Enoch to clarify your project, intake, or review state."
+                placeholder="Ask Enoch for a project brief, pipeline status, or next move."
                 disabled={voiceState === "thinking"}
               />
               <div className="enoch-voice-controls enoch-voice-controls--form">
                 <button type="submit" className="button button--solid" disabled={voiceState === "thinking" || !textInput.trim()}>
-                  {voiceState === "thinking" ? "Sending..." : "Send to Enoch"}
+                  {voiceState === "thinking" ? "Sending..." : "Send"}
                 </button>
               </div>
             </form>

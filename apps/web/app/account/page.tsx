@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
@@ -5,6 +6,11 @@ import { StatusChip } from "../../components/status-chip";
 import { dashboardRoute, projectEnochRoute, projectRoute } from "../../lib/routes";
 import { getAccountOverview } from "../../lib/server/account-data";
 import { stageLabels } from "../../lib/dashboard-data";
+
+export const metadata: Metadata = {
+  title: "Operator Account",
+  description: "Review the current Content Engine X operator and the projects attached to this runtime."
+};
 
 const formatTimestamp = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -37,14 +43,13 @@ export default async function AccountPage() {
       <section className="projects-hero">
         <div>
           <span className="eyebrow">Account</span>
-          <h1>The current operator and the projects they actually own.</h1>
+          <h1>The current Content Engine X operator.</h1>
           <p>
-            This account surface is grounded in the live runtime user resolution path and the same persisted project
-            records the rest of the app now uses.
+            Identity and project ownership resolved from the live runtime.
           </p>
         </div>
         <Link href={dashboardRoute} className="button" prefetch={false}>
-          Open Console
+          Open Pipeline
         </Link>
       </section>
 
@@ -82,8 +87,8 @@ export default async function AccountPage() {
       <section className="panel-card" style={{ marginTop: "20px" }}>
         <div className="panel-card__header">
           <div>
-            <p className="eyebrow">Current Projects</p>
-            <h2>{user ? `${user.displayName ?? user.email}'s project list` : "Project ownership is unavailable"}</h2>
+            <p className="eyebrow">Project Ownership</p>
+            <h2>{user ? `${user.displayName ?? user.email}'s projects` : "Project ownership is unavailable"}</h2>
           </div>
           {user ? <StatusChip status={projectCount > 0 ? "completed" : "pending"} /> : null}
         </div>
@@ -106,7 +111,7 @@ export default async function AccountPage() {
                     <p className="muted">Updated {formatTimestamp(project.updatedAt)}</p>
                     <div className="project-card__footer">
                       <Link href={projectRoute(project.id)} className="surface-link" prefetch={false}>
-                        Open Project
+                        Open Overview
                       </Link>
                       <Link href={projectEnochRoute(project.id)} className="surface-link" prefetch={false}>
                         Project Enoch

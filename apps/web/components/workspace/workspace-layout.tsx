@@ -23,7 +23,7 @@ export const WorkspaceLayout = ({
       <header className="ws-toolbar">
         <div className="ws-toolbar-left">
           <Link href="/" className="ws-brand" prefetch={false}>
-            ENOCH
+            Project Enoch
           </Link>
           <span className="ws-divider">/</span>
           <span className="ws-title">{toolbarTitle}</span>

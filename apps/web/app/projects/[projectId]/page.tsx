@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -10,6 +11,10 @@ import { getEnochWorkspaceSummary } from "../../../lib/server/enoch-project-data
 import { getProjectWorkspaceOrDemo } from "../../../lib/server/project-data";
 import { getClipGenerationReadiness, getPublishReadiness, getRenderReadiness, getSceneReviewSummary } from "../../../lib/server/project-flow-readiness";
 import { clipReviewRoute, projectEnochRoute, publishRoute, renderRoute, sceneReviewRoute } from "../../../lib/routes";
+
+export const metadata: Metadata = {
+  title: "Project Overview"
+};
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -40,11 +45,11 @@ async function ProjectDetailContent({
   const publishReadiness = getPublishReadiness(workspace, latestRender);
   const planningStatusLabel =
     workspace.project.status === "failed"
-      ? "Planning failed"
+        ? "Planning failed"
       : workspace.project.currentStage === "qc_decision" && workspace.project.status === "approved"
         ? "Scenes ready for clip generation"
         : workspace.project.currentStage === "qc_decision"
-          ? "Operator scene review in progress"
+          ? "Scene review in progress"
       : workspace.project.status === "running"
         ? "Python planning is running"
         : workspace.project.status === "queued"
@@ -54,11 +59,11 @@ async function ProjectDetailContent({
             : "Planning state available";
   const currentStageDescription =
     workspace.project.status === "queued"
-      ? "The project has been initialized and is waiting for the Python orchestrator to claim the run."
+        ? "The project has been initialized and is waiting for the Python orchestrator to claim the run."
       : workspace.project.currentStage === "qc_decision" && workspace.project.status === "approved"
         ? "Scene review is complete and the project is cleared to begin clip generation when runtime dependencies are available."
         : workspace.project.currentStage === "qc_decision"
-          ? "Operator review is still active. Scenes must be explicitly approved and marked ready before clip generation is treated as operational."
+          ? "Scene review is still active. Scenes must be explicitly approved and marked ready before clip generation is treated as operational."
       : workspace.project.status === "running"
         ? "Python is actively generating planning outputs and persisting stage progress into Supabase."
         : workspace.project.status === "failed"
@@ -87,7 +92,7 @@ async function ProjectDetailContent({
   return (
     <DashboardShell
       title={workspace.project.name}
-      subtitle="Current workflow health, brief context, and approval posture."
+      subtitle="Brief, stage health, and the next live move."
       status={workspace.project.status}
       projectId={projectId}
     >
@@ -109,22 +114,22 @@ async function ProjectDetailContent({
       ) : null}
       <div className="stats-grid">
         <div className="panel-card stat-block">
-          <p className="eyebrow">Planning State</p>
+          <p className="eyebrow">Planning Status</p>
           <strong>{planningStatusLabel}</strong>
           <p className="muted">{currentStageDescription}</p>
         </div>
         <div className="panel-card stat-block">
-          <p className="eyebrow">Current Stage</p>
+          <p className="eyebrow">Stage</p>
           <strong>{stageLabels[workspace.project.currentStage]}</strong>
-          <p className="muted">Supabase is the source of truth for the active stage across Python planning and TypeScript execution.</p>
+          <p className="muted">Supabase remains the source of truth for the active stage.</p>
         </div>
         <div className="panel-card stat-block">
-          <p className="eyebrow">Duration</p>
+          <p className="eyebrow">Format</p>
           <strong>{workspace.project.durationSeconds}s</strong>
           <p className="muted">{workspace.project.aspectRatio} output for {workspace.project.platforms.join(", ")}.</p>
         </div>
         <div className="panel-card stat-block">
-          <p className="eyebrow">Prompts Persisted</p>
+          <p className="eyebrow">Prompt Count</p>
           <strong>{workspace.prompts.length}</strong>
           <p className="muted">
             {workspace.prompts.length > 0
@@ -135,26 +140,26 @@ async function ProjectDetailContent({
       </div>
 
       <FormCard
-        title="Next Operational Step"
-        description="Only real downstream routes are exposed here. Prototype workspace and offline modules are intentionally excluded."
+        title="Next Move"
+        description="Only live downstream routes are exposed here."
       >
         <div className="button-row">
           <Link className="button button--secondary" href={sceneReviewRoute(projectId)}>
-            Review Scenes
+            Scene Planner
           </Link>
           {hasClipSurface ? (
             <Link className="button button--secondary" href={clipReviewRoute(projectId)}>
-              Open Clips
+              Generation Queue
             </Link>
           ) : null}
           {hasRenderSurface ? (
             <Link className="button button--secondary" href={renderRoute(projectId)}>
-              Open Render
+              Render Pipeline
             </Link>
           ) : null}
           {hasPublishSurface ? (
             <Link className="button button--secondary" href={publishRoute(projectId)}>
-              Open Publish
+              Publish Handoff
             </Link>
           ) : null}
         </div>
@@ -162,7 +167,7 @@ async function ProjectDetailContent({
       </FormCard>
 
       <div className="page-grid" style={{ marginTop: "20px" }}>
-        <FormCard title="Brief Summary" description="The original operator input that seeded the workflow.">
+        <FormCard title="Project Brief" description="The original brief that seeded the live workflow.">
           {workspace.brief ? (
             <div className="stack">
               <p>{workspace.brief.rawBrief}</p>
@@ -186,7 +191,7 @@ async function ProjectDetailContent({
           )}
         </FormCard>
 
-        <FormCard title="Workflow Timeline" description="Stage-by-stage visibility for reruns and approvals.">
+        <FormCard title="Pipeline Timeline" description="Stage-by-stage visibility for reruns and approvals.">
           <ul className="list-reset">
             {Object.entries(stageLabels).map(([stage, label]) => (
               <li className="timeline-item" key={stage}>
@@ -207,8 +212,8 @@ async function ProjectDetailContent({
       </div>
 
       <FormCard
-        title="Enoch Preplan"
-        description="Additive Enoch reasoning and planning context linked to this project before downstream generation."
+        title="Project Enoch"
+        description="Stored Enoch reasoning and planning context linked to this project."
       >
         {enochSummary.status === "completed" ? (
           <div className="stack">
@@ -232,7 +237,7 @@ async function ProjectDetailContent({
             </div>
             <div className="button-row">
               <Link className="button button--secondary" href={projectEnochRoute(projectId)}>
-                Open Project Enoch
+                Project Enoch
               </Link>
             </div>
           </div>

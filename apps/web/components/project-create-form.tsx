@@ -51,13 +51,13 @@ const DevicePreview = ({ platforms, aspectRatio }: { platforms: string[], aspect
   const isTV = platforms.includes('YouTube') && !isVertical;
 
   let deviceClass = "device-desktop";
-  let label = "16:9 Desktop Display";
+  let label = "16:9 Landscape Output";
   if (isVertical) {
     deviceClass = "device-phone";
     label = "9:16 Vertical Output";
   } else if (isTV) {
     deviceClass = "device-tv";
-    label = "16:9 Studio Monitor";
+    label = "16:9 Broadcast Preview";
   }
 
   return (
@@ -183,23 +183,23 @@ export const ProjectCreateForm = ({
   };
 
   const creationStatusCopy = isBlocked
-    ? "Live project creation is blocked by the current runtime readiness state."
-    : "The intake is ready to open a real project once the brief is tight enough to execute.";
+    ? "Runtime checks are blocking project creation."
+    : "Project Enoch is ready to open a live project from this brief.";
 
   return (
     <>
       <aside className="studio-sidebar-left">
         <div className="studio-side-panel">
           <div className="studio-panel-intro">
-            <span className="eyebrow">Project Intake</span>
-            <h1>Shape the brief before Enoch and the pipeline take over.</h1>
-            <p>Capture the objective, audience, and guardrails once so the downstream flow starts from clean intent.</p>
+            <span className="eyebrow">Create a Project</span>
+            <h1>Write the project brief once.</h1>
+            <p>Project Enoch uses this brief to drive planning, voice, and downstream review.</p>
           </div>
 
           <form id="project-form" onSubmit={onSubmit} className="studio-form-stack">
             <div className="studio-section-heading">
-              <span className="eyebrow">Core Brief</span>
-              <p>These fields drive scene planning, prompt generation, and the initial review lens.</p>
+              <span className="eyebrow">Project Brief</span>
+              <p>Keep the brief tight. It drives planning, prompts, and review.</p>
             </div>
 
           {isBlocked ? (
@@ -229,13 +229,13 @@ export const ProjectCreateForm = ({
           </div>
           
           <div className="field">
-            <label htmlFor="brief">Content Brief</label>
-            <textarea id="brief" value={form.rawBrief} onChange={(e) => setForm((c) => ({ ...c, rawBrief: e.target.value }))} placeholder="Describe the hook, pain point, visual references, and transitions." style={{ minHeight: "160px" }} />
+            <label htmlFor="brief">Project Brief</label>
+            <textarea id="brief" value={form.rawBrief} onChange={(e) => setForm((c) => ({ ...c, rawBrief: e.target.value }))} placeholder="Describe the hook, insight, visual references, and expected outcome." style={{ minHeight: "160px" }} />
           </div>
 
           <div className="field">
-            <label htmlFor="guardrails">Guardrails & Exclusions</label>
-            <textarea id="guardrails" value={form.guardrailsText} onChange={(e) => setForm((c) => ({ ...c, guardrailsText: e.target.value }))} placeholder="Avoid product UI claims..." style={{ minHeight: "100px" }} />
+            <label htmlFor="guardrails">Guardrails</label>
+            <textarea id="guardrails" value={form.guardrailsText} onChange={(e) => setForm((c) => ({ ...c, guardrailsText: e.target.value }))} placeholder="Avoid unsupported claims, legal risk, or off-brand references." style={{ minHeight: "100px" }} />
           </div>
           </form>
         </div>
@@ -243,29 +243,29 @@ export const ProjectCreateForm = ({
 
       <div className="studio-center-hero">
         <div className="studio-preview-header">
-          <p className="eyebrow">Preview Framing</p>
-          <h2>Lock the delivery shape before generation begins.</h2>
-          <p>The device silhouette reflects the current platform, duration, and aspect-ratio choices so composition decisions happen early.</p>
+          <p className="eyebrow">Output Preview</p>
+          <h2>Set the delivery format before the first run.</h2>
+          <p>The preview reflects the current platform, duration, and aspect ratio so framing decisions happen early.</p>
         </div>
 
         <DevicePreview platforms={form.platforms} aspectRatio={form.aspectRatio} />
 
         <div className="studio-truth-note">
-          Visual framing only. Live scene, script, and render previews still begin after the project is created through the real workflow path.
+          Preview only. Scenes, prompts, and renders appear after the project is created.
         </div>
 
         <div className="studio-bottom-ribbon" style={{ zIndex: 50 }}>
           <div className="studio-bottom-ribbon__note">
-            <span className="eyebrow">Creation Status</span>
+            <span className="eyebrow">Project Readiness</span>
             <p>{creationStatusCopy}</p>
           </div>
 
           <div className="studio-bottom-ribbon__actions">
             <Link href={dashboardRoute} className="button button--outline" prefetch={false}>
-              Open Console
+              Open Pipeline
             </Link>
             <button type="submit" form="project-form" className="button" disabled={isSubmitting || isBlocked}>
-              {isBlocked ? "System Offline" : isSubmitting ? "Orchestrating..." : "Initialize & Open Project"}
+              {isBlocked ? "Runtime Blocked" : isSubmitting ? "Creating..." : "Create and Open Project"}
             </button>
           </div>
         </div>
@@ -275,11 +275,11 @@ export const ProjectCreateForm = ({
         <div className="studio-side-panel">
           <div className="studio-section-heading">
             <span className="eyebrow">Delivery Setup</span>
-            <p>Lock the output container, provider, and readiness conditions before Enoch opens the project.</p>
+            <p>Set the output container, provider, and checks before Project Enoch opens the project.</p>
           </div>
 
           <div className="field">
-            <label>Target Platforms</label>
+            <label>Platform Targets</label>
             <div className="tag-row" style={{ gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
               {PLATFORM_OPTIONS.map((platform) => (
                 <label className={`checkbox-card ${form.platforms.includes(platform) ? 'checkbox-card--active' : ''}`} key={platform} style={{ padding: "8px 12px", fontSize: "0.85rem", width: "100%", justifyContent: "flex-start" }}>
@@ -291,7 +291,7 @@ export const ProjectCreateForm = ({
           </div>
 
           <div className="field">
-            <label htmlFor="provider">Video Provider</label>
+            <label htmlFor="provider">Render Provider</label>
             <select id="provider" value={form.provider} onChange={(e) => setForm((c) => ({ ...c, provider: e.target.value as FormState["provider"] }))}>
               {PROVIDER_OPTIONS.map((provider) => (<option key={provider} value={provider}>{provider}</option>))}
             </select>
@@ -306,7 +306,7 @@ export const ProjectCreateForm = ({
 
           <div className="input-grid" style={{ gap: "16px", gridTemplateColumns: "1fr" }}>
             <div className="field">
-              <label htmlFor="duration">Duration Target</label>
+              <label htmlFor="duration">Target Duration</label>
               <select id="duration" value={String(form.durationSeconds)} onChange={(e) => setForm((c) => ({ ...c, durationSeconds: Number(e.target.value) as FormState["durationSeconds"] }))}>
                 {PROJECT_DURATION_OPTIONS.map((duration) => (<option key={duration} value={duration}>{duration} seconds</option>))}
               </select>
@@ -322,7 +322,7 @@ export const ProjectCreateForm = ({
           {error ? <p className="error-banner">{error}</p> : null}
 
           <div className="empty-state" style={{ marginTop: "8px" }}>
-            <span className="eyebrow">Creation Readiness</span>
+            <span className="eyebrow">Project Readiness</span>
             <ul className="list-reset" style={{ marginTop: "10px", display: "grid", gap: "10px", fontSize: "0.82rem" }}>
               {readinessChecks.map((check) => (
                 <li key={check.name}>
@@ -338,7 +338,7 @@ export const ProjectCreateForm = ({
 
           {readinessWarnings.length > 0 ? (
             <div className="empty-state" style={{ marginTop: "16px" }}>
-              <span className="eyebrow">Warnings</span>
+              <span className="eyebrow">Runtime Notes</span>
               <ul className="list-reset" style={{ marginTop: "8px", fontSize: "0.8rem" }}>
                 {readinessWarnings.map((warning) => (<li key={warning}>{warning}</li>))}
               </ul>

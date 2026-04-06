@@ -124,14 +124,14 @@ export const EnochFeedbackPanel = ({
 
   return (
     <FormCard
-      title="Feedback Capture"
-      description="Submit explicit operator feedback on the current Enoch run or selected artifact without changing Enoch behavior yet."
+      title="Review Feedback"
+      description="Capture operator feedback on the current Project Enoch run or selected artifact."
     >
       {hasValidTarget ? (
         <div className="stack">
           <form className="stack" onSubmit={onSubmit}>
             <div className="field">
-              <label htmlFor="enoch-feedback-target">Feedback target</label>
+              <label htmlFor="enoch-feedback-target">Target</label>
               <select
                 id="enoch-feedback-target"
                 value={effectiveTargetKind}
@@ -153,7 +153,7 @@ export const EnochFeedbackPanel = ({
 
             <div className="input-grid">
               <div className="field">
-                <label htmlFor="enoch-feedback-category">Feedback category</label>
+                <label htmlFor="enoch-feedback-category">Category</label>
                 <select
                   id="enoch-feedback-category"
                   value={feedbackCategory}
@@ -169,7 +169,7 @@ export const EnochFeedbackPanel = ({
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="enoch-feedback-value">Feedback value</label>
+                <label htmlFor="enoch-feedback-value">Decision</label>
                 <select
                   id="enoch-feedback-value"
                   value={feedbackValue}
@@ -190,7 +190,7 @@ export const EnochFeedbackPanel = ({
                 id="enoch-feedback-note"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="Optional short reason or operator note."
+                placeholder="Add a short review note."
               />
             </div>
 
@@ -215,7 +215,7 @@ export const EnochFeedbackPanel = ({
 
             <div className="button-row">
               <button className="button button--secondary" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving Feedback..." : "Submit Feedback"}
+                {isSubmitting ? "Saving..." : "Save Feedback"}
               </button>
             </div>
           </form>

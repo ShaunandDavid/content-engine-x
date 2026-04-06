@@ -190,14 +190,14 @@ export const EnochPlanForm = () => {
 
   return (
     <DashboardShell
-      title="Enoch Text Planning"
-      subtitle="Turn a rough text idea into a clean operator-facing planning artifact without touching the existing project flow."
+      title="Enoch Planner"
+      subtitle="Turn a rough brief into a clean Project Enoch planning artifact."
       status={planningArtifact ? "completed" : isSubmitting ? "running" : "pending"}
     >
       <form onSubmit={onSubmit} className="page-grid">
         <FormCard
-          title="Text Intake"
-          description="Capture the idea, desired goal, audience, and constraints that Enoch should normalize into a planning direction."
+          title="Planning Brief"
+          description="Capture the idea, goal, audience, and constraints that Enoch should shape into a planning direction."
         >
           <div className="field">
             <label htmlFor="enoch-project-name">Plan name</label>
@@ -205,7 +205,7 @@ export const EnochPlanForm = () => {
               id="enoch-project-name"
               value={form.projectName}
               onChange={(event) => setForm((current) => ({ ...current, projectName: event.target.value }))}
-              placeholder="Q2 Authority Push"
+              placeholder="Q2 Authority Launch"
             />
           </div>
           <div className="field">
@@ -214,7 +214,7 @@ export const EnochPlanForm = () => {
               id="enoch-idea"
               value={form.idea}
               onChange={(event) => setForm((current) => ({ ...current, idea: event.target.value }))}
-              placeholder="Describe the rough idea Enoch should convert into a planning direction for a brand or campaign operator."
+              placeholder="Describe the idea Enoch should turn into a planning direction."
             />
           </div>
           <div className="input-grid">
@@ -224,7 +224,7 @@ export const EnochPlanForm = () => {
                 id="enoch-goal"
                 value={form.goal}
                 onChange={(event) => setForm((current) => ({ ...current, goal: event.target.value }))}
-                placeholder="Clarify the intended operator outcome"
+                placeholder="Clarify the intended outcome"
               />
             </div>
             <div className="field">
@@ -243,7 +243,7 @@ export const EnochPlanForm = () => {
               id="enoch-offer"
               value={form.offer}
               onChange={(event) => setForm((current) => ({ ...current, offer: event.target.value }))}
-              placeholder="Optional: give Enoch a concrete concept to anchor"
+              placeholder="Optional: give Enoch a concrete offer or concept"
             />
           </div>
           <div className="field">
@@ -258,8 +258,8 @@ export const EnochPlanForm = () => {
         </FormCard>
 
         <FormCard
-          title="Planning Envelope"
-          description="Keep the payload aligned with the current production envelope while this remains a narrow text-first loop."
+          title="Output Envelope"
+          description="Keep the planning payload aligned with the current production envelope."
         >
           <div className="field">
             <label>Platforms</label>
@@ -344,7 +344,7 @@ export const EnochPlanForm = () => {
           {error ? <p className="error-banner">{error}</p> : null}
           <div className="button-row">
             <button className="button" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Planning..." : "Generate Enoch Plan"}
+              {isSubmitting ? "Building..." : "Build Plan"}
             </button>
           </div>
         </FormCard>
@@ -352,8 +352,8 @@ export const EnochPlanForm = () => {
 
       <section className="panel-card" style={{ marginTop: "20px" }}>
         <div className="panel-card__header">
-          <h2>Reopen Existing Plan</h2>
-          <p>Load one previously generated Enoch planning artifact by project ID or canonical run ID.</p>
+          <h2>Reopen a Plan</h2>
+          <p>Load a previously generated Project Enoch planning artifact by project ID or run ID.</p>
         </div>
         <div className="panel-card__body">
           <form onSubmit={onLookup} className="input-grid">
@@ -379,7 +379,7 @@ export const EnochPlanForm = () => {
             </div>
             <div className="button-row" style={{ gridColumn: "1 / -1" }}>
               <button className="button button--secondary" type="submit" disabled={isLoadingExisting}>
-                {isLoadingExisting ? "Loading Plan..." : "Reopen Plan"}
+                {isLoadingExisting ? "Loading..." : "Reopen Plan"}
               </button>
             </div>
           </form>
@@ -390,7 +390,7 @@ export const EnochPlanForm = () => {
       <section className="panel-card" style={{ marginTop: "20px" }}>
         <div className="panel-card__header">
           <h2>Planning Artifact</h2>
-          <p>{loadedFrom ? `Structured output loaded from ${loadedFrom}.` : "Structured output for a brand or campaign operator."}</p>
+          <p>{loadedFrom ? `Loaded from ${loadedFrom}.` : "Structured Project Enoch planning output."}</p>
         </div>
         <div className="panel-card__body">
           {planningArtifact ? (
@@ -405,11 +405,11 @@ export const EnochPlanForm = () => {
                 </p>
               </article>
               <article className="payload-card">
-                <strong>Normalized User Goal</strong>
+                <strong>Normalized Goal</strong>
                 <p>{planningArtifact.normalizedUserGoal}</p>
               </article>
               <article className="payload-card">
-                <strong>Core User Goal</strong>
+                <strong>Core Goal</strong>
                 <p>{displayedReasoning?.coreUserGoal ?? planningArtifact.normalizedUserGoal}</p>
               </article>
               <article className="payload-card">
@@ -425,7 +425,7 @@ export const EnochPlanForm = () => {
                 <p>{planningArtifact.recommendedAngle}</p>
               </article>
               <article className="payload-card">
-                <strong>Request Classification</strong>
+                <strong>Request Type</strong>
                 <p>{displayedReasoning?.requestClassification ?? "Not available"}</p>
               </article>
               <article className="payload-card">
@@ -441,7 +441,7 @@ export const EnochPlanForm = () => {
                 </ul>
               </article>
               <article className="payload-card">
-                <strong>Assumptions or Unknowns</strong>
+                <strong>Assumptions</strong>
                 <ul className="list-reset">
                   {displayedReasoning && displayedReasoning.assumptionsOrUnknowns.length > 0 ? (
                     displayedReasoning.assumptionsOrUnknowns.map((item: string) => <li key={item}>{item}</li>)
@@ -455,13 +455,13 @@ export const EnochPlanForm = () => {
                 <p>{displayedReasoning?.reasoningSummary ?? "Not available"}</p>
               </article>
               <article className="payload-card">
-                <strong>Next-Step Planning Summary</strong>
+                <strong>Next Step</strong>
                 <p>{planningArtifact.nextStepPlanningSummary}</p>
               </article>
             </div>
           ) : (
             <div className="empty-state">
-              Submit a text idea to generate the first Enoch planning artifact from the new text-first loop.
+              Build a plan to see the structured Project Enoch output.
             </div>
           )}
         </div>

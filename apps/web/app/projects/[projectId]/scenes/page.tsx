@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
@@ -6,6 +7,10 @@ import { SceneReviewActions } from "../../../../components/scene-review-actions"
 import { StatusChip } from "../../../../components/status-chip";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
 import { getSceneReviewSummary } from "../../../../lib/server/project-flow-readiness";
+
+export const metadata: Metadata = {
+  title: "Scene Planner"
+};
 
 export default async function SceneReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -32,8 +37,8 @@ async function SceneReviewContent({
 
   return (
     <DashboardShell
-      title="Scene Review"
-      subtitle="Review scene beats, narration intent, and prompt readiness before generation."
+      title="Scene Planner"
+      subtitle="Review scene beats, narration, and prompt readiness before generation."
       status={workspace.project.status}
       projectId={projectId}
     >
@@ -46,7 +51,7 @@ async function SceneReviewContent({
           All persisted scenes are marked ready for downstream generation.
         </p>
       )}
-      <FormCard title="Scene Planner Output" description="Each scene stays individually reviewable and rerunnable.">
+      <FormCard title="Scene Planner" description="Each scene stays individually reviewable and rerunnable.">
         {workspace.scenes.length ? (
           <div className="scene-grid">
             {workspace.scenes.map((scene) => {

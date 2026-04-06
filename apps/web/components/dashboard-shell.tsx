@@ -23,7 +23,7 @@ export const DashboardShell = ({
     <main className="dashboard-shell__main">
       <header className="page-header">
         <div>
-          <p className="page-header__eyebrow">{projectId ? "Project Workflow" : "Adam Studio"}</p>
+          <p className="page-header__eyebrow">{projectId ? "Project Workflow" : "Enoch Studio"}</p>
           <h1>{title}</h1>
           <p>{subtitle}</p>
         </div>

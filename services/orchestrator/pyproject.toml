@@ -24,4 +24,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-content_engine_x_orchestrator = ["adam-compatibility.json"]
+content_engine_x_orchestrator = ["enoch-compatibility.json"]

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { accountRoute, clipReviewRoute, dashboardRoute, projectAdamRoute, projectRoute, projectsRoute, publishRoute, renderRoute, sceneReviewRoute, workspaceRoute } from "../lib/routes";
+import { accountRoute, clipReviewRoute, dashboardRoute, projectEnochRoute, projectRoute, projectsRoute, publishRoute, renderRoute, sceneReviewRoute, workspaceRoute } from "../lib/routes";
 
 const coreNavItems = [
   { href: dashboardRoute, label: "Console" },
@@ -14,7 +14,7 @@ const projectNavItems = (projectId?: string) => [
   ...(projectId
     ? [
         { href: projectRoute(projectId), label: "Overview" },
-        { href: projectAdamRoute(projectId), label: "Adam" },
+        { href: projectEnochRoute(projectId), label: "Project Enoch" },
         { href: sceneReviewRoute(projectId), label: "Scenes" },
         { href: clipReviewRoute(projectId), label: "Clips" },
         { href: renderRoute(projectId), label: "Render" },

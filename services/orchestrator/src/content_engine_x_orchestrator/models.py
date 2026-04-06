@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from .adam_contracts import (
-    AdamArtifact,
-    AdamGovernanceDecision,
-    AdamModelDecision,
-    AdamRun,
+from .enoch_contracts import (
+    EnochArtifact,
+    EnochGovernanceDecision,
+    EnochModelDecision,
+    EnochRun,
     ApprovalStatus,
     JobStatus,
     StageAttempt,
@@ -95,10 +95,10 @@ class PublishPayload(BaseModel):
 
 
 __all__ = [
-    "AdamArtifact",
-    "AdamGovernanceDecision",
-    "AdamModelDecision",
-    "AdamRun",
+    "EnochArtifact",
+    "EnochGovernanceDecision",
+    "EnochModelDecision",
+    "EnochRun",
     "ApprovalCheckpoint",
     "ApprovalStatus",
     "AuditEvent",

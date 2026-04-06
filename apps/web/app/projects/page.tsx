@@ -1,9 +1,9 @@
 import Link from "next/link";
 
-import { AdamTopNav } from "../../components/adam/adam-top-nav";
+import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { StatusChip } from "../../components/status-chip";
 import { stageLabels } from "../../lib/dashboard-data";
-import { newProjectRoute, projectAdamRoute, projectRoute } from "../../lib/routes";
+import { newProjectRoute, projectEnochRoute, projectRoute } from "../../lib/routes";
 import { listRecentProjects } from "../../lib/server/projects-index";
 
 const formatUpdatedAt = (value: string) =>
@@ -19,7 +19,7 @@ export default async function ProjectsPage() {
 
   return (
     <main className="projects-shell">
-      <AdamTopNav currentRoute="projects" />
+      <EnochTopNav currentRoute="projects" />
 
       <section className="projects-hero">
         <div>
@@ -55,8 +55,8 @@ export default async function ProjectsPage() {
                   <Link href={projectRoute(project.id)} className="surface-link" prefetch={false}>
                     Open Project
                   </Link>
-                  <Link href={projectAdamRoute(project.id)} className="surface-link" prefetch={false}>
-                    Adam Detail
+                  <Link href={projectEnochRoute(project.id)} className="surface-link" prefetch={false}>
+                    Project Enoch
                   </Link>
                 </div>
               </article>

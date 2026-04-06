@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
-from .adam_contracts import LangGraphRuntimeState
+from .enoch_contracts import LangGraphRuntimeState
 from .models import AuditEvent, JobStatus, StageAttempt, WorkflowStage
 
 WorkflowState = LangGraphRuntimeState

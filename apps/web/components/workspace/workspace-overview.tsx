@@ -7,10 +7,10 @@ import type { LiveRuntimeReadinessResult } from "../../lib/server/live-runtime-p
 import type { ProjectsIndexResult } from "../../lib/server/projects-index";
 import { stageLabels } from "../../lib/dashboard-data";
 import {
-  adamPlanRoute,
+  enochPlanRoute,
   clipReviewRoute,
   newProjectRoute,
-  projectAdamRoute,
+  projectEnochRoute,
   projectRoute,
   projectsRoute,
   publishRoute,
@@ -18,18 +18,18 @@ import {
   sceneReviewRoute,
   studioRoute
 } from "../../lib/routes";
-import { AdamVoiceSurface } from "../adam/adam-voice-surface";
+import { EnochVoiceSurface } from "../enoch/enoch-voice-surface";
 
 type Props = {
   projectsResult: ProjectsIndexResult;
   creationReadiness: LiveRuntimeReadinessResult;
-  adamProviderLabel: string;
+  enochProviderLabel: string;
 };
 
 const formatTimestamp = (value: string) =>
   new Date(value).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-export const WorkspaceOverview = ({ projectsResult, creationReadiness, adamProviderLabel }: Props) => {
+export const WorkspaceOverview = ({ projectsResult, creationReadiness, enochProviderLabel }: Props) => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectsResult.ok ? projectsResult.projects[0]?.id ?? null : null);
 
   const selectedProject = useMemo(() => {
@@ -64,13 +64,13 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, adamProvi
       <div className="workspace-overview__topbar">
         <div className="workspace-overview__copy">
           <span className="eyebrow">Workspace</span>
-          <h1>Live operations overview for Adam, projects, and next moves.</h1>
+          <h1>Live operations overview for Enoch, projects, and next moves.</h1>
           <p>
-            Workspace now stays light: live Adam access, current project truth, route-aware next steps, and a clean handoff into Studio when you need deeper creation work.
+            Workspace now stays light: live Enoch access, current project truth, route-aware next steps, and a clean handoff into Studio when you need deeper creation work.
           </p>
         </div>
         <div className="workspace-overview__actions">
-          <span className="truth-pill">Provider: {adamProviderLabel}</span>
+          <span className="truth-pill">Provider: {enochProviderLabel}</span>
           <Link href={studioRoute} className="button button--solid" prefetch={false}>
             Open Studio
           </Link>
@@ -78,22 +78,22 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, adamProvi
       </div>
 
       <div className="workspace-overview__grid">
-        <article className="workspace-overview__panel workspace-overview__panel--adam">
+        <article className="workspace-overview__panel workspace-overview__panel--enoch">
           <div className="workspace-overview__panel-copy">
-            <span className="eyebrow">Adam Dock</span>
-            <h2>Keep Adam live while staying in the ops layer.</h2>
-            <p>Use Adam here for quick turns, then move into Studio for heavier idea and artifact shaping.</p>
+            <span className="eyebrow">Enoch Dock</span>
+            <h2>Keep Enoch live while staying in the ops layer.</h2>
+            <p>Use Enoch here for quick turns, then move into Studio for heavier idea and artifact shaping.</p>
             <div className="workspace-overview__link-row">
               <Link href={studioRoute} className="surface-link" prefetch={false}>
                 Open Studio
               </Link>
-              <Link href={adamPlanRoute} className="surface-link" prefetch={false}>
-                Open Adam Plan
+              <Link href={enochPlanRoute} className="surface-link" prefetch={false}>
+                Open Enoch Plan
               </Link>
             </div>
           </div>
-          <div className="workspace-overview__adam-surface">
-            <AdamVoiceSurface />
+          <div className="workspace-overview__enoch-surface">
+            <EnochVoiceSurface />
           </div>
         </article>
 
@@ -126,8 +126,8 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, adamProvi
                 <Link href={projectRoute(selectedProject.id)} className="button button--solid" prefetch={false}>
                   Open Project
                 </Link>
-                <Link href={projectAdamRoute(selectedProject.id)} className="button button--secondary" prefetch={false}>
-                  Adam Detail
+                <Link href={projectEnochRoute(selectedProject.id)} className="button button--secondary" prefetch={false}>
+                  Project Enoch
                 </Link>
               </div>
             </>
@@ -194,8 +194,8 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, adamProvi
               <strong>Projects</strong>
               <span>Browse the live project index.</span>
             </Link>
-            <Link href={adamPlanRoute} className="workspace-overview__route-card" prefetch={false}>
-              <strong>Adam Plan</strong>
+            <Link href={enochPlanRoute} className="workspace-overview__route-card" prefetch={false}>
+              <strong>Enoch Plan</strong>
               <span>Generate or reopen planning artifacts.</span>
             </Link>
           </div>

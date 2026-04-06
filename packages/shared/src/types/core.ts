@@ -1,4 +1,4 @@
-import type { AdamArtifact, AdamJobStatus, AdamLangGraphRuntimeState, AdamRun, AdamWorkflowStage } from "./adam.js";
+import type { EnochArtifact, EnochJobStatus, EnochLangGraphRuntimeState, EnochRun, EnochWorkflowStage } from "./enoch.js";
 
 export type ProviderName = "sora";
 
@@ -8,11 +8,11 @@ export type ProjectTone = "educational" | "authority" | "energetic" | "playful" 
 
 export type AspectRatio = "9:16" | "16:9";
 
-export type JobStatus = AdamJobStatus;
+export type JobStatus = EnochJobStatus;
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
-export type WorkflowStage = AdamWorkflowStage;
+export type WorkflowStage = EnochWorkflowStage;
 
 export interface BaseRecord {
   id: string;
@@ -77,7 +77,7 @@ export interface PromptRecord extends StatusRecord {
   compiledPrompt: string;
 }
 
-// Compatibility adapter for legacy `assets` rows while Adam artifacts become
+// Compatibility adapter for legacy `assets` rows while Enoch artifacts become
 // the canonical substrate contract.
 export interface AssetRecord extends StatusRecord {
   projectId: string;
@@ -91,7 +91,7 @@ export interface AssetRecord extends StatusRecord {
   publicUrl?: string | null;
   mimeType: string;
   byteSize?: number | null;
-  checksum?: AdamArtifact["checksum"] | null;
+  checksum?: EnochArtifact["checksum"] | null;
 }
 
 export interface ClipRecord extends StatusRecord {
@@ -129,15 +129,15 @@ export interface PublishJobRecord extends StatusRecord {
 }
 
 // Compatibility adapter for legacy `workflow_runs` rows projected from the
-// canonical Adam run and runtime-state contracts.
+// canonical Enoch run and runtime-state contracts.
 export interface WorkflowRunRecord extends StatusRecord {
   projectId: string;
-  currentStage: AdamRun["currentStage"];
-  requestedStage?: AdamRun["requestedStartStage"] | null;
-  graphThreadId?: AdamRun["graphThreadId"] | null;
-  rerunFromStage?: AdamWorkflowStage | null;
+  currentStage: EnochRun["currentStage"];
+  requestedStage?: EnochRun["requestedStartStage"] | null;
+  graphThreadId?: EnochRun["graphThreadId"] | null;
+  rerunFromStage?: EnochWorkflowStage | null;
   retryCount: number;
-  stateSnapshot: AdamLangGraphRuntimeState | Record<string, unknown>;
+  stateSnapshot: EnochLangGraphRuntimeState | Record<string, unknown>;
 }
 
 export interface AuditLogRecord extends BaseRecord {

@@ -192,7 +192,7 @@ export const ProjectCreateForm = ({
         <div className="studio-side-panel">
           <div className="studio-panel-intro">
             <span className="eyebrow">Project Intake</span>
-            <h1>Shape the brief before Adam and the pipeline take over.</h1>
+            <h1>Shape the brief before Enoch and the pipeline take over.</h1>
             <p>Capture the objective, audience, and guardrails once so the downstream flow starts from clean intent.</p>
           </div>
 
@@ -275,7 +275,7 @@ export const ProjectCreateForm = ({
         <div className="studio-side-panel">
           <div className="studio-section-heading">
             <span className="eyebrow">Delivery Setup</span>
-            <p>Lock the output container, provider, and readiness conditions before Adam opens the project.</p>
+            <p>Lock the output container, provider, and readiness conditions before Enoch opens the project.</p>
           </div>
 
           <div className="field">

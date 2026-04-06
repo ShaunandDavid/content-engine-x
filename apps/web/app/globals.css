@@ -165,14 +165,14 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.adam-plan-grid {
+.enoch-plan-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
-.adam-preplan-summary-grid,
-.adam-preplan-detail-grid {
+.enoch-preplan-summary-grid,
+.enoch-preplan-detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -449,9 +449,9 @@ p {
   .render-grid,
   .publish-grid,
   .two-up,
-  .adam-plan-grid,
-  .adam-preplan-summary-grid,
-  .adam-preplan-detail-grid,
+  .enoch-plan-grid,
+  .enoch-preplan-summary-grid,
+  .enoch-preplan-detail-grid,
   .input-grid,
   .checkbox-grid {
     grid-template-columns: 1fr;
@@ -467,8 +467,8 @@ p {
   }
 }
 
-/* Adam Homepage & Orb Styles */
-.adam-home-main {
+/* Enoch Homepage & Orb Styles */
+.enoch-home-main {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -481,7 +481,7 @@ p {
   color: #1a1a1a;
 }
 
-.adam-header {
+.enoch-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -491,20 +491,20 @@ p {
   padding: 28px 24px 0;
 }
 
-.adam-header-left,
-.adam-header-right {
+.enoch-header-left,
+.enoch-header-right {
   display: flex;
   align-items: center;
 }
 
-.adam-header-left strong {
+.enoch-header-left strong {
   font-family: var(--font-sans), sans-serif;
   font-size: 1.1rem;
   letter-spacing: 0.05em;
   font-weight: 700;
 }
 
-.adam-header-center {
+.enoch-header-center {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -512,7 +512,7 @@ p {
   gap: 32px;
 }
 
-.adam-header-center a {
+.enoch-header-center a {
   font-family: var(--font-sans), sans-serif;
   font-size: 0.9rem;
   color: #888;
@@ -521,16 +521,16 @@ p {
   text-decoration: none;
 }
 
-.adam-header-link--active,
-.adam-console-link--active {
+.enoch-header-link--active,
+.enoch-console-link--active {
   color: #1a1a1a;
 }
 
-.adam-header-center a:hover {
+.enoch-header-center a:hover {
   color: #1a1a1a;
 }
 
-.adam-header-center .disabled {
+.enoch-header-center .disabled {
   opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
@@ -540,19 +540,19 @@ p {
   font-weight: 500;
 }
 
-.adam-header-right {
+.enoch-header-right {
   justify-content: flex-end;
   gap: 16px;
 }
 
-.adam-console-link {
+.enoch-console-link {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--ink);
   text-decoration: none;
 }
 
-.adam-header-right .adam-avatar-circle {
+.enoch-header-right .enoch-avatar-circle {
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -569,17 +569,17 @@ p {
   letter-spacing: 0.08em;
 }
 
-.adam-avatar-circle--disabled {
+.enoch-avatar-circle--disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.adam-avatar-circle--active {
+.enoch-avatar-circle--active {
   border-color: rgba(21, 24, 33, 0.22);
   background: rgba(21, 24, 33, 0.06);
 }
 
-.adam-center-content {
+.enoch-center-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -591,7 +591,7 @@ p {
   gap: 30px;
 }
 
-.adam-orb-container {
+.enoch-orb-container {
   position: relative;
   display: flex;
   align-items: center;
@@ -604,7 +604,7 @@ p {
   overflow: visible;
 }
 
-.adam-orb {
+.enoch-orb {
   --orb-signal: 0.18;
   --orb-depth: 0.4;
   --orb-tilt-x: 0deg;
@@ -630,41 +630,41 @@ p {
     opacity 180ms ease;
 }
 
-.adam-orb.is-disabled {
+.enoch-orb.is-disabled {
   cursor: progress;
   opacity: 0.92;
 }
 
-.adam-orb:hover:not(:disabled) {
+.enoch-orb:hover:not(:disabled) {
   transform: scale(1.012);
 }
 
-.adam-orb:active:not(:disabled) {
+.enoch-orb:active:not(:disabled) {
   transform: scale(0.986);
 }
 
-.adam-orb:focus-visible {
+.enoch-orb:focus-visible {
   outline: none;
   box-shadow: 0 0 0 6px rgba(17, 17, 17, 0.08);
 }
 
-.adam-orb__backlight,
-.adam-orb__halo,
-.adam-orb__shell,
-.adam-orb__plasma,
-.adam-orb__caustic,
-.adam-orb__ring,
-.adam-orb__mesh,
-.adam-orb__core,
-.adam-orb__glint,
-.adam-orb__kernel {
+.enoch-orb__backlight,
+.enoch-orb__halo,
+.enoch-orb__shell,
+.enoch-orb__plasma,
+.enoch-orb__caustic,
+.enoch-orb__ring,
+.enoch-orb__mesh,
+.enoch-orb__core,
+.enoch-orb__glint,
+.enoch-orb__kernel {
   position: absolute;
   inset: 0;
   border-radius: 50%;
   pointer-events: none;
 }
 
-.adam-orb__backlight {
+.enoch-orb__backlight {
   inset: -14%;
   background:
     radial-gradient(circle at 50% 52%, rgba(255, 234, 245, 0.6), rgba(255, 255, 255, 0) 30%),
@@ -677,12 +677,12 @@ p {
   transform: translateZ(-132px) scale(calc(1.04 + var(--orb-signal) * 0.08));
 }
 
-.adam-orb__halo {
+.enoch-orb__halo {
   mix-blend-mode: screen;
   transition: opacity 220ms ease, transform 260ms ease;
 }
 
-.adam-orb__halo--outer {
+.enoch-orb__halo--outer {
   inset: -12%;
   background:
     radial-gradient(circle, rgba(246, 228, 255, 0.52) 18%, rgba(233, 223, 255, 0.24) 46%, rgba(255, 255, 255, 0) 74%);
@@ -691,7 +691,7 @@ p {
   transform: translateZ(-144px) scale(calc(1.06 + var(--orb-signal) * 0.08));
 }
 
-.adam-orb__halo--mid {
+.enoch-orb__halo--mid {
   inset: 2%;
   background:
     radial-gradient(circle, rgba(255, 250, 253, 0.38) 14%, rgba(248, 232, 250, 0.3) 34%, rgba(222, 214, 255, 0.22) 58%, rgba(255, 255, 255, 0) 80%);
@@ -700,14 +700,14 @@ p {
   transform: translateZ(-48px) scale(calc(1 + var(--orb-signal) * 0.05));
 }
 
-.adam-orb__halo--inner {
+.enoch-orb__halo--inner {
   inset: 18%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0, rgba(255, 236, 247, 0.18) 32%, rgba(255, 255, 255, 0) 72%);
   filter: blur(20px);
   opacity: calc(0.32 + var(--orb-signal) * 0.12);
 }
 
-.adam-orb__shell {
+.enoch-orb__shell {
   inset: 4%;
   overflow: hidden;
   transform-style: preserve-3d;
@@ -730,32 +730,32 @@ p {
     0 34px 86px rgba(202, 186, 255, 0.18);
 }
 
-.adam-orb__plasma {
+.enoch-orb__plasma {
   inset: -6%;
   mix-blend-mode: screen;
 }
 
-.adam-orb__plasma--primary {
+.enoch-orb__plasma--primary {
   background:
     radial-gradient(circle at 34% 38%, rgba(255, 207, 232, 0.3), rgba(255, 255, 255, 0) 24%),
     radial-gradient(circle at 72% 30%, rgba(231, 223, 255, 0.3), rgba(255, 255, 255, 0) 24%),
     radial-gradient(circle at 62% 80%, rgba(163, 141, 255, 0.24), rgba(255, 255, 255, 0) 18%),
     conic-gradient(from 208deg, rgba(255, 255, 255, 0.02), rgba(255, 212, 237, 0.2), rgba(229, 220, 255, 0.16), rgba(255, 255, 255, 0.02), rgba(213, 201, 255, 0.18), rgba(255, 255, 255, 0.02));
   opacity: calc(0.42 + var(--orb-signal) * 0.16);
-  animation: adam-orb-swirl 28s linear infinite;
+  animation: enoch-orb-swirl 28s linear infinite;
 }
 
-.adam-orb__plasma--secondary {
+.enoch-orb__plasma--secondary {
   inset: -2%;
   background:
     radial-gradient(circle at 38% 34%, rgba(255, 198, 228, 0.24), rgba(255, 255, 255, 0) 18%),
     radial-gradient(circle at 68% 26%, rgba(231, 224, 255, 0.22), rgba(255, 255, 255, 0) 20%),
     radial-gradient(circle at 56% 76%, rgba(182, 166, 255, 0.22), rgba(255, 255, 255, 0) 18%);
   opacity: calc(0.3 + var(--orb-signal) * 0.12);
-  animation: adam-orb-swirl-reverse 34s linear infinite;
+  animation: enoch-orb-swirl-reverse 34s linear infinite;
 }
 
-.adam-orb__caustic {
+.enoch-orb__caustic {
   inset: 12%;
   background:
     radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 20%),
@@ -765,28 +765,28 @@ p {
   filter: blur(18px);
 }
 
-.adam-orb__ring {
+.enoch-orb__ring {
   display: none;
 }
 
-.adam-orb__ring--major {
+.enoch-orb__ring--major {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 0 52px rgba(255, 198, 239, 0.18);
   opacity: calc(0.34 + var(--orb-signal) * 0.18);
 }
 
-.adam-orb__ring--minor {
+.enoch-orb__ring--minor {
   inset: 22%;
   border-color: rgba(255, 255, 255, 0.28);
   opacity: calc(0.26 + var(--orb-signal) * 0.16);
 }
 
-.adam-orb__mesh {
+.enoch-orb__mesh {
   display: none;
 }
 
-.adam-orb__core {
+.enoch-orb__core {
   inset: 18%;
   overflow: hidden;
   transform: translateZ(calc(16px + var(--orb-signal) * 8px));
@@ -797,14 +797,14 @@ p {
   box-shadow: inset 0 0 32px rgba(255, 255, 255, 0.26);
 }
 
-.adam-orb__glint {
+.enoch-orb__glint {
   inset: auto;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.52);
   filter: blur(12px);
 }
 
-.adam-orb__glint--primary {
+.enoch-orb__glint--primary {
   top: 14%;
   left: 20%;
   width: 34%;
@@ -813,7 +813,7 @@ p {
   transform: rotate(-14deg);
 }
 
-.adam-orb__glint--secondary {
+.enoch-orb__glint--secondary {
   top: 38%;
   right: 18%;
   width: 18%;
@@ -821,7 +821,7 @@ p {
   opacity: 0.2;
 }
 
-.adam-orb__glint--tertiary {
+.enoch-orb__glint--tertiary {
   bottom: 16%;
   left: 34%;
   width: 16%;
@@ -830,7 +830,7 @@ p {
   transform: rotate(6deg);
 }
 
-.adam-orb__kernel {
+.enoch-orb__kernel {
   inset: 28%;
   background:
     radial-gradient(circle, rgba(255, 255, 255, 0.72) 0, rgba(255, 241, 248, 0.42) 28%, rgba(219, 209, 255, 0.26) 56%, rgba(255, 255, 255, 0) 100%);
@@ -840,41 +840,41 @@ p {
   opacity: calc(0.58 + var(--orb-signal) * 0.1);
 }
 
-.adam-orb--idle .adam-orb__shell {
-  animation: adam-orb-float 10s ease-in-out infinite;
+.enoch-orb--idle .enoch-orb__shell {
+  animation: enoch-orb-float 10s ease-in-out infinite;
 }
 
-.adam-orb--idle .adam-orb__halo--mid {
-  animation: adam-orb-halo 8s ease-in-out infinite;
+.enoch-orb--idle .enoch-orb__halo--mid {
+  animation: enoch-orb-halo 8s ease-in-out infinite;
 }
 
-.adam-orb--listening .adam-orb__shell {
-  animation: adam-orb-listening 2.5s cubic-bezier(0.2, 0.72, 0.18, 1) infinite;
+.enoch-orb--listening .enoch-orb__shell {
+  animation: enoch-orb-listening 2.5s cubic-bezier(0.2, 0.72, 0.18, 1) infinite;
 }
 
-.adam-orb--listening .adam-orb__halo--outer {
+.enoch-orb--listening .enoch-orb__halo--outer {
   opacity: calc(0.9 + var(--orb-signal) * 0.12);
   transform: translateZ(-144px) scale(calc(1.1 + var(--orb-signal) * 0.1));
 }
 
-.adam-orb--thinking .adam-orb__plasma--primary {
+.enoch-orb--thinking .enoch-orb__plasma--primary {
   animation-duration: 5.8s;
   opacity: calc(0.5 + var(--orb-signal) * 0.18);
 }
 
-.adam-orb--speaking .adam-orb__halo--outer {
-  animation: adam-orb-speak-halo 1.6s ease-in-out infinite;
+.enoch-orb--speaking .enoch-orb__halo--outer {
+  animation: enoch-orb-speak-halo 1.6s ease-in-out infinite;
 }
 
-.adam-orb--speaking .adam-orb__shell {
-  animation: adam-orb-speaking 1.4s ease-in-out infinite;
+.enoch-orb--speaking .enoch-orb__shell {
+  animation: enoch-orb-speaking 1.4s ease-in-out infinite;
 }
 
-.adam-orb--speaking .adam-orb__halo--mid {
+.enoch-orb--speaking .enoch-orb__halo--mid {
   opacity: calc(0.62 + var(--orb-signal) * 0.16);
 }
 
-.adam-orb--error .adam-orb__shell {
+.enoch-orb--error .enoch-orb__shell {
   background:
     radial-gradient(circle at 50% 44%, rgba(255, 250, 252, 0.98) 0, rgba(255, 239, 244, 0.9) 26%, rgba(255, 220, 231, 0.78) 56%, rgba(236, 224, 247, 0.68) 80%, rgba(255, 255, 255, 0) 100%),
     radial-gradient(circle at 28% 30%, rgba(255, 210, 227, 0.26), rgba(255, 255, 255, 0) 32%),
@@ -887,11 +887,11 @@ p {
     0 28px 72px rgba(218, 188, 228, 0.16);
 }
 
-.adam-orb--error .adam-orb__ring--major {
+.enoch-orb--error .enoch-orb__ring--major {
   display: none;
 }
 
-@keyframes adam-orb-float {
+@keyframes enoch-orb-float {
   0%,
   100% {
     transform:
@@ -909,7 +909,7 @@ p {
   }
 }
 
-@keyframes adam-orb-halo {
+@keyframes enoch-orb-halo {
   0%,
   100% {
     opacity: calc(0.56 + var(--orb-signal) * 0.18);
@@ -921,7 +921,7 @@ p {
   }
 }
 
-@keyframes adam-orb-listening {
+@keyframes enoch-orb-listening {
   0%,
   100% {
     transform:
@@ -939,7 +939,7 @@ p {
   }
 }
 
-@keyframes adam-orb-think-spin {
+@keyframes enoch-orb-think-spin {
   0% {
     transform: rotate(0deg);
   }
@@ -948,7 +948,7 @@ p {
   }
 }
 
-@keyframes adam-orb-speaking {
+@keyframes enoch-orb-speaking {
   0%,
   100% {
     transform:
@@ -966,7 +966,7 @@ p {
   }
 }
 
-@keyframes adam-orb-speak-halo {
+@keyframes enoch-orb-speak-halo {
   0%,
   100% {
     opacity: calc(0.58 + var(--orb-signal) * 0.18);
@@ -978,7 +978,7 @@ p {
   }
 }
 
-@keyframes adam-orb-swirl {
+@keyframes enoch-orb-swirl {
   0% {
     transform: rotate(0deg) scale(1);
   }
@@ -987,7 +987,7 @@ p {
   }
 }
 
-@keyframes adam-orb-swirl-reverse {
+@keyframes enoch-orb-swirl-reverse {
   0% {
     transform: rotate(0deg) scale(1.02);
   }
@@ -996,15 +996,15 @@ p {
   }
 }
 
-.adam-home-text {
+.enoch-home-text {
   max-width: 820px;
   text-align: center;
   display: grid;
   gap: 16px;
 }
 
-.adam-home-eyebrow,
-.adam-voice-kicker {
+.enoch-home-eyebrow,
+.enoch-voice-kicker {
   margin: 0;
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;
@@ -1013,7 +1013,7 @@ p {
   color: rgba(26, 26, 26, 0.48);
 }
 
-.adam-home-text h1 {
+.enoch-home-text h1 {
   margin: 0;
   font-size: clamp(2.3rem, 6vw, 4.25rem);
   line-height: 0.96;
@@ -1022,7 +1022,7 @@ p {
   justify-self: center;
 }
 
-.adam-home-text p:last-of-type {
+.enoch-home-text p:last-of-type {
   color: rgba(26, 26, 26, 0.66);
   font-size: 1rem;
   line-height: 1.72;
@@ -1032,14 +1032,14 @@ p {
   justify-self: center;
 }
 
-.adam-home-actions {
+.enoch-home-actions {
   display: flex;
   justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
 }
 
-.adam-home-main .button {
+.enoch-home-main .button {
   min-height: 50px;
   padding: 13px 22px;
   border-radius: 999px;
@@ -1059,7 +1059,7 @@ p {
     color 180ms ease;
 }
 
-.adam-home-main .button:hover:not(:disabled) {
+.enoch-home-main .button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.94),
@@ -1067,19 +1067,19 @@ p {
     0 1px 0 rgba(255, 255, 255, 0.56);
 }
 
-.adam-home-main .button:active:not(:disabled) {
+.enoch-home-main .button:active:not(:disabled) {
   transform: translateY(0);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.88),
     0 8px 18px rgba(17, 17, 17, 0.08);
 }
 
-.adam-home-main .button:disabled {
+.enoch-home-main .button:disabled {
   opacity: 0.72;
   cursor: progress;
 }
 
-.adam-home-main .button--solid {
+.enoch-home-main .button--solid {
   background: linear-gradient(180deg, rgba(27, 29, 36, 0.98), rgba(16, 17, 22, 0.96));
   color: #ffffff;
   border-color: rgba(17, 18, 24, 0.92);
@@ -1088,23 +1088,23 @@ p {
     0 18px 34px rgba(17, 17, 17, 0.16);
 }
 
-.adam-home-main .button--solid:hover:not(:disabled) {
+.enoch-home-main .button--solid:hover:not(:disabled) {
   background: linear-gradient(180deg, rgba(20, 22, 29, 0.99), rgba(10, 11, 16, 0.98));
 }
 
-.adam-home-main .button--secondary {
+.enoch-home-main .button--secondary {
   background: linear-gradient(180deg, rgba(255, 247, 249, 0.94), rgba(247, 246, 255, 0.88));
   border-color: rgba(176, 188, 221, 0.34);
 }
 
-.adam-home-main .button--ghost,
-.adam-home-main .button--outline {
+.enoch-home-main .button--ghost,
+.enoch-home-main .button--outline {
   background: rgba(255, 255, 255, 0.72);
   border-color: rgba(21, 24, 33, 0.08);
   color: rgba(18, 20, 26, 0.8);
 }
 
-.adam-home-actions .button {
+.enoch-home-actions .button {
   min-width: 216px;
   padding: 14px 30px;
   font-family: var(--font-mono), monospace;
@@ -1114,12 +1114,12 @@ p {
   text-decoration: none;
 }
 
-.adam-voice-surface {
+.enoch-voice-surface {
   width: 100%;
   max-width: 980px;
 }
 
-.adam-voice-hero {
+.enoch-voice-hero {
   display: grid;
   gap: 28px;
   justify-items: center;
@@ -1132,7 +1132,7 @@ p {
   backdrop-filter: none;
 }
 
-.adam-voice-stage-shell {
+.enoch-voice-stage-shell {
   position: relative;
   width: min(100%, 840px);
   display: grid;
@@ -1146,32 +1146,32 @@ p {
   overflow: visible;
 }
 
-.adam-voice-stage-shell::before,
-.adam-voice-stage-shell::after {
+.enoch-voice-stage-shell::before,
+.enoch-voice-stage-shell::after {
   display: none;
 }
 
-.adam-orb-stage {
+.enoch-orb-stage {
   display: grid;
   justify-items: center;
   gap: 18px;
   padding: 0 0 12px;
 }
 
-.adam-voice-lens {
+.enoch-voice-lens {
   display: grid;
   gap: 16px;
   width: min(100%, 760px);
 }
 
-.adam-voice-runtime-meta {
+.enoch-voice-runtime-meta {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
 }
 
-.adam-runtime-chip {
+.enoch-runtime-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1186,14 +1186,14 @@ p {
   color: rgba(26, 26, 26, 0.6);
 }
 
-.adam-voice-status {
+.enoch-voice-status {
   display: grid;
   gap: 8px;
   max-width: 560px;
   text-align: center;
 }
 
-.adam-voice-state {
+.enoch-voice-state {
   margin: 0;
   font-family: var(--font-mono), monospace;
   font-size: 0.76rem;
@@ -1202,7 +1202,7 @@ p {
   color: rgba(26, 26, 26, 0.52);
 }
 
-.adam-voice-message {
+.enoch-voice-message {
   margin: 0;
   max-width: 540px;
   font-size: 1rem;
@@ -1210,21 +1210,21 @@ p {
   color: rgba(26, 26, 26, 0.76);
 }
 
-.adam-voice-truth {
+.enoch-voice-truth {
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.55;
   color: rgba(26, 26, 26, 0.54);
 }
 
-.adam-voice-panel {
+.enoch-voice-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 100%;
 }
 
-.adam-voice-card {
+.enoch-voice-card {
   padding: 20px 22px;
   border-radius: 26px;
   border: 1px solid rgba(21, 24, 33, 0.08);
@@ -1235,19 +1235,19 @@ p {
     inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
-.adam-voice-card--assistant {
+.enoch-voice-card--assistant {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 249, 0.78)),
     radial-gradient(circle at top right, rgba(233, 223, 255, 0.18), transparent 34%);
 }
 
-.adam-voice-card--intro {
+.enoch-voice-card--intro {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 253, 0.8)),
     radial-gradient(circle at top left, rgba(229, 236, 255, 0.18), transparent 34%);
 }
 
-.adam-voice-card-label {
+.enoch-voice-card-label {
   margin: 0 0 8px;
   font-family: var(--font-mono), monospace;
   font-size: 0.7rem;
@@ -1256,21 +1256,21 @@ p {
   color: rgba(26, 26, 26, 0.48);
 }
 
-.adam-voice-card-text {
+.enoch-voice-card-text {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.68;
   color: rgba(26, 26, 26, 0.88);
 }
 
-.adam-voice-card-meta {
+.enoch-voice-card-meta {
   margin: 10px 0 0;
   font-size: 0.82rem;
   line-height: 1.55;
   color: rgba(26, 26, 26, 0.54);
 }
 
-.adam-voice-error {
+.enoch-voice-error {
   margin: 0;
   padding: 14px 16px;
   border-radius: 18px;
@@ -1293,7 +1293,7 @@ p {
   gap: 10px;
 }
 
-.adam-voice-controls {
+.enoch-voice-controls {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1301,7 +1301,7 @@ p {
   flex-wrap: wrap;
 }
 
-.adam-voice-text-form {
+.enoch-voice-text-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1315,20 +1315,20 @@ p {
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
-.adam-voice-text-form label {
+.enoch-voice-text-form label {
   font-size: 0.82rem;
   font-weight: 500;
   color: rgba(26, 26, 26, 0.68);
 }
 
-.adam-voice-text-hint {
+.enoch-voice-text-hint {
   margin: -4px 0 2px;
   font-size: 0.82rem;
   line-height: 1.5;
   color: rgba(26, 26, 26, 0.54);
 }
 
-.adam-voice-text-form textarea {
+.enoch-voice-text-form textarea {
   min-height: 132px;
   resize: vertical;
   border-radius: 20px;
@@ -1340,154 +1340,154 @@ p {
   box-shadow: inset 0 1px 2px rgba(17, 17, 17, 0.03);
 }
 
-.adam-voice-text-form textarea:focus {
+.enoch-voice-text-form textarea:focus {
   outline: none;
   border-color: rgba(17, 17, 17, 0.18);
   box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.04);
 }
 
-.adam-voice-text-form textarea:disabled {
+.enoch-voice-text-form textarea:disabled {
   cursor: progress;
   opacity: 0.75;
 }
 
-.adam-voice-controls--form {
+.enoch-voice-controls--form {
   justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
-  .adam-home-main {
+  .enoch-home-main {
     background:
       radial-gradient(circle at top center, rgba(237, 228, 255, 0.62), transparent 42%),
       radial-gradient(circle at bottom center, rgba(255, 236, 240, 0.3), transparent 34%),
       linear-gradient(180deg, #fefefd 0%, #faf9fb 100%);
   }
 
-  .adam-center-content {
+  .enoch-center-content {
     justify-content: flex-start;
     padding: 18px 16px 58px;
     gap: 24px;
   }
 
-  .adam-voice-hero {
+  .enoch-voice-hero {
     gap: 22px;
     padding: 6px 0 10px;
     border-radius: 0;
   }
 
-  .adam-voice-stage-shell {
+  .enoch-voice-stage-shell {
     width: 100%;
     padding: 0 0 8px;
     border-radius: 0;
   }
 
-  .adam-orb-container {
+  .enoch-orb-container {
     width: min(360px, calc(100vw - 28px));
   }
 
-  .adam-home-actions {
+  .enoch-home-actions {
     flex-direction: column;
     align-items: center;
   }
 
-  .adam-header {
+  .enoch-header {
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 20px 16px 0;
     gap: 16px 12px;
   }
 
-  .adam-header-center {
+  .enoch-header-center {
     grid-column: 1 / -1;
     justify-content: space-between;
     gap: 12px 18px;
   }
 
-  .adam-header-center a,
-  .adam-header-center .disabled,
-  .adam-console-link {
+  .enoch-header-center a,
+  .enoch-header-center .disabled,
+  .enoch-console-link {
     font-size: 0.82rem;
   }
 
-  .adam-header-right {
+  .enoch-header-right {
     gap: 10px;
   }
 
-  .adam-header-right .adam-avatar-circle {
+  .enoch-header-right .enoch-avatar-circle {
     display: none;
   }
 
-  .adam-home-text {
+  .enoch-home-text {
     max-width: 100%;
     gap: 20px;
   }
 
-  .adam-home-text h1 {
+  .enoch-home-text h1 {
     max-width: 10ch;
   }
 
-  .adam-home-text p:last-of-type {
+  .enoch-home-text p:last-of-type {
     font-size: 0.98rem;
     line-height: 1.68;
   }
 
-  .adam-home-actions .button {
+  .enoch-home-actions .button {
     width: min(100%, 320px);
     min-width: 0;
   }
 
-  .adam-voice-controls {
+  .enoch-voice-controls {
     width: 100%;
     justify-content: stretch;
   }
 
-  .adam-voice-controls .button {
+  .enoch-voice-controls .button {
     flex: 1 1 100%;
   }
 
-  .adam-voice-controls--form .button {
+  .enoch-voice-controls--form .button {
     flex: 0 1 auto;
   }
 
-  .adam-voice-runtime-meta {
+  .enoch-voice-runtime-meta {
     justify-content: center;
   }
 }
 
 @media (max-width: 420px) {
-  .adam-header-center {
+  .enoch-header-center {
     justify-content: center;
   }
 
-  .adam-home-text h1 {
+  .enoch-home-text h1 {
     font-size: clamp(2rem, 12vw, 2.65rem);
   }
 
-  .adam-home-text p:last-of-type {
+  .enoch-home-text p:last-of-type {
     font-size: 0.94rem;
   }
 
-  .adam-voice-message {
+  .enoch-voice-message {
     font-size: 0.92rem;
   }
 
-  .adam-voice-kicker,
-  .adam-home-eyebrow,
-  .adam-voice-state,
-  .adam-runtime-chip {
+  .enoch-voice-kicker,
+  .enoch-home-eyebrow,
+  .enoch-voice-state,
+  .enoch-runtime-chip {
     letter-spacing: 0.12em;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .adam-orb,
-  .adam-orb__backlight,
-  .adam-orb__halo,
-  .adam-orb__shell,
-  .adam-orb__plasma,
-  .adam-orb__caustic,
-  .adam-orb__ring,
-  .adam-orb__mesh,
-  .adam-orb__core {
+  .enoch-orb,
+  .enoch-orb__backlight,
+  .enoch-orb__halo,
+  .enoch-orb__shell,
+  .enoch-orb__plasma,
+  .enoch-orb__caustic,
+  .enoch-orb__ring,
+  .enoch-orb__mesh,
+  .enoch-orb__core {
     animation: none !important;
     transition: none !important;
   }

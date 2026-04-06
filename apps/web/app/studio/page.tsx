@@ -1,5 +1,6 @@
-import { AdamTopNav } from "../../components/adam/adam-top-nav";
+import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { StudioCanvas } from "../../components/workspace/studio-canvas";
+import { getEnochEnvValue } from "../../lib/server/enoch-env";
 import { runProjectCreationPreflight } from "../../lib/server/live-runtime-preflight";
 import { listRecentProjects } from "../../lib/server/projects-index";
 
@@ -12,7 +13,7 @@ const formatProviderLabel = (provider: string | undefined) => {
     case "openai":
       return "OpenAI";
     default:
-      return "Adam";
+      return "Enoch";
   }
 };
 
@@ -24,11 +25,11 @@ export default async function StudioPage() {
 
   return (
     <main className="studio-page-shell">
-      <AdamTopNav currentRoute="studio" />
+      <EnochTopNav currentRoute="studio" />
       <StudioCanvas
         projectsResult={projectsResult}
         creationReadiness={creationReadiness}
-        adamProviderLabel={formatProviderLabel(process.env.ADAM_PROVIDER)}
+        enochProviderLabel={formatProviderLabel(getEnochEnvValue("PROVIDER"))}
       />
     </main>
   );

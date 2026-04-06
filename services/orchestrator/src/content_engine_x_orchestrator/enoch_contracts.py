@@ -10,9 +10,7 @@ from pydantic import BaseModel, Field
 
 
 ENOCH_STATE_VERSION = "enoch.phase0.v1"
-_COMPATIBILITY_CONFIG_PATH = (
-    Path(__file__).resolve().parents[4] / "packages" / "shared" / "src" / "config" / "enoch-compatibility.json"
-)
+_COMPATIBILITY_CONFIG_PATH = Path(__file__).resolve().parent / "enoch-compatibility.json"
 with _COMPATIBILITY_CONFIG_PATH.open("r", encoding="utf-8") as compatibility_config_file:
     _COMPATIBILITY_CONFIG = json.load(compatibility_config_file)
 

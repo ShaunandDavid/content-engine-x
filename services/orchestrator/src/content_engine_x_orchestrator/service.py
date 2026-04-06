@@ -35,7 +35,7 @@ def run_planning_workflow(workflow_run_id: str) -> None:
         result = workflow.invoke(state_snapshot)
         result_state: dict[str, Any] = dict(result)
         result_state["status"] = JobStatus.COMPLETED.value
-        result_state["current_stage"] = WorkflowStage.PROMPT_CREATION.value
+        result_state["current_stage"] = result_state.get("current_stage", WorkflowStage.PROMPT_CREATION.value)
         result_state["project_id"] = project_id
         result_state["workflow_run_id"] = workflow_run_id
         persist_workflow_success(workflow_run_id, result_state)

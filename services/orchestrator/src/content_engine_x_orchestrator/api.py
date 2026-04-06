@@ -5,12 +5,13 @@ from threading import Thread
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from psycopg import OperationalError
 
 from .config import load_settings
 from .service import run_planning_workflow
-from .supabase_store import load_workflow_run_context
+from .supabase_store import load_workflow_run_context, persist_workflow_failure
 
 
 class StartWorkflowRunRequest(BaseModel):
@@ -59,10 +60,13 @@ def start_workflow_run(
         ) from error
 
     if context["status"] == "running":
-        return {
-            "workflow_run_id": payload.workflow_run_id,
-            "status": "already_running",
-        }
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "workflow_run_id": payload.workflow_run_id,
+                "status": "already_running",
+            },
+        )
 
     if context["status"] != "queued":
         raise HTTPException(
@@ -82,9 +86,22 @@ def start_workflow_run(
 def _run_planning_workflow_safe(workflow_run_id: str) -> None:
     try:
         run_planning_workflow(workflow_run_id)
-    except Exception:
+    except Exception as exc:
         logger.exception("Background planning workflow failed for %s.", workflow_run_id)
-        raise
+        # persist_workflow_failure was already called inside run_planning_workflow;
+        # this guard handles any unexpected exception that escaped before that call.
+        try:
+            context = load_workflow_run_context(workflow_run_id)
+            persist_workflow_failure(
+                workflow_run_id,
+                project_id=context["project_id"],
+                current_stage=context.get("current_stage", "unknown"),
+                error_message=str(exc),
+            )
+        except Exception:
+            logger.exception(
+                "Could not persist failure state for %s after background error.", workflow_run_id
+            )
 
 
 def main() -> None:

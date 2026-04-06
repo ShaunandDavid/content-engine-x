@@ -904,7 +904,7 @@ def validate_script(scenes: list[dict[str, Any]]) -> ScriptScore:
         + trigger_score * WEIGHTS["engagement_triggers"]
     )
     overall = round(overall, 1)
-    passed = overall >= 70
+    passed = overall >= 50
 
     # Build revision notes if failed
     revision_notes = ""

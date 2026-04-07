@@ -6,13 +6,14 @@ export const EnochTopNav = ({
 }: {
   currentRoute?: "home" | "workspace" | "studio" | "projects" | "plan" | "account" | "systems" | "dashboard";
 } = {}) => {
+  const brandLabel = currentRoute === "home" ? "ENOCH" : "Project Enoch";
   const navClassName = (routeName: typeof currentRoute) =>
     currentRoute === routeName ? "enoch-header-link enoch-header-link--active" : "enoch-header-link";
 
   return (
     <header className="enoch-header">
       <div className="enoch-header-left">
-        <strong>Project Enoch</strong>
+        <strong>{brandLabel}</strong>
       </div>
       <nav className="enoch-header-center" aria-label="Primary navigation">
         <Link href={workspaceRoute} className={navClassName("workspace")} prefetch={false}>Enoch Workspace</Link>

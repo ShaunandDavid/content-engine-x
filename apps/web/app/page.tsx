@@ -17,7 +17,7 @@ export default function EnochHomepage() {
         <EnochVoiceSurface />
 
         <div className="enoch-home-text">
-          <p className="enoch-home-eyebrow">Project Enoch</p>
+          <p className="enoch-home-eyebrow">ENOCH</p>
           <h1>Voice control for the live project graph.</h1>
           <p>
             Project Enoch keeps voice, planning, and live route state aligned inside Content Engine X.

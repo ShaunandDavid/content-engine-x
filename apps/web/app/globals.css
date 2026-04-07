@@ -664,8 +664,9 @@ p {
   cursor: pointer;
   transform-style: preserve-3d;
   filter:
-    saturate(calc(0.98 + var(--orb-depth) * 0.14))
-    contrast(calc(0.98 + var(--orb-depth) * 0.05));
+    saturate(calc(0.92 + var(--orb-depth) * 0.18))
+    contrast(calc(1.01 + var(--orb-depth) * 0.08))
+    brightness(calc(0.95 + var(--orb-depth) * 0.03));
   transition:
     transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
     filter 240ms ease,
@@ -709,13 +710,13 @@ p {
 .enoch-orb__backlight {
   inset: -14%;
   background:
-    radial-gradient(circle at 50% 52%, rgba(255, 234, 245, 0.6), rgba(255, 255, 255, 0) 30%),
-    radial-gradient(circle at 32% 36%, rgba(246, 220, 255, 0.52), rgba(255, 255, 255, 0) 38%),
-    radial-gradient(circle at 74% 34%, rgba(255, 218, 238, 0.44), rgba(255, 255, 255, 0) 34%),
-    radial-gradient(circle at 58% 78%, rgba(217, 207, 255, 0.42), rgba(255, 255, 255, 0) 42%),
-    radial-gradient(circle at var(--orb-pointer-x) var(--orb-pointer-y), rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 16%);
-  filter: blur(74px);
-  opacity: calc(0.82 + var(--orb-signal) * 0.12);
+    radial-gradient(circle at 50% 54%, rgba(70, 84, 128, 0.34), rgba(255, 255, 255, 0) 32%),
+    radial-gradient(circle at 32% 36%, rgba(109, 127, 196, 0.28), rgba(255, 255, 255, 0) 38%),
+    radial-gradient(circle at 74% 34%, rgba(80, 96, 160, 0.24), rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 58% 78%, rgba(53, 63, 108, 0.28), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at var(--orb-pointer-x) var(--orb-pointer-y), rgba(201, 216, 255, 0.16), rgba(255, 255, 255, 0) 18%);
+  filter: blur(76px);
+  opacity: calc(0.72 + var(--orb-signal) * 0.1);
   transform: translateZ(-132px) scale(calc(1.04 + var(--orb-signal) * 0.08));
 }
 
@@ -727,26 +728,26 @@ p {
 .enoch-orb__halo--outer {
   inset: -12%;
   background:
-    radial-gradient(circle, rgba(246, 228, 255, 0.52) 18%, rgba(233, 223, 255, 0.24) 46%, rgba(255, 255, 255, 0) 74%);
-  filter: blur(58px);
-  opacity: calc(0.84 + var(--orb-signal) * 0.12);
+    radial-gradient(circle, rgba(100, 118, 179, 0.34) 18%, rgba(77, 95, 150, 0.16) 48%, rgba(255, 255, 255, 0) 74%);
+  filter: blur(60px);
+  opacity: calc(0.74 + var(--orb-signal) * 0.1);
   transform: translateZ(-144px) scale(calc(1.06 + var(--orb-signal) * 0.08));
 }
 
 .enoch-orb__halo--mid {
   inset: 2%;
   background:
-    radial-gradient(circle, rgba(255, 250, 253, 0.38) 14%, rgba(248, 232, 250, 0.3) 34%, rgba(222, 214, 255, 0.22) 58%, rgba(255, 255, 255, 0) 80%);
+    radial-gradient(circle, rgba(214, 224, 248, 0.24) 14%, rgba(155, 176, 230, 0.18) 34%, rgba(84, 102, 160, 0.18) 58%, rgba(255, 255, 255, 0) 80%);
   filter: blur(28px);
-  opacity: calc(0.52 + var(--orb-signal) * 0.16);
+  opacity: calc(0.48 + var(--orb-signal) * 0.14);
   transform: translateZ(-48px) scale(calc(1 + var(--orb-signal) * 0.05));
 }
 
 .enoch-orb__halo--inner {
   inset: 18%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0, rgba(255, 236, 247, 0.18) 32%, rgba(255, 255, 255, 0) 72%);
+  background: radial-gradient(circle, rgba(232, 238, 255, 0.18) 0, rgba(155, 175, 228, 0.14) 34%, rgba(255, 255, 255, 0) 72%);
   filter: blur(20px);
-  opacity: calc(0.32 + var(--orb-signal) * 0.12);
+  opacity: calc(0.28 + var(--orb-signal) * 0.1);
 }
 
 .enoch-orb__shell {
@@ -758,18 +759,19 @@ p {
     rotateY(var(--orb-tilt-x))
     translateZ(calc(14px + var(--orb-signal) * 12px));
   background:
-    radial-gradient(circle at 50% 46%, rgba(255, 249, 252, 0.98) 0%, rgba(255, 245, 251, 0.95) 28%, rgba(255, 230, 243, 0.84) 54%, rgba(235, 224, 255, 0.8) 78%, rgba(220, 211, 255, 0.74) 100%),
-    radial-gradient(circle at 26% 34%, rgba(255, 208, 231, 0.34), rgba(255, 255, 255, 0) 34%),
-    radial-gradient(circle at 74% 28%, rgba(233, 223, 255, 0.34), rgba(255, 255, 255, 0) 36%),
-    radial-gradient(circle at 62% 82%, rgba(170, 149, 255, 0.26), rgba(255, 255, 255, 0) 24%);
+    radial-gradient(circle at 50% 42%, rgba(111, 120, 145, 0.98) 0%, rgba(75, 83, 106, 0.96) 26%, rgba(40, 45, 61, 0.94) 54%, rgba(20, 24, 34, 0.94) 78%, rgba(10, 12, 19, 0.98) 100%),
+    radial-gradient(circle at 26% 34%, rgba(163, 183, 255, 0.2), rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 74% 28%, rgba(123, 149, 242, 0.18), rgba(255, 255, 255, 0) 36%),
+    radial-gradient(circle at 62% 82%, rgba(67, 84, 150, 0.24), rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 46% 56%, rgba(250, 252, 255, 0.06), rgba(255, 255, 255, 0) 42%);
   border: 0;
   box-shadow:
-    inset 0 2px 36px rgba(255, 255, 255, 0.92),
-    inset 18px 22px 46px rgba(255, 224, 242, 0.22),
-    inset -24px -26px 56px rgba(188, 174, 255, 0.22),
-    inset 0 -28px 52px rgba(186, 164, 255, 0.14),
-    0 0 96px rgba(239, 228, 255, 0.54),
-    0 34px 86px rgba(202, 186, 255, 0.18);
+    inset 0 2px 34px rgba(248, 251, 255, 0.18),
+    inset 18px 22px 46px rgba(142, 163, 222, 0.12),
+    inset -24px -28px 58px rgba(13, 18, 32, 0.56),
+    inset 0 -28px 54px rgba(5, 8, 16, 0.4),
+    0 0 96px rgba(71, 90, 143, 0.18),
+    0 34px 86px rgba(9, 13, 24, 0.34);
 }
 
 .enoch-orb__plasma {
@@ -779,31 +781,31 @@ p {
 
 .enoch-orb__plasma--primary {
   background:
-    radial-gradient(circle at 34% 38%, rgba(255, 207, 232, 0.3), rgba(255, 255, 255, 0) 24%),
-    radial-gradient(circle at 72% 30%, rgba(231, 223, 255, 0.3), rgba(255, 255, 255, 0) 24%),
-    radial-gradient(circle at 62% 80%, rgba(163, 141, 255, 0.24), rgba(255, 255, 255, 0) 18%),
-    conic-gradient(from 208deg, rgba(255, 255, 255, 0.02), rgba(255, 212, 237, 0.2), rgba(229, 220, 255, 0.16), rgba(255, 255, 255, 0.02), rgba(213, 201, 255, 0.18), rgba(255, 255, 255, 0.02));
-  opacity: calc(0.42 + var(--orb-signal) * 0.16);
+    radial-gradient(circle at 34% 38%, rgba(170, 193, 255, 0.24), rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 72% 30%, rgba(132, 154, 228, 0.22), rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 62% 80%, rgba(80, 102, 187, 0.2), rgba(255, 255, 255, 0) 18%),
+    conic-gradient(from 208deg, rgba(255, 255, 255, 0.02), rgba(174, 198, 255, 0.14), rgba(98, 123, 205, 0.16), rgba(255, 255, 255, 0.02), rgba(61, 82, 152, 0.18), rgba(255, 255, 255, 0.02));
+  opacity: calc(0.38 + var(--orb-signal) * 0.14);
   animation: enoch-orb-swirl 28s linear infinite;
 }
 
 .enoch-orb__plasma--secondary {
   inset: -2%;
   background:
-    radial-gradient(circle at 38% 34%, rgba(255, 198, 228, 0.24), rgba(255, 255, 255, 0) 18%),
-    radial-gradient(circle at 68% 26%, rgba(231, 224, 255, 0.22), rgba(255, 255, 255, 0) 20%),
-    radial-gradient(circle at 56% 76%, rgba(182, 166, 255, 0.22), rgba(255, 255, 255, 0) 18%);
-  opacity: calc(0.3 + var(--orb-signal) * 0.12);
+    radial-gradient(circle at 38% 34%, rgba(150, 173, 244, 0.18), rgba(255, 255, 255, 0) 18%),
+    radial-gradient(circle at 68% 26%, rgba(198, 212, 255, 0.14), rgba(255, 255, 255, 0) 20%),
+    radial-gradient(circle at 56% 76%, rgba(92, 115, 198, 0.18), rgba(255, 255, 255, 0) 18%);
+  opacity: calc(0.24 + var(--orb-signal) * 0.12);
   animation: enoch-orb-swirl-reverse 34s linear infinite;
 }
 
 .enoch-orb__caustic {
   inset: 12%;
   background:
-    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 20%),
-    radial-gradient(circle at 70% 34%, rgba(245, 221, 255, 0.2), rgba(255, 255, 255, 0) 24%),
-    radial-gradient(circle at 54% 82%, rgba(176, 156, 255, 0.24), rgba(255, 255, 255, 0) 18%);
-  opacity: calc(0.34 + var(--orb-signal) * 0.1);
+    radial-gradient(circle at 34% 26%, rgba(247, 251, 255, 0.42), rgba(255, 255, 255, 0) 20%),
+    radial-gradient(circle at 70% 34%, rgba(153, 177, 244, 0.18), rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 54% 82%, rgba(84, 108, 190, 0.18), rgba(255, 255, 255, 0) 18%);
+  opacity: calc(0.28 + var(--orb-signal) * 0.1);
   filter: blur(18px);
 }
 
@@ -833,16 +835,16 @@ p {
   overflow: hidden;
   transform: translateZ(calc(16px + var(--orb-signal) * 8px));
   background:
-    radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0.64), rgba(255, 245, 251, 0.34) 36%, rgba(255, 255, 255, 0) 72%),
-    radial-gradient(circle at 38% 34%, rgba(255, 216, 235, 0.18), rgba(255, 255, 255, 0) 20%),
-    radial-gradient(circle at 66% 72%, rgba(186, 167, 255, 0.18), rgba(255, 255, 255, 0) 18%);
-  box-shadow: inset 0 0 32px rgba(255, 255, 255, 0.26);
+    radial-gradient(circle at 50% 44%, rgba(224, 232, 255, 0.36), rgba(114, 132, 188, 0.22) 36%, rgba(255, 255, 255, 0) 72%),
+    radial-gradient(circle at 38% 34%, rgba(176, 196, 255, 0.14), rgba(255, 255, 255, 0) 20%),
+    radial-gradient(circle at 66% 72%, rgba(66, 88, 161, 0.16), rgba(255, 255, 255, 0) 18%);
+  box-shadow: inset 0 0 36px rgba(203, 216, 255, 0.14);
 }
 
 .enoch-orb__glint {
   inset: auto;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.52);
+  background: rgba(233, 240, 255, 0.4);
   filter: blur(12px);
 }
 
@@ -875,11 +877,11 @@ p {
 .enoch-orb__kernel {
   inset: 28%;
   background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.72) 0, rgba(255, 241, 248, 0.42) 28%, rgba(219, 209, 255, 0.26) 56%, rgba(255, 255, 255, 0) 100%);
+    radial-gradient(circle, rgba(238, 243, 255, 0.5) 0, rgba(153, 176, 236, 0.28) 28%, rgba(66, 88, 162, 0.18) 56%, rgba(255, 255, 255, 0) 100%);
   box-shadow:
-    0 0 44px rgba(255, 222, 239, 0.24),
-    0 0 78px rgba(205, 194, 255, 0.16);
-  opacity: calc(0.58 + var(--orb-signal) * 0.1);
+    0 0 44px rgba(151, 176, 245, 0.18),
+    0 0 78px rgba(67, 87, 153, 0.14);
+  opacity: calc(0.5 + var(--orb-signal) * 0.1);
 }
 
 .enoch-orb--idle .enoch-orb__shell {

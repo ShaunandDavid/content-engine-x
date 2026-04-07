@@ -121,7 +121,9 @@ const formatTimestamp = (value: string) =>
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short"
   });
 
 const isSystemNode = (node: StudioNode): node is SystemNode =>

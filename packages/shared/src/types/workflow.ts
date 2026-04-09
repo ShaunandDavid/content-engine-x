@@ -1,3 +1,6 @@
+import type { z } from "zod";
+
+import { projectBriefInputSchema } from "../schemas/project.js";
 import type {
   ApprovalStatus,
   AspectRatio,
@@ -7,7 +10,6 @@ import type {
   ClipRecord,
   Platform,
   ProjectRecord,
-  ProjectTone,
   PromptRecord,
   ProviderName,
   SceneRecord,
@@ -62,18 +64,7 @@ export interface PublishPayload {
   metadata: Record<string, unknown>;
 }
 
-export interface ProjectBriefInput {
-  projectName: string;
-  objective: string;
-  audience: string;
-  rawBrief: string;
-  tone: ProjectTone;
-  platforms: Platform[];
-  durationSeconds: number;
-  aspectRatio: AspectRatio;
-  provider: ProviderName;
-  guardrails: string[];
-}
+export type ProjectBriefInput = z.infer<typeof projectBriefInputSchema>;
 
 export interface ProjectWorkspace {
   project: ProjectRecord;

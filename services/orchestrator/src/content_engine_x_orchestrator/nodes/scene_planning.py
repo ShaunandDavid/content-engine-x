@@ -6,6 +6,7 @@ from uuid import uuid4
 from ..ai_caller import call_ai
 from ..models import JobStatus, SceneDraft, WorkflowStage
 from ..state import WorkflowState, append_audit_event, append_stage_attempt
+from ..viral_mechanics import build_framework_injection, select_framework
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +53,19 @@ def scene_planning_node(state: WorkflowState) -> WorkflowState:
     project_config = state["project_config"]
     concept = state["concept"]
     durations = _scene_durations(int(project_config["duration_seconds"]))
-    aspect_ratio = project_config["aspect_ratio"]
+    aspect_ratio = project_config.get("aspect_ratio", "9:16")
     scene_count = len(durations)
+
+    # Select viral framework and inject into system prompt
+    framework_key = select_framework(concept, state.get("trend_data"))
+    framework_injection = build_framework_injection(framework_key)
+    scene_system_prompt = SCENE_SYSTEM_PROMPT + f"\n\n{framework_injection}\n"
+
+    # Inject brand context into system prompt
+    brand_block = state.get("brand_context_block", "")
+    if brand_block:
+        scene_system_prompt += f"\n\n{brand_block}\n"
+        scene_system_prompt += "\nEvery scene must visually and tonally match this brand identity.\n"
 
     revision_count = state.get("script_revision_count", 0)
     revision_notes = state.get("script_revision_notes", "")
@@ -82,7 +94,7 @@ def scene_planning_node(state: WorkflowState) -> WorkflowState:
     ai_generated = True
     try:
         result = call_ai(
-            system_prompt=SCENE_SYSTEM_PROMPT,
+            system_prompt=scene_system_prompt,
             user_prompt=user_prompt,
             temperature=0.8 if revision_count == 0 else 0.9,
             max_tokens=1500,
@@ -139,12 +151,13 @@ def scene_planning_node(state: WorkflowState) -> WorkflowState:
     return {
         "current_stage": WorkflowStage.SCENE_PLANNING.value,
         "scenes": scenes,
+        "viral_framework": framework_key,
         "stage_attempts": append_stage_attempt(state, WorkflowStage.SCENE_PLANNING, JobStatus.COMPLETED),
         "audit_log": append_audit_event(
             state,
             action="scenes.planned",
             entity_type="scene",
             stage=WorkflowStage.SCENE_PLANNING,
-            metadata={"scene_count": len(scenes), "ai_generated": ai_generated, "revision": revision_count},
+            metadata={"scene_count": len(scenes), "ai_generated": ai_generated, "revision": revision_count, "viral_framework": framework_key},
         ),
     }

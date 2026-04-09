@@ -250,6 +250,19 @@ export const generateProjectClips = async (projectId: string, options?: { force?
 
     try {
       const provider = createVideoProvider(workspace.project.provider);
+
+      // Build reference assets from hero image if available (i2v mode)
+      const heroImageKey =
+        (prompt.metadata?.reference_image_r2_key as string | undefined) ??
+        (workspace.workflowRun?.stateSnapshot as Record<string, unknown> | undefined)
+          ?.hero_image_r2_key as string | undefined;
+      const r2PublicUrl = process.env.R2_PUBLIC_URL ?? "";
+      const referenceAssets =
+        heroImageKey && r2PublicUrl
+          ? [{ url: `${r2PublicUrl}/${heroImageKey}` }]
+          : undefined;
+      const generationMode = (prompt.metadata?.generation_mode as string | undefined) ?? (referenceAssets ? "i2v" : "t2v");
+
       const job = await provider.generateClip({
         provider: workspace.project.provider,
         projectId: workspace.project.id,
@@ -258,8 +271,10 @@ export const generateProjectClips = async (projectId: string, options?: { force?
         durationSeconds: scene.durationSeconds,
         aspectRatio: scene.aspectRatio,
         stylePreset: workspace.project.tone,
+        referenceAssets,
         metadata: {
-          preferredModel: prompt.model
+          preferredModel: prompt.model,
+          generationMode
         }
       });
 

@@ -884,13 +884,20 @@ def trend_research_node(state: WorkflowState) -> WorkflowState:
         ),
     }
 
-    # Map top-scoring brief into state["brief"]
+    # Map top-scoring brief into state["brief"] and build structured trend_data
     if briefs:
         top = briefs[0]
         audience = state.get("project_config", {}).get(
             "audience", "general audience"
         )
         result["brief"] = top.to_state_brief(audience)
+        result["trend_data"] = {
+            "top_trend": top.title,
+            "trend_hook": top.suggested_hook,
+            "trend_source": top.source_platform,
+            "trend_momentum": top.engagement_score,
+            "content_angle": top.narrative_angle,
+        }
 
     result["audit_log"] = append_audit_event(
         state,

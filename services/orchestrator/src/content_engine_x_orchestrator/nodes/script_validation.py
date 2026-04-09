@@ -34,6 +34,13 @@ class ScriptScore(BaseModel):
     overall_score: float = 0.0
     passed: bool = False
 
+    # Primary 4-category viral rubric (0-25 each, total 0-100, threshold 70)
+    viral_hook_score: float = 0.0
+    beat_adherence_score: float = 0.0
+    specificity_score: float = 0.0
+    cta_clarity_score: float = 0.0
+
+    # Detailed diagnostic sub-scores (informational only)
     structure_score: float = 0.0
     readability_score: float = 0.0
     hook_strength_score: float = 0.0
@@ -836,6 +843,65 @@ def _score_engagement_triggers(script: str) -> tuple[float, list[Issue]]:
 
 
 # ---------------------------------------------------------------------------
+# Viral rubric: 4-category scoring (0-25 each)
+# ---------------------------------------------------------------------------
+
+_CTA_PATTERNS = [
+    r"\bfollow\b", r"\bsubscribe\b", r"\bsave this\b", r"\bshare\b",
+    r"\bcomment\b", r"\blink in bio\b", r"\bclick\b", r"\btap\b",
+    r"\bswipe\b", r"\bcheck out\b", r"\bdm me\b", r"\bjoin\b",
+    r"\bsign up\b", r"\btry\b", r"\bget (it|this|yours|started)\b",
+    r"\bwatch\b.*\bmore\b", r"\bmore videos\b",
+]
+
+_SPECIFICITY_WORDS = [
+    "proven", "study", "research", "data", "fact", "actually",
+    "secret", "truth", "discovered", "found", "confirmed",
+]
+
+
+def _score_viral_hook(first_narration: str) -> float:
+    """0-25: Hook quality — curiosity gap, specifics, punchy length."""
+    raw, _ = _score_hook_strength(first_narration)
+    return round(min(25.0, raw / 4.0), 1)
+
+
+def _score_beat_adherence(scenes: list[dict[str, Any]]) -> float:
+    """0-25: Narrations align with their visual_beat descriptions."""
+    raw, _ = _score_visual_alignment(scenes)
+    # Weight structure score in too — scenes with rehook/payoff earn beats bonus
+    return round(min(25.0, raw / 4.0), 1)
+
+
+def _score_specificity(script: str) -> float:
+    """0-25: Concrete numbers, named entities, and data-backed claims."""
+    numbers = len(re.findall(r"\b\d+[%$kKmMbB]?\b", script))
+    named_entities = len(re.findall(r"\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)+\b", script))
+    signal_hits = sum(1 for w in _SPECIFICITY_WORDS if w in script.lower())
+
+    raw = numbers * 3 + named_entities * 4 + signal_hits * 2
+    return min(25.0, round(raw, 1))
+
+
+def _score_cta_clarity(narrations: list[str]) -> float:
+    """0-25: Clear, specific CTA in the final scene narration."""
+    if not narrations:
+        return 0.0
+    last = narrations[-1].lower()
+    matches = sum(1 for p in _CTA_PATTERNS if re.search(p, last))
+    if matches >= 2:
+        return 25.0
+    if matches == 1:
+        return 18.0
+    # Partial credit if last scene has any imperative verb
+    imperative = re.search(
+        r"\b(go|get|try|watch|read|learn|start|use|do|make|see|find|grab|pick)\b",
+        last,
+    )
+    return 8.0 if imperative else 3.0
+
+
+# ---------------------------------------------------------------------------
 # Main validation function
 # ---------------------------------------------------------------------------
 
@@ -892,19 +958,13 @@ def validate_script(scenes: list[dict[str, Any]]) -> ScriptScore:
     trigger_score, trigger_issues = _score_engagement_triggers(script)
     all_issues.extend(trigger_issues)
 
-    # Weighted composite
-    overall = (
-        structure_score * WEIGHTS["structure"]
-        + readability_score * WEIGHTS["readability"]
-        + hook_score * WEIGHTS["hook_strength"]
-        + payoff_score * WEIGHTS["payoff_placement"]
-        + loop_score * WEIGHTS["loop_potential"]
-        + visual_score * WEIGHTS["visual_alignment"]
-        + duration_score * WEIGHTS["duration"]
-        + trigger_score * WEIGHTS["engagement_triggers"]
-    )
-    overall = round(overall, 1)
-    passed = overall >= 50
+    # Viral rubric: 4 categories x 25 points = 100 total, threshold 70
+    viral_hook = _score_viral_hook(first_narration)
+    beat_adherence = _score_beat_adherence(scenes)
+    specificity = _score_specificity(script)
+    cta_clarity = _score_cta_clarity(narrations)
+    overall = round(viral_hook + beat_adherence + specificity + cta_clarity, 1)
+    passed = overall >= 70
 
     # Build revision notes if failed
     revision_notes = ""
@@ -929,6 +989,10 @@ def validate_script(scenes: list[dict[str, Any]]) -> ScriptScore:
     return ScriptScore(
         overall_score=overall,
         passed=passed,
+        viral_hook_score=viral_hook,
+        beat_adherence_score=beat_adherence,
+        specificity_score=specificity,
+        cta_clarity_score=cta_clarity,
         structure_score=structure_score,
         readability_score=readability_score,
         hook_strength_score=hook_score,
@@ -961,8 +1025,9 @@ def script_validation_node(state: WorkflowState) -> WorkflowState:
     Extracts the full script from state["scenes"], runs validate_script(),
     and writes results to the script_* state fields.
 
-    If the script fails (overall < 70), increments script_revision_count
-    and populates script_revision_notes so scene_planning can revise.
+    Scores on 4 viral categories (0-25 each = 100 total). Threshold is 70.
+    If the script fails, increments script_revision_count and populates
+    script_revision_notes so scene_planning can revise.
     """
     scenes = state.get("scenes", [])
     result = validate_script(scenes)

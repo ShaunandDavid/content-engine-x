@@ -13,6 +13,11 @@ load_dotenv()
 class OrchestratorSettings:
     openai_api_key: str | None
     openai_sora_model: str
+    enoch_drift_base_url: str | None
+    enoch_drift_api_key: str | None
+    enoch_drift_namespace: str
+    open_sora_worker_base_url: str | None
+    open_sora_worker_api_key: str | None
     supabase_db_url: str | None
     supabase_db_host: str | None
     supabase_db_port: int | None
@@ -62,6 +67,11 @@ def load_settings() -> OrchestratorSettings:
     return OrchestratorSettings(
         openai_api_key=getenv("OPENAI_API_KEY"),
         openai_sora_model=getenv("OPENAI_SORA_MODEL", "sora-2"),
+        enoch_drift_base_url=getenv("ENOCH_DRIFT_BASE_URL"),
+        enoch_drift_api_key=getenv("ENOCH_DRIFT_API_KEY"),
+        enoch_drift_namespace=getenv("ENOCH_DRIFT_NAMESPACE", "enoch"),
+        open_sora_worker_base_url=getenv("OPEN_SORA_WORKER_BASE_URL"),
+        open_sora_worker_api_key=getenv("OPEN_SORA_WORKER_API_KEY"),
         supabase_db_url=getenv("SUPABASE_DB_URL"),
         supabase_db_host=getenv("SUPABASE_DB_HOST"),
         supabase_db_port=int(getenv("SUPABASE_DB_PORT")) if getenv("SUPABASE_DB_PORT") else None,

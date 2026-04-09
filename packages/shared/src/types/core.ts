@@ -1,6 +1,6 @@
 import type { EnochArtifact, EnochJobStatus, EnochLangGraphRuntimeState, EnochRun, EnochWorkflowStage } from "./enoch.js";
 
-export type ProviderName = "sora";
+export type ProviderName = "sora" | "mock";
 
 export type Platform = "tiktok" | "instagram_reels" | "youtube_shorts" | "linkedin";
 

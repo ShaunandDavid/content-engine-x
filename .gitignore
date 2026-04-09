@@ -19,3 +19,15 @@ tmp/
 *.log
 
 .vercel
+
+.codex-preview/
+
+.codex-preview/
+
+.codex-preview/
+
+.codex-preview/
+
+.codex-preview/
+
+apps/web/.env.local.txt

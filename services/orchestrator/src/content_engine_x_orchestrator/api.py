@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from threading import Thread
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, status
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from psycopg import OperationalError
 
 from .config import load_settings
+from .performance_distiller import distill_performance_data
 from .service import run_planning_workflow
 from .supabase_store import load_workflow_run_context, persist_workflow_failure
 
@@ -102,6 +104,12 @@ def _run_planning_workflow_safe(workflow_run_id: str) -> None:
             logger.exception(
                 "Could not persist failure state for %s after background error.", workflow_run_id
             )
+
+
+@app.post("/performance/distill")
+def trigger_performance_distill() -> dict[str, Any]:
+    """Distill video performance data into brain insights."""
+    return distill_performance_data()
 
 
 def main() -> None:

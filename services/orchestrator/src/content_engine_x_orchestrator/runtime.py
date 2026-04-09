@@ -18,9 +18,11 @@ def create_initial_state(
     metadata: dict[str, Any] | None = None,
     requested_start_stage: WorkflowStage = WorkflowStage.BRIEF_INTAKE,
 ) -> WorkflowState:
+    run_id = workflow_run_id or str(uuid4())
     return WorkflowState(
         project_id=project_id,
-        workflow_run_id=workflow_run_id or str(uuid4()),
+        workflow_run_id=run_id,
+        run_id=run_id,
         requested_start_stage=requested_start_stage.value,
         current_stage=requested_start_stage.value,
         status=JobStatus.PENDING.value,
@@ -43,6 +45,30 @@ def create_initial_state(
 def invoke_workflow(state: WorkflowState, *, checkpointer: Any | None = None) -> WorkflowState:
     workflow = build_workflow(checkpointer=checkpointer)
     return workflow.invoke(state)
+
+
+def run_pipeline(payload: dict[str, Any]) -> dict[str, Any]:
+    requested_start_stage = payload.get("requested_start_stage", WorkflowStage.BRIEF_INTAKE)
+    if isinstance(requested_start_stage, str):
+        requested_start_stage = WorkflowStage(requested_start_stage)
+
+    metadata = dict(payload.get("metadata") or {})
+    metadata.setdefault("auto_approve", True)
+
+    project_config = {
+        "aspect_ratio": "9:16",
+        **dict(payload.get("project_config") or {}),
+    }
+
+    state = create_initial_state(
+        project_id=str(payload.get("project_id") or uuid4()),
+        workflow_run_id=payload.get("workflow_run_id") or payload.get("run_id"),
+        brief=dict(payload.get("brief") or {}),
+        project_config=project_config,
+        metadata=metadata,
+        requested_start_stage=requested_start_stage,
+    )
+    return dict(invoke_workflow(state))
 
 
 def main() -> None:

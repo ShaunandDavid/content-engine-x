@@ -1,0 +1,100 @@
+{
+  "homeLight": {
+    "title": "Enoch Voice Console",
+    "heading": "Voice control for the live project graph.",
+    "eyebrow": "Project Enoch",
+    "nav": [
+      "Enoch Workspace",
+      "Projects",
+      "Studio",
+      "Runtime",
+      "Pipeline",
+      "DA",
+      "Create a Project",
+      "Open Pipeline"
+    ],
+    "toggleCount": 2,
+    "theme": "light"
+  },
+  "darkThemeState": {
+    "href": "http://127.0.0.1:3004/",
+    "title": "Enoch Voice Console",
+    "theme": "dark",
+    "stored": "dark",
+    "colorScheme": "dark"
+  },
+  "persistedDark": {
+    "href": "http://127.0.0.1:3004/",
+    "title": "Enoch Voice Console",
+    "theme": "dark",
+    "stored": "dark",
+    "colorScheme": "dark"
+  },
+  "projectCreate": {
+    "title": "Create a Project | Project Enoch | Content Engine X",
+    "heading": "Write the project brief once.",
+    "hasCreateAction": true,
+    "theme": "dark"
+  },
+  "createdProject": {
+    "pathname": "/projects/6d171d4a-40ce-4be9-94ef-e8e8e2f0bef5",
+    "title": "Project Overview | Project Enoch | Content Engine X",
+    "heading": "Project Enoch",
+    "hasEnochLink": true
+  },
+  "createdProjectId": "6d171d4a-40ce-4be9-94ef-e8e8e2f0bef5",
+  "planPage": {
+    "title": "Enoch Planner | Project Enoch | Content Engine X",
+    "heading": "Project Enoch",
+    "hasBuildPlan": true,
+    "theme": "dark"
+  },
+  "workspaceMobile": {
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "dark",
+    "width": 390,
+    "hasProjectEnoch": true,
+    "hasCreateProject": false
+  },
+  "lightThemeState": {
+    "href": "http://127.0.0.1:3004/workspace?projectId=6d171d4a-40ce-4be9-94ef-e8e8e2f0bef5",
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "light",
+    "stored": "light",
+    "colorScheme": "light"
+  },
+  "persistedLight": {
+    "href": "http://127.0.0.1:3004/workspace?projectId=6d171d4a-40ce-4be9-94ef-e8e8e2f0bef5",
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "light",
+    "stored": "light",
+    "colorScheme": "light"
+  },
+  "studioMobile": {
+    "title": "Studio | Project Enoch | Content Engine X",
+    "heading": "Shape the creative pipeline in one place.",
+    "hasFitCanvas": true,
+    "theme": "light",
+    "width": 390
+  },
+  "dashboardDesktop": {
+    "title": "Pipeline | Project Enoch | Content Engine X",
+    "heading": "Keep Project Enoch in motion.",
+    "hasCreateProject": true,
+    "theme": "light"
+  },
+  "consoleErrors": [],
+  "browserErrors": [],
+  "networkErrors": [],
+  "screenshots": [
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\home-desktop-light.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\home-desktop-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\projects-new-desktop-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\project-overview-desktop-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\enoch-plan-desktop-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\workspace-mobile-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\workspace-mobile-light.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\studio-mobile-light.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\dashboard-desktop-light.png"
+  ]
+}

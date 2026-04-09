@@ -9,6 +9,7 @@ from .nodes import (
     brief_intake_node,
     clip_generation_node,
     concept_generation_node,
+    hero_image_generation_node,
     prompt_creation_node,
     publish_payload_node,
     qc_decision_node,
@@ -61,6 +62,7 @@ def build_workflow(*, checkpointer: Any | None = None, approval_interrupts: Sequ
     graph.add_node("trend_research", trend_research_node)
     graph.add_node("brief_intake", brief_intake_node)
     graph.add_node("concept_generation", concept_generation_node)
+    graph.add_node("hero_image_generation", hero_image_generation_node)
     graph.add_node("scene_planning", scene_planning_node)
     graph.add_node("script_validation", script_validation_node)
     graph.add_node("prompt_creation", prompt_creation_node)
@@ -72,7 +74,8 @@ def build_workflow(*, checkpointer: Any | None = None, approval_interrupts: Sequ
     graph.add_conditional_edges(START, route_start, {name: name for name in STAGE_NODE_NAMES.values()})
     graph.add_edge("trend_research", "brief_intake")
     graph.add_edge("brief_intake", "concept_generation")
-    graph.add_edge("concept_generation", "scene_planning")
+    graph.add_edge("concept_generation", "hero_image_generation")
+    graph.add_edge("hero_image_generation", "scene_planning")
     graph.add_edge("scene_planning", "script_validation")
     graph.add_conditional_edges(
         "script_validation",

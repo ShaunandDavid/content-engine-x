@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import logging
+import threading
+
+from ..memory.memory_distiller import distill_run
 from ..models import JobStatus, PublishPayload, WorkflowStage
 from ..state import WorkflowState, append_audit_event, append_stage_attempt
+
+logger = logging.getLogger(__name__)
 
 
 def publish_payload_node(state: WorkflowState) -> WorkflowState:
@@ -21,11 +27,11 @@ def publish_payload_node(state: WorkflowState) -> WorkflowState:
         metadata={
             "provider": project_config["provider"],
             "tone": project_config["tone"],
-            "aspect_ratio": project_config["aspect_ratio"],
+            "aspect_ratio": project_config.get("aspect_ratio", "9:16"),
         },
     ).model_dump(mode="json")
 
-    return {
+    result = {
         "current_stage": WorkflowStage.PUBLISH_PAYLOAD.value,
         "status": JobStatus.COMPLETED.value,
         "publish_payload": payload,
@@ -38,3 +44,20 @@ def publish_payload_node(state: WorkflowState) -> WorkflowState:
             metadata={"platform_count": len(payload["platforms"])},
         ),
     }
+
+    final_state = {**state, **result}
+
+    def _background_distill() -> None:
+        try:
+            summary = distill_run(
+                state=final_state,
+                project_id=str(final_state.get("project_id", "")),
+                run_id=str(final_state.get("workflow_run_id") or final_state.get("run_id") or ""),
+                is_recent_project=True,
+            )
+            logger.info("memory_distiller: %s", summary)
+        except Exception as exc:  # pragma: no cover - background safety path
+            logger.warning("memory_distiller background error: %s", exc)
+
+    threading.Thread(target=_background_distill, daemon=True).start()
+    return result

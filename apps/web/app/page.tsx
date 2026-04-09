@@ -5,7 +5,9 @@ import { EnochTopNav } from "../components/enoch/enoch-top-nav";
 import { dashboardRoute } from "../lib/routes";
 
 export const metadata: Metadata = {
-  title: "Enoch Voice Console",
+  title: {
+    absolute: "ENOCH"
+  },
   description: "Talk to Enoch, review live route state, and move into the Project Enoch pipeline."
 };
 

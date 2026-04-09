@@ -1,0 +1,133 @@
+[
+  {
+    "surface": "local-desktop",
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "networkErrors": [
+      "404 http://127.0.0.1:3008/adam"
+    ],
+    "routes": [
+      {
+        "route": "/",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/",
+        "title": "Enoch Voice Console"
+      },
+      {
+        "route": "/workspace",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/workspace",
+        "title": "Enoch Workspace | Project Enoch | Content Engine X"
+      },
+      {
+        "route": "/projects/new",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/projects/new",
+        "title": "Create a Project | Project Enoch | Content Engine X"
+      },
+      {
+        "route": "/enoch/plan",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/enoch/plan",
+        "title": "Enoch Planner | Project Enoch | Content Engine X"
+      },
+      {
+        "route": "/projects/d701c617-b522-4fd4-b2f7-4d3e33f0fb73/enoch",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/projects/d701c617-b522-4fd4-b2f7-4d3e33f0fb73/enoch",
+        "title": "Project Enoch | Project Enoch | Content Engine X"
+      },
+      {
+        "route": "/adam",
+        "status": 404,
+        "finalUrl": "http://127.0.0.1:3008/adam",
+        "title": "Project Enoch | Content Engine X"
+      }
+    ],
+    "homeCta": {
+      "finalUrl": "http://127.0.0.1:3008/projects/new"
+    }
+  },
+  {
+    "surface": "local-mobile",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "networkErrors": [],
+    "routes": [
+      {
+        "route": "/",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/",
+        "title": "Enoch Voice Console"
+      },
+      {
+        "route": "/workspace",
+        "status": 200,
+        "finalUrl": "http://127.0.0.1:3008/workspace",
+        "title": "Enoch Workspace | Project Enoch | Content Engine X"
+      }
+    ]
+  },
+  {
+    "surface": "prod-desktop-www",
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 ()"
+    ],
+    "pageErrors": [],
+    "networkErrors": [
+      "404 https://www.enochintelligence.com/adam"
+    ],
+    "routes": [
+      {
+        "route": "/",
+        "status": 200,
+        "finalUrl": "https://www.enochintelligence.com/",
+        "title": "Enoch Voice Console"
+      },
+      {
+        "route": "/workspace",
+        "status": 200,
+        "finalUrl": "https://www.enochintelligence.com/workspace",
+        "title": "Enoch Workspace | Project Enoch | Content Engine X"
+      },
+      {
+        "route": "/adam",
+        "status": 404,
+        "finalUrl": "https://www.enochintelligence.com/adam",
+        "title": "Project Enoch | Content Engine X"
+      }
+    ]
+  },
+  {
+    "surface": "prod-mobile-www",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "networkErrors": [],
+    "routes": [
+      {
+        "route": "/",
+        "status": 200,
+        "finalUrl": "https://www.enochintelligence.com/",
+        "title": "Enoch Voice Console"
+      },
+      {
+        "route": "/workspace",
+        "status": 200,
+        "finalUrl": "https://www.enochintelligence.com/workspace",
+        "title": "Enoch Workspace | Project Enoch | Content Engine X"
+      }
+    ]
+  },
+  {
+    "surface": "prod-apex",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "networkErrors": [],
+    "result": {
+      "error": "Error: page.goto: net::ERR_SSL_PROTOCOL_ERROR at https://enochintelligence.com/\nCall log:\n\u001b[2m  - navigating to \"https://enochintelligence.com/\", waiting until \"networkidle\"\u001b[22m\n",
+      "finalUrl": "about:blank"
+    }
+  }
+]

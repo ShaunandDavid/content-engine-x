@@ -1,0 +1,64 @@
+{
+  "homeLight": {
+    "title": "Enoch Voice Console",
+    "heading": "Voice control for the live project graph.",
+    "theme": "light",
+    "toggleCount": 2
+  },
+  "darkThemeState": {
+    "href": "https://content-engine-x.vercel.app/",
+    "title": "Enoch Voice Console",
+    "theme": "dark",
+    "stored": "dark",
+    "colorScheme": "dark"
+  },
+  "persistedDark": {
+    "href": "https://content-engine-x.vercel.app/",
+    "title": "Enoch Voice Console",
+    "theme": "dark",
+    "stored": "dark",
+    "colorScheme": "dark"
+  },
+  "projectCreate": {
+    "title": "Create a Project | Project Enoch | Content Engine X",
+    "heading": "Write the project brief once.",
+    "theme": "dark"
+  },
+  "workspaceMobile": {
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "dark",
+    "width": 390
+  },
+  "lightThemeState": {
+    "href": "https://content-engine-x.vercel.app/workspace",
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "light",
+    "stored": "light",
+    "colorScheme": "light"
+  },
+  "persistedLight": {
+    "href": "https://content-engine-x.vercel.app/workspace",
+    "title": "Enoch Workspace | Project Enoch | Content Engine X",
+    "theme": "light",
+    "stored": "light",
+    "colorScheme": "light"
+  },
+  "studioMobile": {
+    "title": "Studio | Project Enoch | Content Engine X",
+    "heading": "Shape the creative pipeline in one place.",
+    "theme": "light",
+    "width": 390
+  },
+  "consoleErrors": [],
+  "browserErrors": [
+    "Uncaught"
+  ],
+  "networkErrors": [],
+  "screenshots": [
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\prod-home-desktop-light.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\prod-home-desktop-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\prod-projects-new-dark.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\prod-workspace-mobile-light.png",
+    "C:\\Users\\David\\.gemini\\antigravity\\scratch\\content-engine-x\\.codex-preview\\ui-checks\\prod-studio-mobile-light.png"
+  ]
+}

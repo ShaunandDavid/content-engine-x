@@ -1,0 +1,24 @@
+{
+  "consoleErrors": [],
+  "pageErrors": [],
+  "routes": [
+    {
+      "route": "/",
+      "status": 200,
+      "title": "ENOCH",
+      "finalUrl": "http://127.0.0.1:3009/"
+    },
+    {
+      "route": "/workspace",
+      "status": 200,
+      "title": "Enoch Workspace | Project Enoch | Content Engine X",
+      "finalUrl": "http://127.0.0.1:3009/workspace"
+    },
+    {
+      "route": "/projects/new",
+      "status": 200,
+      "title": "Create a Project | Project Enoch | Content Engine X",
+      "finalUrl": "http://127.0.0.1:3009/projects/new"
+    }
+  ]
+}

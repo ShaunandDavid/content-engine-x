@@ -174,3 +174,9 @@ class LangGraphRuntimeState(TypedDict, total=False):
     script_revision_notes: str
     errors: list[str]
     metadata: dict[str, Any]
+    brand_profile: dict[str, Any] | None  # loaded at brief_intake, read by all nodes
+    brand_context_block: str               # pre-formatted string injected into prompts
+    hero_image_r2_key: str | None          # R2 key for the brand anchor image
+    hero_image_generated: bool             # whether it was newly generated this run
+    viral_framework: str                   # selected framework key from viral_mechanics
+    trend_data: dict[str, Any]             # structured trend data from trend_research

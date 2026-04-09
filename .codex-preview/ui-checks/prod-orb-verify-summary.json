@@ -1,0 +1,42 @@
+[
+  {
+    "surface": "desktop",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "networkErrors": [],
+    "eyebrow": "ENOCH",
+    "brand": "ENOCH",
+    "finalTheme": "dark",
+    "storedTheme": "dark",
+    "orbBox": {
+      "x": 410,
+      "y": 150,
+      "width": 620,
+      "height": 620
+    },
+    "viewport": {
+      "width": 1440,
+      "height": 1200
+    }
+  },
+  {
+    "surface": "mobile",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "networkErrors": [],
+    "eyebrow": "ENOCH",
+    "brand": "ENOCH",
+    "finalTheme": "dark",
+    "storedTheme": "dark",
+    "orbBox": {
+      "x": 16,
+      "y": 181,
+      "width": 360,
+      "height": 360
+    },
+    "viewport": {
+      "width": 390,
+      "height": 664
+    }
+  }
+]

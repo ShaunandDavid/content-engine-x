@@ -5,6 +5,7 @@ import { getLatestRenderForProject } from "@content-engine/db";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
+import { PerformancePanel } from "../../../../components/performance/performance-panel";
 import { PublishActions } from "../../../../components/publish-actions";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
@@ -130,6 +131,9 @@ async function PublishHandoffContent({
         canSendPublish={canSendPublish}
         disabledReason={publishDisabledReason}
       />
+      {!isDemoProject ? (
+        <PerformancePanel projectId={projectId} />
+      ) : null}
       <div className="publish-grid">
         <FormCard title="Delivery Payload" description="n8n receives a stable payload for publish automation.">
           <div className="stack">

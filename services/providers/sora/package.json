@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@content-engine/shared": "workspace:*",
+    "openai": "^6.33.0",
     "zod": "^3.24.2"
   }
 }

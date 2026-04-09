@@ -113,6 +113,9 @@ importers:
       '@content-engine/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
+      openai:
+        specifier: ^6.33.0
+        version: 6.33.0(ws@8.20.0)(zod@3.25.76)
       zod:
         specifier: ^3.24.2
         version: 3.25.76

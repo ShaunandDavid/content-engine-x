@@ -31,7 +31,7 @@ def run_planning_workflow(workflow_run_id: str) -> None:
     mark_workflow_running(workflow_run_id, state_snapshot)
 
     try:
-        workflow = build_workflow(approval_interrupts=[WorkflowStage.CLIP_GENERATION.value])
+        workflow = build_workflow()
         result = workflow.invoke(state_snapshot)
         result_state: dict[str, Any] = dict(result)
         result_state["status"] = JobStatus.COMPLETED.value

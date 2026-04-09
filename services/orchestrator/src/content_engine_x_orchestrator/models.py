@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from .enoch_contracts import (
@@ -68,7 +70,13 @@ class ClipRequest(BaseModel):
     aspect_ratio: str
     style_preset: str | None = None
     status: JobStatus = JobStatus.PENDING
+    segment_index: int = 0
+    segment_kind: Literal["initial", "extension"] = "initial"
+    source_video_id: str | None = None
     provider_job_id: str | None = None
+    actual_duration_seconds: int | None = None
+    error_message: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)
 
 
 class RenderPlan(BaseModel):

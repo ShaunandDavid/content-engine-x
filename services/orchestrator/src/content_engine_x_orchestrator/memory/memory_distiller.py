@@ -329,6 +329,71 @@ def _extract_from_prompt_creation(state: dict[str, Any]) -> list[DistilledInsigh
     return insights
 
 
+def _extract_from_clip_generation(state: dict[str, Any]) -> list[DistilledInsight]:
+    insights: list[DistilledInsight] = []
+    clip_requests = state.get("clip_requests", [])
+
+    for clip in clip_requests[:3]:
+        if str(clip.get("status", "")) != "completed":
+            continue
+
+        metadata = clip.get("metadata", {}) if isinstance(clip.get("metadata"), dict) else {}
+        execution_plan = metadata.get("execution_plan", [])
+        segment_history = metadata.get("segment_history", [])
+        provider_model = str(metadata.get("provider_model", "") or "")
+        generation_mode = str(metadata.get("generation_mode", "") or "unknown")
+        resolved_duration = metadata.get("resolved_duration_seconds") or clip.get("actual_duration_seconds")
+        final_video_id = str(metadata.get("final_openai_video_id", "") or "")
+        aspect_ratio = str(clip.get("aspect_ratio", "") or "unknown")
+        format_id = str(metadata.get("format", "") or "unknown")
+        master_prompt = str(metadata.get("master_prompt", "") or clip.get("prompt", "") or "")
+
+        if provider_model and resolved_duration:
+            insights.append(
+                DistilledInsight(
+                    insight=(
+                        f"Model {provider_model} successfully generated a {resolved_duration}s "
+                        f"{aspect_ratio} clip using {generation_mode} with execution plan {execution_plan}."
+                    ),
+                    category="model_performance",
+                    source_stage="clip_generation",
+                    confidence=min(0.68 + max(len(execution_plan) - 1, 0) * 0.05, 0.92),
+                    metadata={
+                        "provider_model": provider_model,
+                        "generation_mode": generation_mode,
+                        "aspect_ratio": aspect_ratio,
+                        "format": format_id,
+                        "resolved_duration_seconds": resolved_duration,
+                        "segment_count": len(execution_plan),
+                        "segment_history_count": len(segment_history),
+                        "final_openai_video_id": final_video_id,
+                    },
+                )
+            )
+
+        if master_prompt:
+            insights.append(
+                DistilledInsight(
+                    insight=(
+                        f"Clip generation prompt path '{master_prompt[:100]}...' completed with "
+                        f"{len(execution_plan)} segment(s) and final video {final_video_id or 'unknown'}."
+                    ),
+                    category="prompt_quality",
+                    source_stage="clip_generation",
+                    confidence=0.62,
+                    metadata={
+                        "prompt_preview": master_prompt[:150],
+                        "execution_plan": execution_plan,
+                        "segment_count": len(execution_plan),
+                        "generation_mode": generation_mode,
+                        "provider_model": provider_model,
+                    },
+                )
+            )
+
+    return insights
+
+
 def _extract_workflow_optimization(state: dict[str, Any]) -> list[DistilledInsight]:
     insights: list[DistilledInsight] = []
     attempts = state.get("stage_attempts", [])
@@ -380,6 +445,7 @@ def distill_run(
     candidates.extend(_extract_from_script_validation(state))
     candidates.extend(_extract_from_qc_decision(state))
     candidates.extend(_extract_from_prompt_creation(state))
+    candidates.extend(_extract_from_clip_generation(state))
     candidates.extend(_extract_workflow_optimization(state))
 
     admitted_count = 0

@@ -10,6 +10,7 @@ import {
   enochPlanRoute,
   clipReviewRoute,
   newProjectRoute,
+  enochAssistantRoute,
   projectEnochRoute,
   projectRoute,
   projectsRoute,
@@ -18,7 +19,6 @@ import {
   sceneReviewRoute,
   studioRoute
 } from "../../lib/routes";
-import { EnochVoiceSurface } from "../enoch/enoch-voice-surface";
 
 type Props = {
   projectsResult: ProjectsIndexResult;
@@ -81,9 +81,12 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, enochProv
         <article className="workspace-overview__panel workspace-overview__panel--enoch">
           <div className="workspace-overview__panel-copy">
             <span className="eyebrow">Enoch Dock</span>
-            <h2>Keep Enoch live while staying in the ops layer.</h2>
-            <p>Use Enoch here for quick turns, then move into Studio for heavier idea and artifact shaping.</p>
+            <h2>Workspace is now the home for the orb-driven operator surface.</h2>
+            <p>Open the dedicated assistant or the new Workspace orb layer when you need live Enoch context, then return here for lighter route movement.</p>
             <div className="workspace-overview__link-row">
+              <Link href={enochAssistantRoute} className="surface-link" prefetch={false}>
+                Open Enoch
+              </Link>
               <Link href={studioRoute} className="surface-link" prefetch={false}>
                 Open Studio
               </Link>
@@ -93,7 +96,7 @@ export const WorkspaceOverview = ({ projectsResult, creationReadiness, enochProv
             </div>
           </div>
           <div className="workspace-overview__enoch-surface">
-            <EnochVoiceSurface />
+            <div className="empty-state">The orb experience now lives in Workspace so this lighter overview surface stays clean and route-aware.</div>
           </div>
         </article>
 

@@ -1,4 +1,7 @@
 export * from "./enoch.js";
+export * from "./enoch-brain.js";
+export * from "./enoch-assistant.js";
+export * from "./enoch-assistant-workspace.js";
 export * from "./enoch-intake-normalization.js";
 export * from "./enoch-model-router.js";
 export * from "./enoch-provider-adapters.js";

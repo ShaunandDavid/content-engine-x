@@ -10,6 +10,7 @@ import {
   enochPlanRoute,
   clipReviewRoute,
   newProjectRoute,
+  enochAssistantRoute,
   projectEnochRoute,
   projectRoute,
   projectsRoute,
@@ -18,7 +19,6 @@ import {
   sceneReviewRoute,
   workspaceRoute
 } from "../../lib/routes";
-import { EnochVoiceSurface } from "../enoch/enoch-voice-surface";
 import { CanvasNode } from "./canvas-node";
 import { InfiniteCanvas, type CanvasTransform } from "./infinite-canvas";
 
@@ -92,9 +92,9 @@ const DEFAULT_COMPOSER: ComposerState = {
 };
 
 const DEFAULT_NODES: StudioNode[] = [
-  { id: "system-enoch", kind: "enoch", title: "Voice Console", x: 220, y: 180, state: "expanded" },
+  { id: "system-enoch", kind: "enoch", title: "Enoch Dock", x: 220, y: 180, state: "expanded" },
   { id: "system-project-context", kind: "project-context", title: "Project Context", x: 980, y: 150, state: "expanded" },
-  { id: "system-workflow", kind: "workflow", title: "Pipeline Routes", x: 1220, y: 780, state: "expanded" },
+  { id: "system-workflow", kind: "workflow", title: "Sequence Routes", x: 1220, y: 780, state: "expanded" },
   { id: "system-project-list", kind: "project-list", title: "Recent Projects", x: 460, y: 1040, state: "expanded" }
 ];
 
@@ -569,11 +569,17 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
         <div className="studio-node__stack studio-node__stack--enoch">
           <div className="studio-node__intro">
             <span className="eyebrow">Project Enoch</span>
-            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Talk to Enoch while you shape the board."}</h2>
-            <p>Voice and typed turns stay wired to the live Enoch backend.</p>
+            <h2>{selectedProject ? `${selectedProject.name} is selected for route-aware shaping.` : "Workspace now owns the live orb surface."}</h2>
+            <p>Studio stays focused on shaping routes and artifacts. Jump into Workspace for the cinematic orb interface, then return here when you need the broader board.</p>
             <div className="studio-node__link-row">
+              <Link href={workspaceRoute} className="button button--solid" prefetch={false}>
+                Open Workspace
+              </Link>
               <Link href={enochPlanRoute} className="surface-link" prefetch={false}>
                 Open Enoch Planner
+              </Link>
+              <Link href={selectedProject ? `${enochAssistantRoute}?projectId=${encodeURIComponent(selectedProject.id)}` : enochAssistantRoute} className="surface-link" prefetch={false}>
+                Dedicated Assistant
               </Link>
               {selectedProject ? (
                 <Link href={projectEnochRoute(selectedProject.id)} className="surface-link" prefetch={false}>
@@ -583,7 +589,9 @@ export const StudioCanvas = ({ projectsResult, creationReadiness, enochProviderL
             </div>
           </div>
           <div className={`studio-node__enoch studio-node__enoch--${node.state}`}>
-            <EnochVoiceSurface />
+            <div className="empty-state">
+              The orb experience now lives in Workspace so Studio can stay clean, route-aware, and focused on composition.
+            </div>
           </div>
         </div>
       );

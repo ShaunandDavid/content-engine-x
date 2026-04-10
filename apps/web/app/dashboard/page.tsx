@@ -6,8 +6,8 @@ import { clipReviewRoute, projectRoute } from "../../lib/routes";
 import { getOperationalDashboardData } from "../../lib/server/dashboard-operational-data";
 
 export const metadata: Metadata = {
-  title: "Pipeline",
-  description: "Track live project state, generation queue, and runtime blockers across Project Enoch."
+  title: "Sequence",
+  description: "Track live project state, generation queue, and runtime blockers across the Enoch sequence."
 };
 
 const formatTimestamp = (value: string) =>
@@ -50,12 +50,12 @@ export default async function DashboardPage() {
 
   return (
     <main className="console-page">
-      <EnochTopNav currentRoute="dashboard" />
+      <EnochTopNav currentRoute="sequence" />
 
       <div className="console-layout">
         <section className="console-hero">
           <div className="console-hero__copy">
-            <p className="console-kicker">Pipeline</p>
+            <p className="console-kicker">Sequence</p>
             <h1>Keep Project Enoch in motion.</h1>
             <p>
               Track project state, generation queue, and runtime blockers from one place.
@@ -68,7 +68,7 @@ export default async function DashboardPage() {
           </div>
 
           <aside className="console-hero__card">
-            <p className="console-kicker">Pipeline Status</p>
+            <p className="console-kicker">Sequence Status</p>
             <h2>{dashboard.dataAvailable ? "The live route stack is ready." : "Runtime checks are still available."}</h2>
             <p>{runtimeSummary}</p>
             <div className="console-hero__actions">

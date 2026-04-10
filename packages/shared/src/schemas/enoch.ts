@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { promptGenerationBundleSchema } from "./intake.js";
+
 export const enochJobStatusValues = [
   "pending",
   "queued",
@@ -268,6 +270,52 @@ export const enochChatResponseSchema = z.object({
   session: enochVoiceSessionStateSchema,
   replyText: z.string().min(1),
   metadata: z.record(z.string(), z.unknown())
+});
+
+export const enochAssistantMessageRoleSchema = z.enum(["system", "user", "assistant"]);
+export const enochAssistantMessageKindSchema = z.enum(["message", "scene_bundle", "event"]);
+
+export const enochAssistantSceneBundleSchema = z.object({
+  projectId: z.string().uuid().nullish(),
+  instruction: z.string().min(1).max(2000).nullish(),
+  bundle: promptGenerationBundleSchema,
+  contextSources: z.object({
+    sessionId: z.string().uuid(),
+    projectId: z.string().uuid().nullish(),
+    projectName: z.string().min(1).max(160).nullish(),
+    planningRunId: z.string().uuid().nullish(),
+    brainInsightIds: z.array(z.string().uuid()),
+    derivedFromMessageIds: z.array(z.string().uuid())
+  }),
+  exportedAt: z.string().datetime().nullish(),
+  exportedProjectId: z.string().uuid().nullish(),
+  metadata: z.record(z.string(), z.unknown())
+});
+
+export const enochAssistantSessionSchema = z.object({
+  id: z.string().uuid(),
+  ownerUserId: z.string().uuid().nullish(),
+  projectId: z.string().uuid().nullish(),
+  title: z.string().min(1).max(160),
+  generatedLabel: z.string().min(1).max(160).nullish(),
+  summary: z.string().min(1).max(1000).nullish(),
+  contextSnapshot: z.record(z.string(), z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
+  lastMessageAt: z.string().datetime().nullish(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+});
+
+export const enochAssistantMessageSchema = z.object({
+  id: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  projectId: z.string().uuid().nullish(),
+  role: enochAssistantMessageRoleSchema,
+  kind: enochAssistantMessageKindSchema,
+  content: z.string(),
+  attachments: z.record(z.string(), z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
+  createdAt: z.string().datetime()
 });
 
 export const enochTranscriptionRequestSchema = z.object({

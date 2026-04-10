@@ -1,8 +1,11 @@
 export const homeRoute = "/";
+export const enochAssistantRoute = "/enoch";
 export const workspaceRoute = "/workspace";
 export const dashboardRoute = "/dashboard";
+export const sequenceRoute = "/sequence";
 export const studioRoute = "/studio";
 export const projectsRoute = "/projects";
+export const loginRoute = "/login";
 export const newProjectRoute = `${projectsRoute}/new`;
 export const enochPlanRoute = "/enoch/plan";
 export const accountRoute = "/account";

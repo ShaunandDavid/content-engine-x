@@ -21,9 +21,11 @@ const themeBootScript = `(() => {
     const theme = storedTheme === "light" || storedTheme === "dark" ? storedTheme : prefersDark ? "dark" : "light";
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
   } catch {
     document.documentElement.dataset.theme = "light";
     document.documentElement.style.colorScheme = "light";
+    document.documentElement.classList.remove("dark");
   }
 })();`;
 
@@ -34,7 +36,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <meta name="color-scheme" content="light dark" />
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
-      <body>
+      <body className="bg-background text-foreground antialiased">
         {children}
         <ThemeToggle />
       </body>

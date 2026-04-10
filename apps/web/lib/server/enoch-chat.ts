@@ -15,6 +15,8 @@ const buildProjectContext = (input: {
   projectName: string;
   readiness: ReturnType<typeof getEnochReviewReadiness>;
   reviewDetails: ReturnType<typeof getEnochReviewDetails>;
+  sessionContext?: string | null;
+  projectBrainContext?: string | null;
 }) => {
   const unavailable = input.reviewDetails.items
     .filter((item) => item.state !== "available")
@@ -27,8 +29,15 @@ const buildProjectContext = (input: {
     unavailable.length > 0
       ? `Current gaps or incomplete areas: ${unavailable.join(", ")}.`
       : "All expected review categories are currently available.",
-    `Review detail states: ${input.reviewDetails.items.map((item) => `${item.title}=${item.state}`).join("; ")}.`
+    `Review detail states: ${input.reviewDetails.items.map((item) => `${item.title}=${item.state}`).join("; ")}.`,
+    input.projectBrainContext?.trim() ? `Project memory: ${input.projectBrainContext.trim()}` : null,
+    input.sessionContext?.trim() ? `Recent session context: ${input.sessionContext.trim()}` : null
   ].join(" ");
+};
+
+const getMetadataString = (metadata: Record<string, unknown> | undefined, key: string) => {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
 export const createEnochChatResponse = async (request: EnochChatRequest): Promise<EnochChatResponse> => {
@@ -46,6 +55,8 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
   let model = "local_fallback_v1";
   let usage: { inputTokens?: number | null; outputTokens?: number | null } | undefined;
   let createdProject: Record<string, unknown> | null = null;
+  const sessionContext = getMetadataString(request.metadata, "assistantSessionContext");
+  const projectBrainContext = getMetadataString(request.metadata, "projectBrainContext");
 
   if (request.projectId) {
     const workspace = await getProjectWorkspaceOrDemo(request.projectId);
@@ -65,9 +76,17 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
       projectContext = buildProjectContext({
         projectName: workspace.project.name,
         readiness,
-        reviewDetails
+        reviewDetails,
+        sessionContext,
+        projectBrainContext
       });
     }
+  }
+
+  if (!projectContext && (sessionContext || projectBrainContext)) {
+    projectContext = [projectBrainContext ? `Project memory: ${projectBrainContext}` : null, sessionContext ? `Recent session context: ${sessionContext}` : null]
+      .filter(Boolean)
+      .join(" ");
   }
 
   if (state !== "error") {

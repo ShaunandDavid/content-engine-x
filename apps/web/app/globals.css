@@ -1,3 +1,31 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Aptos", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface-strong);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--surface-strong);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-contrast);
+  --color-secondary: var(--surface-muted);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-muted);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: rgba(15, 15, 15, 0.18);
+  --radius: 1.1rem;
+}
+
 :root {
   --font-sans: "Aptos", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "IBM Plex Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
@@ -4228,12 +4256,297 @@ p {
   font-size: 0.85rem;
 }
 
+.enoch-assistant-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(222, 230, 245, 0.4), transparent 34%),
+    radial-gradient(circle at 84% 12%, rgba(235, 236, 230, 0.28), transparent 24%),
+    linear-gradient(180deg, #fafaf7 0%, #f2f2ed 100%);
+}
+
+.enoch-assistant-shell {
+  width: min(1480px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 18px 0 36px;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 380px;
+  gap: 18px;
+}
+
+.enoch-assistant-sidebar,
+.enoch-assistant-main,
+.enoch-assistant-context {
+  min-height: calc(100vh - 110px);
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow);
+}
+
+.enoch-assistant-sidebar,
+.enoch-assistant-context {
+  padding: 20px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.enoch-assistant-main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.enoch-assistant-sidebar__header,
+.enoch-assistant-thread__header,
+.enoch-assistant-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.enoch-assistant-sidebar__header h1,
+.enoch-assistant-thread__header h2,
+.enoch-assistant-panel__header h3 {
+  margin-top: 8px;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+}
+
+.enoch-assistant-sidebar__section,
+.enoch-assistant-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.enoch-assistant-sidebar__label {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.enoch-assistant-sidebar__list,
+.enoch-assistant-memory-list,
+.enoch-assistant-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.enoch-assistant-session,
+.enoch-assistant-project,
+.enoch-assistant-history-item,
+.enoch-assistant-bundle-chip {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.enoch-assistant-session strong,
+.enoch-assistant-project strong,
+.enoch-assistant-history-item strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.enoch-assistant-session span,
+.enoch-assistant-project span,
+.enoch-assistant-history-item span,
+.enoch-assistant-history-item em {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.enoch-assistant-session:hover,
+.enoch-assistant-project:hover,
+.enoch-assistant-history-item:hover,
+.enoch-assistant-bundle-chip:hover,
+.enoch-assistant-session--active,
+.enoch-assistant-project--active,
+.enoch-assistant-history-item--active,
+.enoch-assistant-bundle-chip--active {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: var(--surface-overlay);
+}
+
+.enoch-assistant-thread__header {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.enoch-assistant-thread__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.enoch-assistant-thread {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.enoch-assistant-message {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.enoch-assistant-message--assistant {
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--ink) 18%);
+}
+
+.enoch-assistant-message--user {
+  background: color-mix(in srgb, var(--surface-muted) 94%, var(--ink) 6%);
+}
+
+.enoch-assistant-message--event {
+  background: transparent;
+  border-style: dashed;
+}
+
+.enoch-assistant-message__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.enoch-assistant-message p,
+.enoch-assistant-context__summary,
+.enoch-assistant-context__detail,
+.enoch-assistant-memory-list p {
+  line-height: 1.6;
+}
+
+.enoch-assistant-empty {
+  display: grid;
+  gap: 10px;
+  padding: 26px;
+  border-radius: 24px;
+  border: 1px dashed var(--line);
+  background: var(--surface-muted);
+}
+
+.enoch-assistant-empty h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.enoch-assistant-empty p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.enoch-assistant-thread__composer {
+  display: grid;
+  gap: 12px;
+  padding: 18px 24px 24px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.28));
+}
+
+.enoch-assistant-thread__composer textarea,
+.enoch-assistant-panel textarea,
+.enoch-assistant-panel select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--field-bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.enoch-assistant-thread__composer textarea,
+.enoch-assistant-panel textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.enoch-assistant-thread__composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.enoch-assistant-source-list,
+.enoch-assistant-scene-output,
+.enoch-assistant-scene-output ol,
+.enoch-assistant-scene-output__links {
+  display: grid;
+  gap: 12px;
+}
+
+.enoch-assistant-source-list article,
+.enoch-assistant-memory-list article,
+.enoch-assistant-scene-output li {
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.enoch-assistant-source-list span,
+.enoch-assistant-scene-output li span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+}
+
+.enoch-assistant-scene-output ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.enoch-assistant-scene-output li strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.enoch-assistant-scene-output li p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.enoch-assistant-scene-output__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 :root[data-theme="dark"] .projects-shell,
 :root[data-theme="dark"] .auth-shell,
 :root[data-theme="dark"] .construction-layout,
 :root[data-theme="dark"] .console-page,
 :root[data-theme="dark"] .systems-page,
 :root[data-theme="dark"] .studio-page-shell,
+:root[data-theme="dark"] .enoch-assistant-page,
 :root[data-theme="dark"] .studio-macro-shell,
 :root[data-theme="dark"] .enoch-home-main,
 :root[data-theme="dark"] .ws-layout {
@@ -4262,6 +4575,18 @@ p {
 :root[data-theme="dark"] .systems-callout,
 :root[data-theme="dark"] .systems-service-card,
 :root[data-theme="dark"] .systems-hero__status,
+:root[data-theme="dark"] .enoch-assistant-sidebar,
+:root[data-theme="dark"] .enoch-assistant-main,
+:root[data-theme="dark"] .enoch-assistant-context,
+:root[data-theme="dark"] .enoch-assistant-session,
+:root[data-theme="dark"] .enoch-assistant-project,
+:root[data-theme="dark"] .enoch-assistant-history-item,
+:root[data-theme="dark"] .enoch-assistant-bundle-chip,
+:root[data-theme="dark"] .enoch-assistant-message,
+:root[data-theme="dark"] .enoch-assistant-empty,
+:root[data-theme="dark"] .enoch-assistant-source-list article,
+:root[data-theme="dark"] .enoch-assistant-memory-list article,
+:root[data-theme="dark"] .enoch-assistant-scene-output li,
 :root[data-theme="dark"] .ws-toolbar,
 :root[data-theme="dark"] .ws-sidebar,
 :root[data-theme="dark"] .ws-inspector,
@@ -4297,6 +4622,18 @@ p {
 :root[data-theme="dark"] .systems-callout p,
 :root[data-theme="dark"] .systems-check__message,
 :root[data-theme="dark"] .systems-pipeline-card p,
+:root[data-theme="dark"] .enoch-assistant-session span,
+:root[data-theme="dark"] .enoch-assistant-project span,
+:root[data-theme="dark"] .enoch-assistant-history-item span,
+:root[data-theme="dark"] .enoch-assistant-history-item em,
+:root[data-theme="dark"] .enoch-assistant-message__meta,
+:root[data-theme="dark"] .enoch-assistant-empty p,
+:root[data-theme="dark"] .enoch-assistant-context__summary,
+:root[data-theme="dark"] .enoch-assistant-context__detail,
+:root[data-theme="dark"] .enoch-assistant-memory-list p,
+:root[data-theme="dark"] .enoch-assistant-source-list span,
+:root[data-theme="dark"] .enoch-assistant-scene-output li span,
+:root[data-theme="dark"] .enoch-assistant-scene-output li p,
 :root[data-theme="dark"] .ws-truth-banner p,
 :root[data-theme="dark"] .ws-sidebar-list p,
 :root[data-theme="dark"] .ws-inspector-card p,
@@ -4349,13 +4686,20 @@ p {
   }
 
   .projects-hero,
-  .studio-board__topbar {
+  .studio-board__topbar,
+  .enoch-assistant-shell {
     grid-template-columns: 1fr;
     align-items: start;
   }
 
   .studio-board {
     min-height: 680px;
+  }
+
+  .enoch-assistant-sidebar,
+  .enoch-assistant-main,
+  .enoch-assistant-context {
+    min-height: auto;
   }
 }
 
@@ -4370,6 +4714,29 @@ p {
 
   .project-card__header,
   .project-card__footer {
+    flex-direction: column;
+  }
+
+  .enoch-assistant-shell {
+    width: min(100%, calc(100% - 20px));
+    padding-bottom: 24px;
+  }
+
+  .enoch-assistant-sidebar,
+  .enoch-assistant-context {
+    padding: 16px;
+  }
+
+  .enoch-assistant-thread__header,
+  .enoch-assistant-thread,
+  .enoch-assistant-thread__composer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .enoch-assistant-sidebar__header,
+  .enoch-assistant-thread__header,
+  .enoch-assistant-panel__header {
     flex-direction: column;
   }
 

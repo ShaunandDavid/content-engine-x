@@ -1,53 +1,34 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CanvasNode } from "../../components/workspace/canvas-node";
-import { InfiniteCanvas } from "../../components/workspace/infinite-canvas";
-import { WorkspaceLayout } from "../../components/workspace/workspace-layout";
-import { demoProject, stageLabels } from "../../lib/dashboard-data";
-import {
-  clipReviewRoute,
-  dashboardRoute,
-  projectEnochRoute,
-  projectRoute,
-  renderRoute,
-  sceneReviewRoute
-} from "../../lib/routes";
+import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
+import { SplineScene } from "../../components/spline/spline-scene";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { ScrollArea } from "../../components/ui/scroll-area";
+import { stageLabels } from "../../lib/dashboard-data";
+import { projectRoute, projectsRoute, sequenceRoute, studioRoute } from "../../lib/routes";
 import { getEnochWorkspaceSummary } from "../../lib/server/enoch-project-data";
-import { getOperationalDashboardData } from "../../lib/server/dashboard-operational-data";
-import { getClipGenerationReadiness, getRenderReadiness, getSceneReviewSummary } from "../../lib/server/project-flow-readiness";
 import { getProjectWorkspaceOrDemo } from "../../lib/server/project-data";
+import { listRecentProjects } from "../../lib/server/projects-index";
+import { WorkspaceOrbConsole } from "../../components/workspace/workspace-orb-console";
 
 export const metadata: Metadata = {
   title: "Enoch Workspace",
-  description: "Review the live project graph, current stage, and the next operational move inside Project Enoch."
+  description: "Workspace is now the orb-driven operator surface for Enoch, project context, and assistant handoff."
 };
+
+const workspaceSplineScene = "https://prod.spline.design/YSt2x6UBC3haTfFM/scene.splinecode";
+
+const normalizeProjectId = (value: string | string[] | undefined) =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
 
 const formatLabel = (value: string) =>
   value
     .replace(/_/g, " ")
     .split(" ")
-    .map((segment) => (segment ? `${segment.charAt(0).toUpperCase()}${segment.slice(1)}` : segment))
+    .map((segment) => `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)
     .join(" ");
-
-const truncate = (value: string, max = 120) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}…` : value);
-
-const normalizeProjectId = (value: string | string[] | undefined) =>
-  typeof value === "string" && value.trim() ? value.trim() : null;
-
-const safeTruncate = (value: string, max = 120) => (value.length > max ? `${value.slice(0, max - 1).trimEnd()}...` : value);
-
-const summarizeRuntimeBlocker = (value: string | null) => {
-  if (!value) {
-    return null;
-  }
-
-  if (value.startsWith("Supabase env/config is invalid")) {
-    return "Supabase env/config is invalid. Restore the project database environment on this branch to bind live workspace state.";
-  }
-
-  return value;
-};
 
 export default async function WorkspacePage({
   searchParams
@@ -55,483 +36,208 @@ export default async function WorkspacePage({
   searchParams?: Promise<{ projectId?: string | string[] }>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
+  const recentProjects = await listRecentProjects(10);
   const requestedProjectId = normalizeProjectId(resolvedSearchParams.projectId);
-  const dashboard = await getOperationalDashboardData();
-  const fallbackProjectId = dashboard.recentProjects[0]?.id ?? null;
-  const activeProjectId = requestedProjectId ?? fallbackProjectId;
+  const activeProjectId = requestedProjectId ?? recentProjects.projects[0]?.id ?? null;
   const workspace = activeProjectId ? await getProjectWorkspaceOrDemo(activeProjectId) : null;
-  const runtimeBlocker = summarizeRuntimeBlocker(
-    dashboard.readiness?.blockingIssues[0] ??
-      (dashboard.dataAvailable
-        ? null
-        : "The current environment cannot load persisted project records until the Supabase workspace configuration is restored.")
-  );
-
-  const workspaceUnavailableReason = requestedProjectId
-    ? runtimeBlocker
-      ? `The selected project could not be loaded from the active workspace source of truth. ${runtimeBlocker}`
-      : "The selected project could not be loaded from the active workspace source of truth."
-    : runtimeBlocker
-      ? runtimeBlocker
-      : dashboard.dataAvailable
-        ? "No persisted projects are available yet. Start a project and the workspace will bind here automatically."
-        : "The current environment cannot read persisted project state yet.";
-
-  const hasBoundWorkspace = Boolean(workspace);
-  const isDemoWorkspace = activeProjectId === demoProject.id;
-
-  const sceneReviewSummary = workspace ? getSceneReviewSummary(workspace) : null;
-  const clipReadiness = workspace ? getClipGenerationReadiness(workspace) : null;
-  const renderReadiness = workspace ? getRenderReadiness(workspace) : null;
   const enochSummary = workspace ? getEnochWorkspaceSummary(workspace) : null;
 
-  const completedClipCount = workspace?.clips.filter((clip) => clip.status === "completed").length ?? 0;
-  const activeClipCount =
-    workspace?.clips.filter((clip) => clip.status === "pending" || clip.status === "queued" || clip.status === "running").length ?? 0;
-  const failedClipCount = workspace?.clips.filter((clip) => clip.status === "failed").length ?? 0;
-  const persistedAssetCount =
-    workspace?.assets.filter((asset) => asset.status === "completed" && asset.objectKey?.trim()).length ?? 0;
-  const latestAudit = workspace?.auditLogs[0] ?? null;
-
-  const nextExecution = !workspace
+  const clipCounts = workspace
     ? {
-        label: "Create a Project",
-        href: "/projects/new",
-        summary: workspaceUnavailableReason
+        completed: workspace.clips.filter((clip) => clip.status === "completed").length,
+        active: workspace.clips.filter((clip) => ["pending", "queued", "running"].includes(clip.status)).length
       }
-    : !sceneReviewSummary?.allScenesReadyForNextStage
-      ? {
-          label: "Scene Planner",
-          href: sceneReviewRoute(workspace.project.id),
-          summary: sceneReviewSummary?.blockingIssues[0] ?? "Scene review still needs operator attention."
-        }
-      : clipReadiness?.canGenerate
-        ? {
-            label: "Generation Queue",
-            href: clipReviewRoute(workspace.project.id),
-            summary:
-              workspace.clips.length > 0
-                ? `${completedClipCount} completed clip${completedClipCount === 1 ? "" : "s"} are already persisted for this project.`
-                : "Scenes and prompts are ready, so clip generation is the next real execution step."
-          }
-        : renderReadiness?.canStartRender
-          ? {
-              label: "Render Pipeline",
-              href: renderRoute(workspace.project.id),
-              summary: "Completed clips and persisted assets are ready for final render assembly."
-            }
-          : {
-              label: "Open Overview",
-              href: projectRoute(workspace.project.id),
-              summary:
-                clipReadiness?.blockingIssues[0] ??
-                renderReadiness?.blockingIssues[0] ??
-                "Open the project route to review the latest persisted workflow state."
-            };
-
-  const toolbarTitle = workspace ? `Enoch Workspace // ${workspace.project.name}` : "Enoch Workspace // Live Binding";
-  const toolbarCenter = (
-    <>
-      <span className="ws-toolbar-chip">{workspace ? stageLabels[workspace.project.currentStage] : "No project bound"}</span>
-      <span className="ws-toolbar-chip">{workspace ? formatLabel(workspace.project.status) : "Runtime only"}</span>
-      <span className="ws-toolbar-chip">
-        {workspace ? `${workspace.scenes.length} scenes / ${workspace.prompts.length} prompts` : `${dashboard.recentProjects.length} recent projects`}
-      </span>
-      <span className="ws-toolbar-mobile-tip">
-        {workspace
-          ? `Bound to ${workspace.project.name}. Drag to review, pan to inspect, and use the live routes for downstream execution.`
-          : "No live project is bound yet. This surface is waiting on persisted project state."}
-      </span>
-    </>
-  );
-
-  const toolbarActions = workspace ? (
-    <>
-      <Link href={projectEnochRoute(workspace.project.id)} className="ws-btn ws-btn--subtle" prefetch={false}>
-        Project Enoch
-      </Link>
-      <Link href={projectRoute(workspace.project.id)} className="ws-btn" prefetch={false}>
-        Overview
-      </Link>
-      <Link href={nextExecution.href} className="ws-btn ws-btn--primary" prefetch={false}>
-        {nextExecution.label}
-      </Link>
-    </>
-  ) : (
-    <>
-      <Link href={dashboardRoute} className="ws-btn ws-btn--subtle" prefetch={false}>
-        Open Pipeline
-      </Link>
-      <Link href="/projects/new" className="ws-btn" prefetch={false}>
-        Create a Project
-      </Link>
-      <Link href="/systems" className="ws-btn ws-btn--primary" prefetch={false}>
-        Fix Runtime
-      </Link>
-    </>
-  );
-
-  const sidebar = (
-    <>
-      <div className="ws-truth-banner">
-        <strong>{workspace ? "Live Project Binding" : "No Live Project Bound"}</strong>
-        <p>
-          {workspace
-            ? `This canvas is grounded in the persisted ${isDemoWorkspace ? "demo" : "project"} workspace state. Downstream routes stay canonical.`
-            : workspaceUnavailableReason}
-        </p>
-      </div>
-
-      <div className="ws-sidebar-section">
-        <p className="ws-sidebar-title">Pipeline View</p>
-        <ul className="ws-sidebar-list">
-          <li>
-            <div>
-              <strong>{workspace ? "Current stage" : "Runtime posture"}</strong>
-              <p>
-                {workspace
-                  ? `${stageLabels[workspace.project.currentStage]} is the current persisted stage for ${workspace.project.name}.`
-                  : runtimeBlocker ?? "Workspace binding will become active as soon as persisted project state is available."}
-              </p>
-            </div>
-            <span>{workspace ? formatLabel(workspace.project.status) : dashboard.dataAvailable ? "Ready" : "Blocked"}</span>
-          </li>
-          <li>
-            <div>
-              <strong>{workspace ? "Scene review" : "Project intake"}</strong>
-              <p>
-                {workspace
-                  ? sceneReviewSummary?.blockingIssues[0] ??
-                    `${sceneReviewSummary?.readyCount ?? 0} of ${workspace.scenes.length} scenes are marked ready for downstream execution.`
-                  : "Create a project or restore runtime access so the staging surface can bind to a real workflow."}
-              </p>
-            </div>
-            <span>
-              {workspace
-                ? sceneReviewSummary?.allScenesReadyForNextStage
-                  ? "Ready"
-                  : "Review"
-                : "Next"}
-            </span>
-          </li>
-          <li>
-            <div>
-              <strong>{workspace ? "Next execution step" : "Route to unblock"}</strong>
-              <p>{nextExecution.summary}</p>
-            </div>
-            <span>{workspace ? "Live" : "Action"}</span>
-          </li>
-        </ul>
-      </div>
-
-      <div className="ws-sidebar-section ws-sidebar-section--compact">
-        <p className="ws-sidebar-title">Key Signals</p>
-        <ul className="ws-sidebar-list">
-          <li>
-            <div>
-              <strong>{workspace ? "Brief signal" : "Runtime health"}</strong>
-              <p>
-                {workspace
-                  ? workspace.brief?.objective ?? "No persisted brief objective is available yet."
-                  : runtimeBlocker ?? "The systems surface is the next source of truth for runtime blockers."}
-              </p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>{workspace ? "Enoch context" : "Workspace source"}</strong>
-              <p>
-                {workspace
-                  ? enochSummary?.status === "completed"
-                    ? enochSummary.recommendedAngle ?? "Enoch planning is linked to this project."
-                    : "Enoch preplanning is not linked yet, so the workspace is staying grounded in the persisted project graph."
-                  : "This route no longer falls back to static composition copy when live state is missing."}
-              </p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <strong>{workspace ? "Downstream readiness" : "Next move"}</strong>
-              <p>
-                {workspace
-                  ? clipReadiness?.blockingIssues[0] ??
-                    renderReadiness?.blockingIssues[0] ??
-                    `${persistedAssetCount} persisted asset${persistedAssetCount === 1 ? "" : "s"} are available for downstream execution.`
-                  : "Use the project intake route to create a workspace record, then return here for live staging."}
-              </p>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </>
-  );
-
-  const inspector = (
-    <>
-      <p className="ws-inspector-title">Project Focus</p>
-      <div className="ws-inspector-card">
-        <h2>{workspace ? workspace.project.name : "No live project bound"}</h2>
-        <p>
-          {workspace
-            ? workspace.brief?.rawBrief ?? "No raw brief has been persisted for this project yet."
-            : "When a persisted project is available, this surface will automatically stage the latest project here."}
-        </p>
-      </div>
-
-      <div className="ws-inspector-list">
-        <article className="ws-inspector-stat">
-          <span>Current stage</span>
-          <strong>{workspace ? stageLabels[workspace.project.currentStage] : "Unavailable"}</strong>
-        </article>
-        <article className="ws-inspector-stat">
-          <span>Enoch posture</span>
-          <strong>
-            {workspace
-              ? enochSummary?.status === "completed"
-                ? "Linked to project context"
-                : enochSummary?.status === "skipped"
-                  ? "Skipped for this workspace"
-                  : "Not linked yet"
-              : "No active project bound"}
-          </strong>
-        </article>
-        <article className="ws-inspector-stat">
-          <span>Execution surface</span>
-          <strong>
-            {workspace
-              ? `${completedClipCount} completed clips / ${persistedAssetCount} persisted assets`
-              : dashboard.recentProjects.length > 0
-                ? `${dashboard.recentProjects.length} project${dashboard.recentProjects.length === 1 ? "" : "s"} available to bind`
-                : "No live projects available"}
-          </strong>
-        </article>
-      </div>
-
-      {dashboard.recentProjects.length > 0 ? (
-        <div className="ws-inspector-card">
-          <h2>Recent projects</h2>
-          <p>Switch the workspace between real project records without leaving this route.</p>
-          <div className="ws-project-link-stack">
-            {dashboard.recentProjects.map((project) => (
-              <Link
-                href={`/workspace?projectId=${encodeURIComponent(project.id)}`}
-                className={`ws-project-link ${project.id === activeProjectId ? "ws-project-link--active" : ""}`}
-                key={project.id}
-                prefetch={false}
-              >
-                <strong>{project.name}</strong>
-                <span>
-                  {stageLabels[project.currentStage]} / {formatLabel(project.status)}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
-
-  const footer = workspace ? (
-    <>
-      <Link href={projectEnochRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
-        Project Enoch
-      </Link>
-      <Link href={nextExecution.href} className="ws-dock-item ws-dock-item--primary" prefetch={false}>
-        {nextExecution.label}
-      </Link>
-      <Link href={projectRoute(workspace.project.id)} className="ws-dock-item" prefetch={false}>
-        Overview
-      </Link>
-    </>
-  ) : (
-    <>
-      <Link href={dashboardRoute} className="ws-dock-item" prefetch={false}>
-        Open Pipeline
-      </Link>
-      <Link href="/projects/new" className="ws-dock-item ws-dock-item--primary" prefetch={false}>
-        Create a Project
-      </Link>
-      <Link href="/systems" className="ws-dock-item" prefetch={false}>
-        Open Runtime
-      </Link>
-    </>
-  );
+    : null;
 
   return (
-    <WorkspaceLayout
-      toolbarTitle={toolbarTitle}
-      toolbarCenter={toolbarCenter}
-      toolbarActions={toolbarActions}
-      sidebar={sidebar}
-      inspector={inspector}
-      footer={footer}
-    >
-      <InfiniteCanvas>
-        {workspace ? (
-          <>
-            <CanvasNode id="brief" initialX={120} initialY={110} title="Project Brief">
-              <div className="ws-copy-block">
-                <p className="ws-node-eyebrow">Objective</p>
-                <p className="ws-node-title">{workspace.brief?.objective ?? "No persisted objective is available yet."}</p>
-                <div className="ws-keyline">
-                  <span>Audience</span>
-                  <strong>{workspace.brief?.audience ?? "Audience not persisted yet"}</strong>
-                </div>
-                <div className="ws-keyline">
-                  <span>Tone</span>
-                  <strong>{formatLabel(workspace.project.tone)}</strong>
-                </div>
-                <div className="ws-keyline">
-                  <span>Primary output</span>
-                  <strong>
-                    {workspace.project.aspectRatio} / {workspace.project.durationSeconds}s /{" "}
-                    {workspace.project.platforms.map((platform) => formatLabel(platform)).join(", ")}
-                  </strong>
-                </div>
-              </div>
-            </CanvasNode>
+    <main className="min-h-screen bg-[#040404] text-white">
+      <div className="absolute inset-x-0 top-0 h-[640px] bg-[radial-gradient(circle_at_top,rgba(34,197,94,0.16),transparent_24%),radial-gradient(circle_at_78%_14%,rgba(59,130,246,0.14),transparent_18%),linear-gradient(180deg,#040404_0%,#06070c_45%,#040404_100%)]" />
+      <EnochTopNav currentRoute="workspace" />
 
-            <CanvasNode id="workflow-state" initialX={450} initialY={110} title="Pipeline State">
-              <div className="ws-copy-block">
-                <div className="ws-chip-row">
-                  <span className="ws-chip">{stageLabels[workspace.project.currentStage]}</span>
-                  <span className="ws-chip">{formatLabel(workspace.project.status)}</span>
-                </div>
-                <div className="ws-keyline">
-                  <span>Workflow run</span>
-                  <strong>{workspace.workflowRun?.id ?? "No workflow run persisted yet"}</strong>
-                </div>
-                <div className="ws-keyline">
-                  <span>Latest activity</span>
-                  <strong>
-                    {latestAudit ? `${formatLabel(latestAudit.action)} / ${latestAudit.createdAt.slice(0, 10)}` : "No audit event persisted yet"}
-                  </strong>
-                </div>
-                <p className="ws-prompt-quote">
-                  {latestAudit?.errorMessage
-                    ? latestAudit.errorMessage
-                    : safeTruncate(
-                        workspace.project.errorMessage ??
-                          workspace.workflowRun?.errorMessage ??
-                          "The workspace is reading the persisted project graph directly, so stage and status updates stay canonical here."
-                      )}
+      <section className="relative px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1480px] space-y-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-3">
+              <Badge variant="outline" className="border-white/12 bg-white/5 text-white/72">
+                Workspace
+              </Badge>
+              <div className="space-y-2">
+                <h1 className="text-4xl font-semibold tracking-[-0.06em] text-white sm:text-5xl">The Enoch orb now lives where the work happens.</h1>
+                <p className="max-w-3xl text-base leading-7 text-white/66 sm:text-lg">
+                  Workspace is the operator surface: project context, orb identity, and a real handoff into the dedicated Enoch assistant.
                 </p>
               </div>
-            </CanvasNode>
+            </div>
 
-            <CanvasNode id="scene-stack" initialX={785} initialY={110} title="Scene Planner">
-              {workspace.scenes.length > 0 ? (
-                <ol className="ws-scene-list">
-                  {workspace.scenes.slice(0, 4).map((scene) => {
-                    const review = sceneReviewSummary?.scenes.find((entry) => entry.scene.id === scene.id);
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="secondary" className="border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
+                <Link href={studioRoute} prefetch={false}>
+                  Open Studio
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" className="text-white/72 hover:bg-white/8 hover:text-white">
+                <Link href={sequenceRoute} prefetch={false}>
+                  Review Sequence
+                </Link>
+              </Button>
+            </div>
+          </div>
 
-                    return (
-                      <li key={scene.id}>
-                        <strong>
-                          {scene.ordinal}. {scene.title}
-                        </strong>
-                        <span>{safeTruncate(scene.visualBeat, 80)}</span>
-                        <span>
-                          {review?.readyForNextStage ? "Ready for downstream execution." : `Review: ${formatLabel(review?.reviewState ?? "pending")}.`}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              ) : (
-                <p className="ws-prompt-quote">
-                  Scenes will appear here as soon as the active project persists planning output into the workspace record.
-                </p>
-              )}
-            </CanvasNode>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+            <div className="space-y-6">
+              <div className="overflow-hidden rounded-[36px] border border-white/12 bg-white/[0.045] shadow-[0_40px_120px_rgba(0,0,0,0.34)]">
+                <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+                  <div className="relative min-h-[360px] border-b border-white/10 lg:min-h-[560px] lg:border-b-0 lg:border-r">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,rgba(255,255,255,0.16),transparent_20%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))]" />
+                    <SplineScene
+                      scene={workspaceSplineScene}
+                      eager
+                      decorative
+                      className="h-full w-full"
+                      stageClassName="[&>div]:h-full [&_canvas]:!h-full [&_canvas]:!w-full"
+                    />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#040404] via-[#040404]/55 to-transparent" />
+                    <div className="absolute left-5 top-5 rounded-full border border-white/12 bg-black/22 px-4 py-2 text-xs uppercase tracking-[0.24em] text-white/56 backdrop-blur-md">
+                      Enoch intelligence core
+                    </div>
+                  </div>
 
-            <CanvasNode id="enoch-context" initialX={210} initialY={440} title="Project Enoch">
-              <div className="ws-copy-block">
-                <p className="ws-node-eyebrow">Project grounding</p>
-                <p className="ws-prompt-quote">
-                  {enochSummary?.status === "completed"
-                    ? enochSummary.reasoningSummary ??
-                      enochSummary.recommendedAngle ??
-                      "Enoch has linked planning context for this project."
-                    : enochSummary?.status === "skipped"
-                      ? enochSummary.errorMessage ?? "Enoch preplanning was skipped for this project."
-                      : "No stored Enoch preplanning is linked yet. The workspace remains grounded in the persisted brief, scenes, and prompts."}
-                </p>
-                <ul className="ws-constraint-list">
-                  <li>{enochSummary?.coreGoal ?? workspace.brief?.objective ?? "No stored core goal yet."}</li>
-                  <li>{enochSummary?.audience ?? workspace.brief?.audience ?? "Audience context will appear once persisted."}</li>
-                  <li>{enochSummary?.recommendedAngle ?? "Use the project Enoch route when deeper reasoning output is available."}</li>
-                </ul>
-              </div>
-            </CanvasNode>
+                  <div className="flex flex-col justify-between gap-5 p-5 sm:p-6">
+                    <div className="space-y-3">
+                      <p className="text-xs uppercase tracking-[0.24em] text-white/42">Bound project</p>
+                      <h2 className="text-2xl font-semibold tracking-[-0.05em] text-white">
+                        {workspace?.project.name ?? "No project selected yet"}
+                      </h2>
+                      <p className="text-sm leading-6 text-white/64">
+                        {workspace?.brief?.objective ??
+                          recentProjects.message ??
+                          "Choose a live project to bring project memory, scenes, prompts, and downstream actions into the workspace."}
+                      </p>
+                    </div>
 
-            <CanvasNode id="output-shape" initialX={560} initialY={430} title="Output Preview">
-              <div className="ws-preview-frame">
-                <div className="ws-preview-frame__glow" />
-                <div className="ws-preview-frame__caption">
-                  <strong>{workspace.project.name}</strong>
-                  <span>{safeTruncate(workspace.brief?.objective ?? "Project-defined output framing.", 76)}</span>
+                    <div className="grid gap-3">
+                      <div className="rounded-[28px] border border-white/10 bg-black/18 px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.22em] text-white/38">Stage</p>
+                        <p className="mt-2 text-base font-medium text-white">
+                          {workspace ? stageLabels[workspace.project.currentStage] : "Awaiting project binding"}
+                        </p>
+                      </div>
+                      <div className="rounded-[28px] border border-white/10 bg-black/18 px-4 py-4">
+                        <p className="text-xs uppercase tracking-[0.22em] text-white/38">Enoch memory</p>
+                        <p className="mt-2 text-sm leading-6 text-white/66">
+                          {enochSummary?.recommendedAngle ??
+                            enochSummary?.reasoningSummary ??
+                            "No stored Enoch guidance is attached yet, so Workspace is using live project truth only."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="ws-chip-row">
-                <span className="ws-chip">{workspace.project.aspectRatio}</span>
-                <span className="ws-chip">{workspace.project.durationSeconds}s</span>
-                <span className="ws-chip">{formatLabel(workspace.project.provider)}</span>
-              </div>
-            </CanvasNode>
 
-            <CanvasNode id="execution-readiness" initialX={900} initialY={430} title="Execution Readiness">
-              <ul className="ws-delivery-list">
-                <li>
-                  <span>Scene review</span>
-                  <strong>
-                    {sceneReviewSummary?.allScenesReadyForNextStage
-                      ? "All scenes are ready for the next stage"
-                      : sceneReviewSummary?.blockingIssues[0] ?? "Scene review is still pending"}
-                  </strong>
-                </li>
-                <li>
-                  <span>Clip and asset posture</span>
-                  <strong>
-                    {completedClipCount} completed clips / {activeClipCount} active clips / {failedClipCount} failed / {persistedAssetCount} persisted assets
-                  </strong>
-                </li>
-                <li>
-                  <span>Next live move</span>
-                  <strong>{nextExecution.summary}</strong>
-                </li>
-              </ul>
-            </CanvasNode>
-          </>
-        ) : (
-          <>
-            <CanvasNode id="binding-status" initialX={140} initialY={120} title="Project Binding">
-              <div className="ws-copy-block">
-                <p className="ws-node-eyebrow">Source of truth</p>
-                <p className="ws-node-title">The workspace is now waiting on a persisted project instead of rendering a detached prototype composition.</p>
-                <p className="ws-prompt-quote">{workspaceUnavailableReason}</p>
-              </div>
-            </CanvasNode>
+              <WorkspaceOrbConsole
+                projects={recentProjects.projects}
+                defaultProjectId={activeProjectId}
+                activeProjectName={workspace?.project.name ?? null}
+              />
+            </div>
 
-            <CanvasNode id="next-step" initialX={520} initialY={180} title="Next Move">
-              <ul className="ws-delivery-list">
-                <li>
-                  <span>Project intake</span>
-                  <strong>Create or restore a persisted project record.</strong>
-                </li>
-                <li>
-                  <span>Runtime</span>
-                  <strong>{runtimeBlocker ?? "Workspace binding will activate automatically when project data is reachable."}</strong>
-                </li>
-                <li>
-                  <span>Next route</span>
-                  <strong>Use Projects to create a record, then return here for live staging.</strong>
-                </li>
-              </ul>
-            </CanvasNode>
-          </>
-        )}
-      </InfiniteCanvas>
-    </WorkspaceLayout>
+            <div className="space-y-4">
+              <div className="rounded-[34px] border border-white/12 bg-white/[0.045] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.3)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/42">Live project context</p>
+                <div className="mt-5 grid gap-3">
+                  <div className="rounded-[24px] border border-white/10 bg-black/18 px-4 py-4">
+                    <span className="text-xs uppercase tracking-[0.22em] text-white/38">Status</span>
+                    <p className="mt-2 text-base font-medium text-white">{workspace ? formatLabel(workspace.project.status) : "Unavailable"}</p>
+                  </div>
+                  <div className="rounded-[24px] border border-white/10 bg-black/18 px-4 py-4">
+                    <span className="text-xs uppercase tracking-[0.22em] text-white/38">Output shape</span>
+                    <p className="mt-2 text-base font-medium text-white">
+                      {workspace ? `${workspace.project.aspectRatio} / ${workspace.project.durationSeconds}s` : "Not set"}
+                    </p>
+                  </div>
+                  <div className="rounded-[24px] border border-white/10 bg-black/18 px-4 py-4">
+                    <span className="text-xs uppercase tracking-[0.22em] text-white/38">Scene and clip posture</span>
+                    <p className="mt-2 text-sm leading-6 text-white/66">
+                      {workspace
+                        ? `${workspace.scenes.length} scenes, ${workspace.prompts.length} prompts, ${clipCounts?.completed ?? 0} completed clips, ${clipCounts?.active ?? 0} active clips.`
+                        : "Project-linked scene and clip counts appear here once a workspace record is bound."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[34px] border border-white/12 bg-white/[0.045] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.3)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/42">Recent projects</p>
+                    <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-white">Project switching stays live.</h2>
+                  </div>
+                  <Link href={projectsRoute} prefetch={false} className="text-sm font-medium text-white/76">
+                    All projects
+                  </Link>
+                </div>
+                <ScrollArea className="mt-5 h-[320px] pr-2">
+                  <div className="space-y-3">
+                    {recentProjects.ok && recentProjects.projects.length > 0 ? (
+                      recentProjects.projects.map((project) => (
+                        <Link
+                          key={project.id}
+                          href={`/workspace?projectId=${encodeURIComponent(project.id)}`}
+                          prefetch={false}
+                          className={`block rounded-[26px] border px-4 py-4 transition-colors ${
+                            project.id === activeProjectId
+                              ? "border-white/18 bg-white/12"
+                              : "border-white/10 bg-black/16 hover:bg-white/8"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-base font-medium text-white">{project.name}</p>
+                              <p className="mt-1 text-sm text-white/54">
+                                {stageLabels[project.currentStage]} / {formatLabel(project.status)}
+                              </p>
+                            </div>
+                            <span className="text-xs uppercase tracking-[0.18em] text-white/38">{project.aspectRatio}</span>
+                          </div>
+                        </Link>
+                      ))
+                    ) : (
+                      <div className="rounded-[26px] border border-white/10 bg-black/16 px-4 py-5 text-sm leading-6 text-white/62">
+                        {recentProjects.message ?? "No persisted projects are available yet."}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              <div className="rounded-[34px] border border-white/12 bg-white/[0.045] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.3)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/42">Real routes</p>
+                <div className="mt-5 grid gap-3">
+                  <Button asChild variant="secondary" className="w-full justify-between border-white/12 bg-white/8 text-white hover:bg-white/14 hover:text-white">
+                    <Link href={workspace ? projectRoute(workspace.project.id) : projectsRoute} prefetch={false}>
+                      <span>{workspace ? "Open bound project" : "Browse projects"}</span>
+                      <span className="text-white/45">01</span>
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full justify-between border-white/12 bg-white/8 text-white hover:bg-white/14 hover:text-white">
+                    <Link href={studioRoute} prefetch={false}>
+                      <span>Open Studio</span>
+                      <span className="text-white/45">02</span>
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full justify-between border-white/12 bg-white/8 text-white hover:bg-white/14 hover:text-white">
+                    <Link href={sequenceRoute} prefetch={false}>
+                      <span>Open Sequence</span>
+                      <span className="text-white/45">03</span>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

@@ -26,7 +26,8 @@ export default async function EnochAssistantPage({
   });
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-[#040404] text-white">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[920px] bg-[radial-gradient(circle_at_18%_16%,rgba(94,234,212,0.14),transparent_18%),radial-gradient(circle_at_78%_12%,rgba(168,85,247,0.2),transparent_18%),linear-gradient(180deg,#040404_0%,#05070b_55%,#040404_100%)]" />
       <EnochTopNav currentRoute="assistant" />
       <EnochAssistantWorkspace initialData={data} />
     </main>

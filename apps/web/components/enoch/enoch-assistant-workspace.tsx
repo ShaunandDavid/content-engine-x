@@ -109,10 +109,10 @@ const buildWorkspaceHref = (projectId?: string | null) =>
   projectId ? `${workspaceRoute}?projectId=${encodeURIComponent(projectId)}` : workspaceRoute;
 
 const historyButtonClassName =
-  "w-full rounded-[22px] border border-border/60 bg-background/70 px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-accent/50";
+  "w-full rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.08]";
 
 const sourceCardClassName =
-  "rounded-[22px] border border-border/60 bg-background/70 p-4 shadow-sm";
+  "rounded-[22px] border border-white/10 bg-white/[0.04] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]";
 
 export const EnochAssistantWorkspace = ({ initialData }: Props) => {
   const router = useRouter();
@@ -445,12 +445,12 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
 
   const sidebarContent = (
     <div className="flex h-full flex-col gap-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Enoch</p>
-          <h1 className="text-2xl font-semibold tracking-[-0.05em]">Assistant Workspace</h1>
-          <p className="text-sm text-muted-foreground">History, projects, and retrieval in one operator rail.</p>
-        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/42">Enoch</p>
+            <h1 className="text-2xl font-semibold tracking-[-0.05em]">Assistant Workspace</h1>
+            <p className="text-sm text-white/52">Sessions and projects.</p>
+          </div>
         <Button variant="outline" size="sm" onClick={() => setCommandOpen(true)}>
           <Search className="h-4 w-4" />
           Jump
@@ -494,8 +494,8 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                   </button>
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
-                  No stored conversations yet.
+                <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-white/46">
+                  No stored threads.
                 </div>
               )}
             </div>
@@ -527,7 +527,7 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                   </button>
                 ))
               ) : (
-                <div className="rounded-[22px] border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
+                <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-white/46">
                   {initialData.recentProjects.message ?? "No persisted projects are available yet."}
                 </div>
               )}
@@ -613,15 +613,19 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
       </Dialog>
 
       <EnochSurfaceShell
-        sidebar={<div className="hidden lg:block">{sidebarContent}</div>}
+        sidebar={
+          <div className="hidden lg:block rounded-[34px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            {sidebarContent}
+          </div>
+        }
         main={
           <div className="min-w-0">
             <EnochSurfacePanel
               title={activeSession?.session.generatedLabel ?? activeSession?.session.title ?? "New conversation"}
               eyebrow="Conversation"
-              description="A dedicated operator thread with stored history and project grounding."
+              description="Live thread."
               className="h-full"
-              contentClassName="grid h-[min(72vh,880px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 p-0"
+              contentClassName="grid h-[min(68vh,760px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 p-0"
               action={
                 <div className="flex flex-wrap items-center gap-2">
                   {mobileSidebar}
@@ -638,7 +642,7 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
               }
             >
               <ScrollArea className="min-h-0 px-5 py-5">
-                <div className="space-y-4 pr-4">
+                <div className={cn("pr-4", activeSession?.messages.length ? "space-y-4" : "grid min-h-full place-items-center")}>
                   {activeSession?.messages.length ? (
                     activeSession.messages.map((message) => {
                       const sceneBundleMessage = parseSceneBundleMessage(message);
@@ -675,11 +679,19 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                       );
                     })
                   ) : (
-                    <div className="grid gap-3 rounded-[30px] border border-dashed border-border bg-background/60 p-8">
-                      <h3 className="text-lg font-semibold tracking-[-0.03em]">Start a working session.</h3>
-                      <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-                        Ask Enoch to shape direction, retrieve project memory, or generate a scene set for a linked workspace project.
+                    <div className="grid w-full max-w-[560px] gap-4 rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-8 text-center shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+                      <Badge variant="outline" className="mx-auto border-white/12 bg-white/5 text-white/62">
+                        Ready
+                      </Badge>
+                      <h3 className="text-2xl font-semibold tracking-[-0.04em] text-white">Open a working thread.</h3>
+                      <p className="mx-auto max-w-md text-sm leading-6 text-white/52">
+                        Ask for direction, pull context, or generate scenes for the active project.
                       </p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        <div className="rounded-full border border-white/10 bg-black/18 px-3 py-1.5 text-xs text-white/54">Direction</div>
+                        <div className="rounded-full border border-white/10 bg-black/18 px-3 py-1.5 text-xs text-white/54">Project memory</div>
+                        <div className="rounded-full border border-white/10 bg-black/18 px-3 py-1.5 text-xs text-white/54">Scene generation</div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -694,9 +706,7 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                   placeholder="Talk to Enoch about the project, the audience, or what to generate next."
                 />
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    Stored session context and project memory will be injected when available.
-                  </p>
+                  <p className="text-sm text-white/50">Project memory stays in play.</p>
                   <Button onClick={() => void submitMessage()} disabled={pendingAction === "sending" || !composerValue.trim()}>
                     <Send className="h-4 w-4" />
                     {pendingAction === "sending" ? "Sending..." : "Send"}
@@ -710,9 +720,9 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
         context={
           <div className="min-w-0">
             <EnochSurfacePanel
-              title={selectedProject?.name ?? initialData.workspace?.project.name ?? "No project selected"}
+                  title={selectedProject?.name ?? initialData.workspace?.project.name ?? "No project selected"}
               eyebrow="Active Context"
-              description="Project, memory, output, and export actions stay tied to the active assistant session."
+              description="Project state and output."
               action={
                 initialData.recentProjects.projects.length > 0 ? (
                   <DropdownMenu>
@@ -751,31 +761,31 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                   <div className="grid gap-3">
                     <div className={sourceCardClassName}>
                       <div className="mb-2 flex items-center gap-2">
-                        <MessageSquareText className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-sm font-medium text-foreground">Session history</p>
+                        <MessageSquareText className="h-4 w-4 text-white/42" />
+                        <p className="text-sm font-medium text-white">Session history</p>
                       </div>
-                      <p className="text-xs leading-5 text-muted-foreground">`enoch_chat_sessions` and `enoch_chat_messages` are the source of truth for assistant threads.</p>
+                      <p className="text-xs leading-5 text-white/48">Stored in `enoch_chat_sessions` and `enoch_chat_messages`.</p>
                     </div>
                     <div className={sourceCardClassName}>
                       <div className="mb-2 flex items-center gap-2">
-                        <FolderKanban className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-sm font-medium text-foreground">Project context</p>
+                        <FolderKanban className="h-4 w-4 text-white/42" />
+                        <p className="text-sm font-medium text-white">Project context</p>
                       </div>
-                      <p className="text-xs leading-5 text-muted-foreground">`projects`, `briefs`, `scenes`, `prompts`, and `workflow_runs` drive the live working context.</p>
+                      <p className="text-xs leading-5 text-white/48">Pulled from projects, briefs, scenes, prompts, and workflow state.</p>
                     </div>
                     <div className={sourceCardClassName}>
                       <div className="mb-2 flex items-center gap-2">
-                        <BrainCircuit className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-sm font-medium text-foreground">Project memory</p>
+                        <BrainCircuit className="h-4 w-4 text-white/42" />
+                        <p className="text-sm font-medium text-white">Project memory</p>
                       </div>
-                      <p className="text-xs leading-5 text-muted-foreground">`enoch_brain_insights` is injected into retrieval and scene generation for the active project.</p>
+                      <p className="text-xs leading-5 text-white/48">Reinforced insights from `enoch_brain_insights` feed retrieval and scenes.</p>
                     </div>
                   </div>
                   <Separator />
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">{initialData.workspace?.brief?.objective ?? "Link a project to inject brief, workflow state, and memory into the session."}</p>
+                    <p className="text-sm font-medium text-white">{initialData.workspace?.brief?.objective ?? "Link a project to load working context."}</p>
                     {initialData.enochDetail?.summary.reasoningSummary ? (
-                      <p className="text-sm leading-6 text-muted-foreground">{initialData.enochDetail.summary.reasoningSummary}</p>
+                      <p className="text-sm leading-6 text-white/56">{initialData.enochDetail.summary.reasoningSummary}</p>
                     ) : null}
                   </div>
                 </TabsContent>
@@ -797,8 +807,8 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                           </div>
                         ))
                       ) : (
-                        <div className="rounded-[22px] border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
-                          No project-linked memory has been reinforced yet for this context.
+                        <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-white/46">
+                          No reinforced memory yet.
                         </div>
                       )}
                     </div>
@@ -865,7 +875,7 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                     </div>
                   ) : (
                     <div className="rounded-[22px] border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
-                      Generate a scene bundle and it will appear here with a real Workspace export action.
+                      Generate scenes to populate this panel.
                     </div>
                   )}
                 </TabsContent>
@@ -900,8 +910,8 @@ export const EnochAssistantWorkspace = ({ initialData }: Props) => {
                             </button>
                           ))
                       ) : (
-                        <div className="rounded-[22px] border border-dashed border-border bg-background/50 p-4 text-sm text-muted-foreground">
-                          Generated scene history will accumulate here per session.
+                        <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-white/46">
+                          Generated scene history lands here.
                         </div>
                       )}
                     </div>

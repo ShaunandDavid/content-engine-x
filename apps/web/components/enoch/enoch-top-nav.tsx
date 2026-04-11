@@ -53,7 +53,7 @@ export const EnochTopNav = ({
                     prefetch={false}
                     className={cn(
                       "rounded-2xl px-4 py-3 text-sm font-medium text-white/70 transition-colors hover:bg-white/8 hover:text-white",
-                      currentRoute === item.route && "bg-white text-black"
+                      currentRoute === item.route && "bg-white !text-black"
                     )}
                   >
                     {item.label}
@@ -76,7 +76,8 @@ export const EnochTopNav = ({
               prefetch={false}
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium text-white/68 transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/10 hover:text-white",
-                currentRoute === item.route && "bg-white text-black shadow-[0_12px_30px_rgba(255,255,255,0.18)] hover:bg-white hover:text-black"
+                currentRoute === item.route &&
+                  "bg-white !text-black shadow-[0_12px_30px_rgba(255,255,255,0.18)] hover:bg-white hover:!text-black"
               )}
             >
               {item.label}
@@ -91,7 +92,7 @@ export const EnochTopNav = ({
             aria-label="Open account"
             className={cn(
               "inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/14 bg-white/7 text-[11px] font-semibold uppercase tracking-[0.22em] text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/12",
-              currentRoute === "account" && "bg-white text-black"
+              currentRoute === "account" && "bg-white !text-black"
             )}
           >
             DA

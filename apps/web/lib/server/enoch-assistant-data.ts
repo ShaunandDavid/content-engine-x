@@ -22,6 +22,19 @@ export type EnochAssistantPageData = {
   sceneBundleMessages: Array<EnochAssistantMessage & { sceneBundle: EnochAssistantSceneBundle }>;
 };
 
+const isMissingAssistantStorageError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("enoch_chat_sessions") ||
+    message.includes("enoch_chat_messages") ||
+    message.includes("schema cache")
+  );
+};
+
 const parseSceneBundleMessage = (message: EnochAssistantMessage) => {
   if (message.kind !== "scene_bundle") {
     return null;
@@ -47,10 +60,25 @@ export const loadEnochAssistantPageData = async (input?: {
   sessionId?: string | null;
   projectId?: string | null;
 }) => {
-  const [sessions, recentProjects] = await Promise.all([listEnochAssistantSessions(), listRecentProjects(12)]);
+  const recentProjects = await listRecentProjects(12);
+  const sessions = await listEnochAssistantSessions().catch((error) => {
+    if (isMissingAssistantStorageError(error)) {
+      return [] satisfies Awaited<ReturnType<typeof listEnochAssistantSessions>>;
+    }
+
+    throw error;
+  });
   const fallbackSessionId = sessions[0]?.id ?? null;
   const activeSessionId = input?.sessionId?.trim() || fallbackSessionId;
-  const activeSession = activeSessionId ? await getEnochAssistantSessionDetail(activeSessionId) : null;
+  const activeSession = activeSessionId
+    ? await getEnochAssistantSessionDetail(activeSessionId).catch((error) => {
+        if (isMissingAssistantStorageError(error)) {
+          return null;
+        }
+
+        throw error;
+      })
+    : null;
   const activeProjectId =
     input?.projectId?.trim() ||
     activeSession?.session.projectId ||

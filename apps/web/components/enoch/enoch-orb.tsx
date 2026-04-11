@@ -2,6 +2,8 @@
 
 import type { CSSProperties, PointerEvent } from "react";
 
+import { cn } from "../../lib/utils";
+
 export type EnochState = "idle" | "listening" | "thinking" | "speaking" | "error";
 export type EnochOrbSignalSource =
   | "idle_motion"
@@ -19,7 +21,10 @@ export const EnochOrb = ({
   signalSource = "idle_motion",
   onClick,
   ariaLabel = "Interact with Enoch",
-  disabled = false
+  disabled = false,
+  containerClassName,
+  className,
+  containerStyle
 }: {
   state?: EnochState;
   signalLevel?: number;
@@ -27,6 +32,9 @@ export const EnochOrb = ({
   onClick?: () => void;
   ariaLabel?: string;
   disabled?: boolean;
+  containerClassName?: string;
+  className?: string;
+  containerStyle?: CSSProperties;
 }) => {
   const normalizedSignal = clampSignal(signalLevel);
   const style = {
@@ -55,11 +63,11 @@ export const EnochOrb = ({
   };
 
   return (
-    <div className="enoch-orb-container">
+    <div className={cn("enoch-orb-container", containerClassName)} style={containerStyle}>
       <button
         type="button"
         aria-label={ariaLabel}
-        className={`enoch-orb enoch-orb--${state} enoch-orb--source-${signalSource} ${disabled ? "is-disabled" : ""}`}
+        className={cn("enoch-orb", `enoch-orb--${state}`, `enoch-orb--source-${signalSource}`, disabled && "is-disabled", className)}
         disabled={disabled}
         style={style}
         onClick={disabled ? undefined : onClick}

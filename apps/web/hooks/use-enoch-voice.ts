@@ -149,7 +149,8 @@ const createSilentWavObjectUrl = (durationMs = 120) => {
   return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
 };
 
-export const useEnochVoice = () => {
+export const useEnochVoice = (options?: { projectId?: string | null }) => {
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<EnochVoiceTurnState>("idle");
   const [interimTranscript, setInterimTranscript] = useState("");
   const [finalTranscript, setFinalTranscript] = useState("");
@@ -926,6 +927,7 @@ export const useEnochVoice = () => {
         },
         body: JSON.stringify({
           sessionId: sessionIdRef.current ?? undefined,
+          projectId: options?.projectId ?? undefined,
           inputMode: source === "browser_speech" ? "speech_text" : "text",
           currentState: currentStateRef.current,
           message: normalized.normalizedTranscript
@@ -943,6 +945,7 @@ export const useEnochVoice = () => {
 
       const chat: EnochChatResponse = parsedChat.data;
       sessionIdRef.current = chat.session.sessionId;
+      setSessionId(chat.session.sessionId);
       setAssistantReply(chat.replyText);
       await playReply(chat.replyText, chat.session.sessionId);
       return true;
@@ -1134,6 +1137,8 @@ export const useEnochVoice = () => {
     setAssistantReply("");
     setTextInput("");
     setTextFallbackOpen(false);
+    sessionIdRef.current = null;
+    setSessionId(null);
     setPlaybackMode("none");
     setPlaybackMessage("Enoch will use the active playback path when a reply is ready.");
     resetListeningBuffers();
@@ -1177,6 +1182,7 @@ export const useEnochVoice = () => {
             : "Orb signal is in ambient idle mode.";
 
   return {
+    sessionId,
     voiceState,
     interimTranscript,
     finalTranscript,

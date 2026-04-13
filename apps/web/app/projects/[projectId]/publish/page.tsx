@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getLatestRenderForProject } from "@content-engine/db";
+import type { AssetRecord } from "@content-engine/shared";
 
 import { DashboardShell } from "../../../../components/dashboard-shell";
 import { FormCard } from "../../../../components/form-card";
@@ -15,6 +16,9 @@ import { getProjectPublishState, PUBLISH_WEBHOOK_ENV_VAR } from "../../../../lib
 export const metadata: Metadata = {
   title: "Publish Handoff"
 };
+
+const resolveAssetHref = (projectId: string, asset?: AssetRecord | null) =>
+  asset ? asset.publicUrl ?? `/api/projects/${projectId}/assets/${asset.id}` : null;
 
 export default async function PublishHandoffPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
@@ -55,6 +59,8 @@ async function PublishHandoffContent({
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const masterAsset = latestRender?.masterAssetId ? assetsById.get(latestRender.masterAssetId) : undefined;
   const thumbnailAsset = latestRender?.thumbnailAssetId ? assetsById.get(latestRender.thumbnailAssetId) : undefined;
+  const masterAssetHref = resolveAssetHref(projectId, masterAsset);
+  const thumbnailAssetHref = resolveAssetHref(projectId, thumbnailAsset);
   const publishReadiness = getPublishReadiness(workspace, latestRender);
   const hasWebhookTarget = publishReadiness.hasWebhookTarget;
   const canSendPublish = publishReadiness.canSendPublish;
@@ -123,6 +129,38 @@ async function PublishHandoffContent({
       {!isDemoProject && !canSendPublish ? (
         <div className="empty-state" style={{ marginBottom: "20px" }}>
           {publishReadiness.blockingIssues.join(" ")}
+        </div>
+      ) : null}
+      {!isDemoProject && latestRender?.status === "completed" && masterAssetHref ? (
+        <div className="panel-card" style={{ marginBottom: "20px" }}>
+          <div className="panel-card__header">
+            <div>
+              <h2>Final video is ready</h2>
+              <p>
+                The render exists. This page only handles the downstream publish handoff, so a missing webhook will block delivery but not the video itself.
+              </p>
+            </div>
+          </div>
+          <div className="panel-card__body">
+            <div className="media-preview">
+              <video className="media-preview__video" controls preload="metadata" playsInline src={masterAssetHref}>
+                Your browser could not load the final video preview.
+              </video>
+            </div>
+            <div className="button-row">
+              <a className="button" href={masterAssetHref} target="_blank" rel="noreferrer">
+                Open Final Video
+              </a>
+              <a className="button button--secondary" href={masterAssetHref} download>
+                Download MP4
+              </a>
+            </div>
+            {thumbnailAssetHref ? (
+              <div className="media-preview media-preview--thumbnail">
+                <img className="media-preview__image" alt="Final render thumbnail" src={thumbnailAssetHref} />
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <PublishActions

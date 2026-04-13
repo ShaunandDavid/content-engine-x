@@ -91,3 +91,32 @@ export const downloadAssetFile = async ({
     byteSize: buffer.byteLength
   };
 };
+
+export const readAssetBytes = async ({
+  objectKey,
+  bucket
+}: {
+  objectKey: string;
+  bucket?: string;
+}) => {
+  const config = getR2Config();
+  const client = createR2Client();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket ?? config.R2_BUCKET,
+      Key: objectKey
+    })
+  );
+
+  const bytes = await response.Body?.transformToByteArray();
+
+  if (!bytes) {
+    throw new Error(`R2 returned no body for ${objectKey}.`);
+  }
+
+  return {
+    body: bytes,
+    mimeType: response.ContentType ?? "application/octet-stream",
+    byteSize: bytes.byteLength
+  };
+};

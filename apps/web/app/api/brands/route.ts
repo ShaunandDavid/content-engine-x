@@ -45,11 +45,42 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data, error } = await supabase
-    .from("enoch_brand_profiles")
-    .upsert(body, { onConflict: "project_id" })
-    .select()
-    .single();
+  const projectId = typeof body.project_id === "string" ? body.project_id : null;
+  let data;
+  let error = null as { message: string } | null;
+
+  if (projectId) {
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from("enoch_brand_profiles")
+      .select("id")
+      .eq("project_id", projectId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingProfileError && existingProfileError.code !== "PGRST116") {
+      return NextResponse.json({ error: existingProfileError.message }, { status: 500 });
+    }
+
+    if (existingProfile?.id) {
+      const result = await supabase
+        .from("enoch_brand_profiles")
+        .update(body)
+        .eq("id", existingProfile.id)
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    } else {
+      const result = await supabase.from("enoch_brand_profiles").insert(body).select().single();
+      data = result.data;
+      error = result.error;
+    }
+  } else {
+    const result = await supabase.from("enoch_brand_profiles").insert(body).select().single();
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 201 });

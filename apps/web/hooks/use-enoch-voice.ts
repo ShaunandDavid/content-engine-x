@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -45,6 +46,8 @@ type RecognitionInstance = {
 
 type RecognitionConstructor = new () => RecognitionInstance;
 type BrowserAudioContextConstructor = typeof AudioContext;
+
+const ACTIVE_PROJECT_STORAGE_KEY = "enoch-active-project-id";
 
 declare global {
   interface Window {
@@ -150,6 +153,7 @@ const createSilentWavObjectUrl = (durationMs = 120) => {
 };
 
 export const useEnochVoice = (options?: { projectId?: string | null }) => {
+  const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<EnochVoiceTurnState>("idle");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -947,6 +951,27 @@ export const useEnochVoice = (options?: { projectId?: string | null }) => {
       sessionIdRef.current = chat.session.sessionId;
       setSessionId(chat.session.sessionId);
       setAssistantReply(chat.replyText);
+
+      const createdProject =
+        chat.metadata && typeof chat.metadata === "object" && chat.metadata.createdProject && typeof chat.metadata.createdProject === "object"
+          ? (chat.metadata.createdProject as { id?: unknown; route?: unknown })
+          : null;
+
+      if (createdProject && typeof createdProject.id === "string" && createdProject.id.trim()) {
+        window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, createdProject.id);
+      }
+
+      if (createdProject && typeof createdProject.route === "string" && createdProject.route.trim()) {
+        const route = createdProject.route.trim();
+        const targetHref = route.startsWith("/projects/")
+          ? `/workspace?projectId=${encodeURIComponent(String(createdProject.id ?? route.replace("/projects/", "")))}`
+          : route;
+
+        if (options?.projectId !== createdProject.id) {
+          router.push(targetHref);
+        }
+      }
+
       await playReply(chat.replyText, chat.session.sessionId);
       return true;
     } catch (submitError) {

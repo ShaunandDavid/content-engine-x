@@ -133,9 +133,16 @@ def _resolve_generation_model(prompt: dict[str, object], settings) -> str:
 
 def _build_reference_assets(state: WorkflowState, prompt: dict[str, object]) -> list[dict[str, str]] | None:
     hero_image_key = str(prompt.get("reference_image_r2_key") or state.get("hero_image_r2_key") or "").strip()
-    r2_public_url = str(os.environ.get("R2_PUBLIC_URL", "")).strip()
-    if not hero_image_key or not r2_public_url:
+    if not hero_image_key:
         return None
+
+    if hero_image_key.startswith(("http://", "https://")):
+        return [{"url": hero_image_key}]
+
+    r2_public_url = str(os.environ.get("R2_PUBLIC_BASE_URL") or os.environ.get("R2_PUBLIC_URL") or "").strip()
+    if not r2_public_url:
+        return None
+
     return [{"url": f"{r2_public_url.rstrip('/')}/{hero_image_key.lstrip('/')}"}]
 
 

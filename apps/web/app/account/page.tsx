@@ -5,12 +5,15 @@ import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { StatusChip } from "../../components/status-chip";
 import { dashboardRoute, projectEnochRoute, projectRoute } from "../../lib/routes";
 import { getAccountOverview } from "../../lib/server/account-data";
+import { listRecentVideoBank } from "../../lib/server/video-bank";
 import { stageLabels } from "../../lib/dashboard-data";
 
 export const metadata: Metadata = {
   title: "Operator Account",
   description: "Review the current Content Engine X operator and the projects attached to this runtime."
 };
+
+export const dynamic = "force-dynamic";
 
 const formatTimestamp = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -33,6 +36,7 @@ const formatIdentitySource = (value: "configured_operator" | "first_operator_use
 
 export default async function AccountPage() {
   const overview = await getAccountOverview(24);
+  const recentVideoBank = await listRecentVideoBank(8);
   const user = overview.user;
   const projectCount = overview.projects.length;
 
@@ -125,6 +129,44 @@ export default async function AccountPage() {
             )
           ) : (
             <div className="empty-state">{overview.message ?? "Current project ownership is unavailable."}</div>
+          )}
+        </div>
+      </section>
+
+      <section className="panel-card" style={{ marginTop: "20px" }}>
+        <div className="panel-card__header">
+          <div>
+            <p className="eyebrow">Video Bank</p>
+            <h2>Finished videos stay here.</h2>
+          </div>
+          {recentVideoBank.length > 0 ? <StatusChip status="completed" /> : null}
+        </div>
+        <div className="panel-card__body">
+          {recentVideoBank.length > 0 ? (
+            <section className="projects-grid">
+              {recentVideoBank.map((video) => (
+                <article className="project-card" key={video.assetId}>
+                  <div className="project-card__header">
+                    <div>
+                      <span className="eyebrow">{video.kind === "final_render" ? "Final Render" : "Scene Clip"}</span>
+                      <h2>{video.title}</h2>
+                    </div>
+                    <StatusChip status="completed" />
+                  </div>
+                  <p className="muted">Updated {formatTimestamp(video.updatedAt)}</p>
+                  <div className="project-card__footer">
+                    <Link href={video.previewHref} className="surface-link" prefetch={false}>
+                      Open Surface
+                    </Link>
+                    <a href={video.assetHref} className="surface-link" target="_blank" rel="noreferrer">
+                      Play Video
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </section>
+          ) : (
+            <div className="empty-state">Finished videos will appear here after generation completes.</div>
           )}
         </div>
       </section>

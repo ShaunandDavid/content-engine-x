@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+
+import { ProjectProgressTracker } from "../components/project-progress-tracker";
 
 import "./globals.css";
 
@@ -26,6 +28,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       </head>
       <body className="bg-background text-foreground antialiased">
         {children}
+        <Suspense fallback={null}>
+          <ProjectProgressTracker />
+        </Suspense>
       </body>
     </html>
   );

@@ -73,6 +73,7 @@ export const ClipReviewActions = ({
   const generateMissingClips = async () => {
     setIsGenerating(true);
     setError(null);
+    window.localStorage.setItem("enoch-active-project-id", projectId);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/clips/generate`, {

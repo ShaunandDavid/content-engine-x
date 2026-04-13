@@ -31,6 +31,7 @@ export const PublishActions = ({
     setIsSending(true);
     setError(null);
     setSuccess(null);
+    window.localStorage.setItem("enoch-active-project-id", projectId);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/publish`, {

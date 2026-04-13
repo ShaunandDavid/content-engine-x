@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Silkscreen, Space_Grotesk } from "next/font/google";
 
@@ -51,6 +52,22 @@ export default function EnochHomepage() {
                     </Badge>
 
                     <div className="space-y-6">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                        <div className="relative h-12 w-[7.5rem] shrink-0 sm:h-14 sm:w-[8.75rem] lg:h-16 lg:w-[10rem]">
+                          <Image
+                            src="/assets/enoch-logo.png"
+                            alt="Enoch logo"
+                            fill
+                            priority
+                            className="object-contain object-left brightness-[1.18] contrast-125 drop-shadow-[0_0_18px_rgba(124,58,237,0.12)]"
+                            sizes="(max-width: 640px) 120px, (max-width: 1024px) 140px, 160px"
+                          />
+                        </div>
+                        <p className="text-[0.82rem] font-medium uppercase tracking-[0.5em] text-white/76 sm:text-[0.9rem]">
+                          Enoch
+                        </p>
+                      </div>
+
                       <p className={`${pixelTitle.className} max-w-[11ch] text-[clamp(2.7rem,7vw,6.8rem)] leading-[0.9] tracking-[0.08em] text-white`}>
                         The Mind is the Limit
                       </p>

@@ -9,10 +9,11 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { stageLabels } from "../../lib/dashboard-data";
-import { projectsRoute, sceneReviewRoute, sequenceRoute, studioRoute } from "../../lib/routes";
+import { clipReviewRoute, projectsRoute, renderRoute, sceneReviewRoute, sequenceRoute, sequenceRouteForProject, studioRoute } from "../../lib/routes";
 import { getEnochWorkspaceSummary } from "../../lib/server/enoch-project-data";
 import { getProjectWorkspaceOrDemo } from "../../lib/server/project-data";
 import { listRecentProjects } from "../../lib/server/projects-index";
+import { listRecentVideoBank } from "../../lib/server/video-bank";
 
 export const metadata: Metadata = {
   title: "Enoch Workspace",
@@ -86,6 +87,7 @@ export default async function WorkspacePage({
       : [];
 
   const activeProject = workspace?.project ?? null;
+  const recentVideoBank = await listRecentVideoBank(4);
   const projectName = activeProject?.name ?? "No active project";
   const sceneCount = workspace?.scenes.length ?? 0;
   const promptCount = workspace?.prompts.length ?? 0;
@@ -119,7 +121,7 @@ export default async function WorkspacePage({
                 </Link>
               </Button>
               <Button asChild variant="ghost" className="text-white/72 hover:bg-white/8 hover:text-white">
-                <Link href={sequenceRoute} prefetch={false}>
+                <Link href={activeProjectId ? sequenceRouteForProject(activeProjectId) : sequenceRoute} prefetch={false}>
                   Sequence
                 </Link>
               </Button>
@@ -279,6 +281,91 @@ export default async function WorkspacePage({
                     ) : (
                       <div className="rounded-[24px] border border-dashed border-white/10 bg-black/14 px-4 py-5 text-sm text-white/46">
                         Scene records will appear here once the project has a plan.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[34px] border border-white/10 bg-white/[0.04] p-1 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/38">Pipeline</p>
+                      <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-white">Next step</h2>
+                    </div>
+                    <Badge variant="outline" className="border-white/12 bg-transparent text-white/60">
+                      {activeProject ? stageLabels[activeProject.currentStage] : "Idle"}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
+                    {activeProjectId ? (
+                      <>
+                        <Button asChild className="justify-between bg-white !text-black hover:bg-white/94">
+                          <Link href={clipReviewRoute(activeProjectId)} prefetch={false}>
+                            <span>Generation Queue</span>
+                            <span>{completedClipCount}</span>
+                          </Link>
+                        </Button>
+                        <Button asChild variant="secondary" className="justify-between border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
+                          <Link href={renderRoute(activeProjectId)} prefetch={false}>
+                            <span>Render Final Video</span>
+                            <span>{completedClipCount >= sceneCount && sceneCount > 0 ? "ready" : completedClipCount}</span>
+                          </Link>
+                        </Button>
+                        <Button asChild variant="secondary" className="justify-between border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
+                          <Link href={sequenceRouteForProject(activeProjectId)} prefetch={false}>
+                            <span>Sequence View</span>
+                            <span>{sceneCount}</span>
+                          </Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="rounded-[24px] border border-dashed border-white/10 bg-black/14 px-4 py-5 text-sm text-white/46">
+                        Choose a project to open the live generation flow.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[34px] border border-white/10 bg-white/[0.04] p-1 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/38">Video bank</p>
+                      <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-white">Recent outputs</h2>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {recentVideoBank.length > 0 ? (
+                      recentVideoBank.map((video) => (
+                        <div key={video.assetId} className="rounded-[24px] border border-white/10 bg-black/18 px-4 py-4">
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-white">{video.title}</p>
+                            <p className="text-xs text-white/44">
+                              {video.kind === "final_render" ? "Final render" : "Scene clip"} / {formatTimestamp(video.updatedAt)}
+                            </p>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button asChild size="sm" className="bg-white !text-black hover:bg-white/94">
+                              <Link href={video.previewHref} prefetch={false}>
+                                Open
+                              </Link>
+                            </Button>
+                            <Button asChild size="sm" variant="secondary" className="border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
+                              <a href={video.assetHref} target="_blank" rel="noreferrer">
+                                Play
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-[24px] border border-dashed border-white/10 bg-black/14 px-4 py-5 text-sm text-white/46">
+                        Finished videos will stay visible here.
                       </div>
                     )}
                   </div>

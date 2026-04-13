@@ -35,6 +35,7 @@ import {
   buildPromptGenerationBundle,
   buildPromptGenerationInput
 } from "./enoch-intake-normalization.js";
+import { storeEnochBrainInsight } from "./enoch-brain.js";
 import { selectEnochProviderForTask } from "./enoch-model-router.js";
 import {
   appendEnochAuditEvent,
@@ -149,6 +150,10 @@ type AuditLogRow = {
 type AuditLogInsertRow = Omit<AuditLogRow, "id">;
 
 type UserRow = {
+  id: string;
+};
+
+type BrandProfileRow = {
   id: string;
 };
 
@@ -823,6 +828,146 @@ const resolveOperatorUserId = async (client: SupabaseClient, preferredUserId?: s
   ).id;
 };
 
+const TONE_TO_BRAND_VOICE: Record<ProjectBriefInput["tone"], string> = {
+  authority: "authoritative",
+  cinematic: "cinematic",
+  educational: "clear and educational",
+  energetic: "urgent and high-conviction",
+  playful: "playful and upbeat"
+};
+
+const TONE_TO_TONE_ADJECTIVES: Record<ProjectBriefInput["tone"], string[]> = {
+  authority: ["credible", "direct", "confident"],
+  cinematic: ["premium", "cinematic", "controlled"],
+  educational: ["clear", "smart", "helpful"],
+  energetic: ["fast", "bold", "high-conviction"],
+  playful: ["light", "curious", "human"]
+};
+
+const inferIndustryFromBrief = (payload: ProjectBriefInput) => {
+  const source = [payload.projectName, payload.objective, payload.rawBrief].join(" ").toLowerCase();
+
+  if (/(lead|sales|revenue|pipeline|b2b|crm)/.test(source)) {
+    return "B2B revenue technology";
+  }
+
+  if (/(ai|automation|workflow|agent)/.test(source)) {
+    return "AI software";
+  }
+
+  if (/(finance|fintech|bank|payment)/.test(source)) {
+    return "Financial technology";
+  }
+
+  if (/(health|clinic|medical|wellness)/.test(source)) {
+    return "Health and wellness";
+  }
+
+  return "Technology";
+};
+
+const buildBootstrapBrandProfilePayload = (input: {
+  projectId: string;
+  operatorUserId: string;
+  payload: ProjectBriefInput;
+}) => ({
+  project_id: input.projectId,
+  operator_user_id: input.operatorUserId,
+  brand_name: input.payload.projectName,
+  industry: inferIndustryFromBrief(input.payload),
+  visual_style: `${input.payload.tone} cinematic`,
+  brand_voice: TONE_TO_BRAND_VOICE[input.payload.tone],
+  tone_adjectives: TONE_TO_TONE_ADJECTIVES[input.payload.tone],
+  target_audience: input.payload.audience,
+  content_pillars: [input.payload.objective],
+  avoid_patterns: input.payload.guardrails
+});
+
+const safeBootstrapProjectMemory = async (input: {
+  client: SupabaseClient;
+  projectId: string;
+  operatorUserId: string;
+  workflowRunId: string;
+  payload: ProjectBriefInput;
+}) => {
+  const brandProfilePayload = buildBootstrapBrandProfilePayload(input);
+
+  try {
+    const { data: existingProfile, error: existingProfileError } = await input.client
+      .from("enoch_brand_profiles")
+      .select("id")
+      .eq("project_id", input.projectId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingProfileError && existingProfileError.code !== "PGRST116") {
+      throw new Error(existingProfileError.message);
+    }
+
+    if ((existingProfile as BrandProfileRow | null)?.id) {
+      const { error: updateError } = await input.client
+        .from("enoch_brand_profiles")
+        .update(brandProfilePayload)
+        .eq("id", (existingProfile as BrandProfileRow).id);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+    } else {
+      const { error: insertError } = await input.client.from("enoch_brand_profiles").insert(brandProfilePayload);
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to bootstrap enoch_brand_profiles context for project creation.", error);
+  }
+
+  try {
+    const insightInputs = [
+      {
+        category: "brand_voice" as const,
+        insight: `Use a ${input.payload.tone} ${TONE_TO_BRAND_VOICE[input.payload.tone]} voice for ${input.payload.projectName}.`,
+        tags: [input.payload.tone, ...input.payload.platforms]
+      },
+      {
+        category: "audience_insight" as const,
+        insight: `${input.payload.projectName} is targeting ${input.payload.audience}. Keep scenes and prompts immediately relevant to that audience.`,
+        tags: [...input.payload.platforms]
+      },
+      {
+        category: "workflow_optimization" as const,
+        insight:
+          input.payload.guardrails.length > 0
+            ? `Respect these operator guardrails: ${input.payload.guardrails.join("; ")}.`
+            : `Primary objective is ${input.payload.objective}. Keep execution aligned to that outcome.`,
+        tags: [input.payload.tone]
+      }
+    ];
+
+    for (const insight of insightInputs) {
+      await storeEnochBrainInsight(
+        {
+          category: insight.category,
+          insight: insight.insight,
+          confidence: 0.72,
+          source: "operator_instruction",
+          sourceProjectId: input.projectId,
+          sourceRunId: null,
+          tags: insight.tags,
+          metadata: {
+            source: "project_workflow_bootstrap",
+            projectName: input.payload.projectName
+          }
+        },
+        { client: input.client }
+      );
+    }
+  } catch (error) {
+    console.error("Failed to seed initial enoch_brain_insights for project creation.", error);
+  }
+};
+
 export const createProjectWorkflow = async (
   input: ProjectBriefInput,
   options?: {
@@ -883,6 +1028,14 @@ export const createProjectWorkflow = async (
     .single();
 
   const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
+
+  await safeBootstrapProjectMemory({
+    client,
+    projectId: projectRow.id,
+    operatorUserId,
+    workflowRunId,
+    payload
+  });
 
   const enochPreplan = await runEnochPreplanBridge({
     client,
@@ -1598,6 +1751,14 @@ export const initializeAsyncProjectWorkflow = async (
     .single();
 
   const briefRow = assertData(briefRowData as BriefRow | null, briefError, "Failed to persist brief");
+
+  await safeBootstrapProjectMemory({
+    client,
+    projectId: projectRow.id,
+    operatorUserId,
+    workflowRunId,
+    payload
+  });
 
   const enochPreplan = await runEnochPreplanBridge({
     client,

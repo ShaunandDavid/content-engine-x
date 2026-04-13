@@ -10,6 +10,7 @@ export const newProjectRoute = `${projectsRoute}/new`;
 export const enochPlanRoute = "/enoch/plan";
 export const accountRoute = "/account";
 export const projectRoute = (projectId: string) => `/projects/${projectId}`;
+export const sequenceRouteForProject = (projectId: string) => `${sequenceRoute}?projectId=${encodeURIComponent(projectId)}`;
 export const projectEnochRoute = (projectId: string) => `${projectRoute(projectId)}/enoch`;
 export const sceneReviewRoute = (projectId: string) => `${projectRoute(projectId)}/scenes`;
 export const clipReviewRoute = (projectId: string) => `${projectRoute(projectId)}/clips`;

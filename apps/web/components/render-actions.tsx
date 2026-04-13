@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ export const RenderActions = ({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const publishHref = `/projects/${projectId}/publish`;
 
   if (isDemoProject) {
     return (
@@ -31,6 +33,7 @@ export const RenderActions = ({
     setIsStarting(true);
     setError(null);
     setSuccess(null);
+    window.localStorage.setItem("enoch-active-project-id", projectId);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/render`, {
@@ -62,12 +65,17 @@ export const RenderActions = ({
     <div className="stack" style={{ marginBottom: "20px" }}>
       <div className="button-row">
         <button className="button" type="button" onClick={() => void startRender()} disabled={isStarting || !canStartRender}>
-          {isStarting ? "Rendering..." : "Start Render"}
+          {isStarting ? "Rendering Final Video..." : "Render Final Video"}
         </button>
+        {success ? (
+          <Link className="button button--secondary" href={publishHref}>
+            Open Publish
+          </Link>
+        ) : null}
       </div>
       {!canStartRender && disabledReason ? <p className="empty-state">{disabledReason}</p> : null}
-      <p className="muted">This action assembles completed clips, uploads the final render, and persists the render record.</p>
-      {success ? <p className="status-chip status-chip--completed">{success}</p> : null}
+      <p className="muted">Assemble the completed scene clips into one final video and persist the output.</p>
+      {success ? <p className="status-chip status-chip--completed">{success} You can move straight into publish.</p> : null}
       {error ? <p className="error-banner">{error}</p> : null}
     </div>
   );

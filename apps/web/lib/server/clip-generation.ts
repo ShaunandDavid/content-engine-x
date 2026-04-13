@@ -11,7 +11,18 @@ import {
   updateClipRecord,
   updateProjectWorkflowState
 } from "@content-engine/db";
-import type { ClipRecord, ProjectWorkspace } from "@content-engine/shared";
+import {
+  buildSegmentPlan,
+  getPreferredFormatForPlatform,
+  INITIAL_SEGMENT_SECONDS,
+  planVideoPrompts,
+  recommendSmartDuration,
+  type PlatformPresetId,
+  type StudioFormat,
+  type StudioStylePreset,
+  type StudioVideoModel
+} from "@content-engine/sora-provider";
+import type { AspectRatio, ClipRecord, ProjectTone, ProjectWorkspace, PromptRecord, SceneRecord } from "@content-engine/shared";
 
 import { uploadAssetFile } from "./r2-storage";
 import { assertLiveRuntimeReady } from "./live-runtime-preflight";
@@ -20,6 +31,32 @@ import { createVideoProvider } from "./video-provider-registry";
 
 const ACTIVE_CLIP_STATUSES = new Set<ClipRecord["status"]>(["pending", "queued", "running"]);
 const SKIPPABLE_CLIP_STATUSES = new Set<ClipRecord["status"]>(["pending", "queued", "running", "completed", "approved"]);
+const SORA_VIDEO_MODELS = new Set<StudioVideoModel>(["sora-2", "sora-2-pro"]);
+
+type BrandProfileRow = {
+  id: string;
+  hero_image_r2_key: string | null;
+  logo_r2_key: string | null;
+  brand_name: string | null;
+  brand_voice: string | null;
+  visual_style: string | null;
+  target_audience: string | null;
+};
+
+type PlannedClipExecution = {
+  executionPlan: number[];
+  resolvedDurationSeconds: number;
+  durationRecommendation: Record<string, unknown>;
+  platformPreset: PlatformPresetId;
+  stylePreset: StudioStylePreset;
+  preferredFormat: StudioFormat;
+  providerModel: StudioVideoModel;
+  referenceAssets?: Array<{ url: string }>;
+  generationMode: "i2v" | "t2v";
+  masterPrompt: string;
+  promptPlan: Record<string, unknown> | null;
+  segmentPrompts: string[];
+};
 
 export class ClipGenerationBlockingError extends Error {
   constructor(
@@ -126,6 +163,49 @@ const mergeMetadata = (current: Record<string, unknown> | undefined, next: Recor
   ...next
 });
 
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+};
+
+const asNullableString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const asNumberArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry) && entry > 0)
+    : [];
+
+const asStringArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+
+const asReferenceAssets = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => {
+          const record = asRecord(entry);
+          const url = asNullableString(record.url);
+          return url ? { url } : null;
+        })
+        .filter((entry): entry is { url: string } => Boolean(entry))
+    : [];
+
 const isRetriableProviderError = (error: unknown): error is { retriable: boolean } =>
   typeof error === "object" && error !== null && "retriable" in error && typeof error.retriable === "boolean";
 
@@ -141,6 +221,246 @@ const getExistingSceneClip = (workspace: ProjectWorkspace, sceneId: string, prom
   [...workspace.clips]
     .reverse()
     .find((clip) => clip.sceneId === sceneId && clip.promptId === promptId && SKIPPABLE_CLIP_STATUSES.has(clip.status));
+
+const nearestInitialDuration = (requestedDurationSeconds: number) =>
+  [...INITIAL_SEGMENT_SECONDS].reduce((best, candidate) =>
+    Math.abs(candidate - requestedDurationSeconds) < Math.abs(best - requestedDurationSeconds) ? candidate : best
+  );
+
+const TONE_STYLE_MAP: Record<ProjectTone, StudioStylePreset> = {
+  authority: "documentary",
+  cinematic: "cinematic",
+  educational: "documentary",
+  energetic: "ad-promo",
+  playful: "uplifting"
+};
+
+const ASPECT_PLATFORM_MAP: Record<AspectRatio, PlatformPresetId> = {
+  "9:16": "tiktok-reels-shorts",
+  "16:9": "youtube-horizontal"
+};
+
+const resolveGenerationModel = (prompt: PromptRecord): StudioVideoModel => {
+  if (SORA_VIDEO_MODELS.has(prompt.model as StudioVideoModel)) {
+    return prompt.model as StudioVideoModel;
+  }
+
+  const envModel = process.env.OPENAI_SORA_MODEL?.trim();
+  if (envModel && SORA_VIDEO_MODELS.has(envModel as StudioVideoModel)) {
+    return envModel as StudioVideoModel;
+  }
+
+  return "sora-2";
+};
+
+const buildDurationResolution = (input: {
+  promptText: string;
+  requestedDurationSeconds: number;
+  platformPreset: PlatformPresetId;
+  stylePreset: StudioStylePreset;
+}) => {
+  if (input.requestedDurationSeconds <= 12) {
+    const resolvedDuration = nearestInitialDuration(input.requestedDurationSeconds);
+    return {
+      executionPlan: [resolvedDuration],
+      resolvedDurationSeconds: resolvedDuration,
+      durationRecommendation: {
+        mode: "manual",
+        requestedDuration: input.requestedDurationSeconds,
+        resolvedDuration,
+        estimatedNarrationSeconds: 0,
+        estimatedVisualSeconds: 0,
+        openingBufferSeconds: 0,
+        endingBufferSeconds: 0,
+        brandHoldSeconds: 0,
+        cappedToMax: false,
+        executionPlan: [resolvedDuration],
+        summary: `Requested ${input.requestedDurationSeconds}s snapped to ${resolvedDuration}s for the nearest supported initial segment.`,
+        reasons: ["Requested duration was snapped to the nearest Sora-supported initial segment length."]
+      }
+    };
+  }
+
+  if (input.requestedDurationSeconds % 4 === 0) {
+    const plan = buildSegmentPlan(input.requestedDurationSeconds);
+    return {
+      executionPlan: [...plan.segments],
+      resolvedDurationSeconds: input.requestedDurationSeconds,
+      durationRecommendation: {
+        mode: "manual",
+        requestedDuration: input.requestedDurationSeconds,
+        resolvedDuration: input.requestedDurationSeconds,
+        estimatedNarrationSeconds: 0,
+        estimatedVisualSeconds: 0,
+        openingBufferSeconds: 0,
+        endingBufferSeconds: 0,
+        brandHoldSeconds: 0,
+        cappedToMax: false,
+        executionPlan: [...plan.segments],
+        summary: `Manual duration locked at ${input.requestedDurationSeconds} seconds.`,
+        reasons: ["Manual duration override is active."]
+      }
+    };
+  }
+
+  const recommendation = recommendSmartDuration({
+    roughIdea: input.promptText,
+    platformPreset: input.platformPreset,
+    style: input.stylePreset,
+    requestedDuration: input.requestedDurationSeconds
+  });
+
+  return {
+    executionPlan: [...recommendation.executionPlan],
+    resolvedDurationSeconds: recommendation.resolvedDuration,
+    durationRecommendation: recommendation
+  };
+};
+
+const loadProjectBrandProfile = async (client: ReturnType<typeof createServiceSupabaseClient>, projectId: string) => {
+  const { data, error } = await client
+    .from("enoch_brand_profiles")
+    .select("id, hero_image_r2_key, logo_r2_key, brand_name, brand_voice, visual_style, target_audience")
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error && error.code !== "PGRST116") {
+    throw new Error(`Failed to load brand profile: ${error.message}`);
+  }
+
+  return (data as BrandProfileRow | null) ?? null;
+};
+
+const joinUrl = (baseUrl: string, objectKey: string) => `${baseUrl.replace(/\/$/, "")}/${objectKey.replace(/^\//, "")}`;
+
+const buildReferenceAssets = (input: {
+  prompt: PromptRecord;
+  workflowState: Record<string, unknown> | undefined;
+  brandProfile: BrandProfileRow | null;
+}) => {
+  const promptMetadata = asRecord(input.prompt.metadata);
+  const heroImageKey =
+    asNullableString(promptMetadata.reference_image_r2_key) ??
+    asNullableString(input.workflowState?.hero_image_r2_key) ??
+    input.brandProfile?.hero_image_r2_key ??
+    input.brandProfile?.logo_r2_key ??
+    null;
+  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.trim() ?? "";
+
+  if (!heroImageKey) {
+    return undefined;
+  }
+
+  if (/^https?:\/\//i.test(heroImageKey)) {
+    return [{ url: heroImageKey }];
+  }
+
+  if (!publicBaseUrl) {
+    return undefined;
+  }
+
+  return [{ url: joinUrl(publicBaseUrl, heroImageKey) }];
+};
+
+const buildClipExecution = async (input: {
+  workspace: ProjectWorkspace;
+  scene: SceneRecord;
+  prompt: PromptRecord;
+  brandProfile: BrandProfileRow | null;
+}) => {
+  const platformPreset = ASPECT_PLATFORM_MAP[input.scene.aspectRatio];
+  const stylePreset = TONE_STYLE_MAP[input.workspace.project.tone];
+  const providerModel = resolveGenerationModel(input.prompt);
+  const preferredFormat = getPreferredFormatForPlatform(
+    platformPreset,
+    providerModel,
+    input.scene.aspectRatio === "16:9" ? "1280x720" : "720x1280"
+  );
+  const referenceAssets = buildReferenceAssets({
+    prompt: input.prompt,
+    workflowState: asRecord(input.workspace.workflowRun?.stateSnapshot),
+    brandProfile: input.brandProfile
+  });
+  const durationResolution = buildDurationResolution({
+    promptText: input.prompt.compiledPrompt,
+    requestedDurationSeconds: input.scene.durationSeconds,
+    platformPreset,
+    stylePreset
+  });
+  const generationMode = (asNullableString(asRecord(input.prompt.metadata).generation_mode) ??
+    (referenceAssets ? "i2v" : "t2v")) as "i2v" | "t2v";
+
+  if (durationResolution.executionPlan.length <= 1) {
+    return {
+      executionPlan: durationResolution.executionPlan,
+      resolvedDurationSeconds: durationResolution.resolvedDurationSeconds,
+      durationRecommendation: durationResolution.durationRecommendation,
+      platformPreset,
+      stylePreset,
+      preferredFormat,
+      providerModel,
+      referenceAssets,
+      generationMode,
+      masterPrompt: input.prompt.compiledPrompt,
+      promptPlan: null,
+      segmentPrompts: [input.prompt.compiledPrompt]
+    } satisfies PlannedClipExecution;
+  }
+
+  const plannedPrompts = await planVideoPrompts({
+    roughIdea: input.prompt.compiledPrompt,
+    platformPreset,
+    format: preferredFormat,
+    totalDuration: durationResolution.resolvedDurationSeconds,
+    executionPlan: durationResolution.executionPlan,
+    style: stylePreset,
+    avoidList: input.workspace.brief?.guardrails ?? [],
+    selectedModel: providerModel,
+    plannerMode: "standard"
+  });
+
+  return {
+    executionPlan: durationResolution.executionPlan,
+    resolvedDurationSeconds: durationResolution.resolvedDurationSeconds,
+    durationRecommendation: durationResolution.durationRecommendation,
+    platformPreset,
+    stylePreset,
+    preferredFormat,
+    providerModel,
+    referenceAssets,
+    generationMode,
+    masterPrompt: plannedPrompts.masterPrompt,
+    promptPlan: plannedPrompts,
+    segmentPrompts: [plannedPrompts.initialPrompt, ...plannedPrompts.extensionPrompts]
+  } satisfies PlannedClipExecution;
+};
+
+const getClipExecutionState = (clip: ClipRecord) => {
+  const metadata = asRecord(clip.metadata);
+  const executionPlan = asNumberArray(metadata.executionPlan);
+  const segmentPrompts = asStringArray(metadata.segmentPrompts);
+
+  return {
+    metadata,
+    executionPlan: executionPlan.length > 0 ? executionPlan : [clip.requestedDurationSeconds],
+    segmentPrompts: segmentPrompts.length > 0 ? segmentPrompts : [String(metadata.masterPrompt ?? "")].filter(Boolean),
+    currentSegmentIndex:
+      typeof metadata.currentSegmentIndex === "number" && metadata.currentSegmentIndex >= 0
+        ? metadata.currentSegmentIndex
+        : 0,
+    sourceVideoId: asNullableString(metadata.sourceVideoId),
+    generationMode: (asNullableString(metadata.generationMode) ?? "t2v") as "i2v" | "t2v",
+    providerModel: asNullableString(metadata.providerModel),
+    preferredFormat: asNullableString(metadata.format),
+    platformPreset: asNullableString(metadata.platformPreset),
+    referenceAssets: asReferenceAssets(metadata.referenceAssets),
+    segmentHistory: Array.isArray(metadata.segmentHistory)
+      ? metadata.segmentHistory.filter((entry) => entry && typeof entry === "object")
+      : []
+  };
+};
 
 const persistCompletedClipAsset = async ({
   workspace,
@@ -204,6 +524,8 @@ export const generateProjectClips = async (projectId: string, options?: { force?
     throw new ClipGenerationBlockingError(message);
   }
 
+  const brandProfile = await loadProjectBrandProfile(client, workspace.project.id).catch(() => null);
+
   await updateProjectWorkflowState({
     projectId,
     workflowRunId: workspace.workflowRun?.id ?? null,
@@ -250,31 +572,33 @@ export const generateProjectClips = async (projectId: string, options?: { force?
 
     try {
       const provider = createVideoProvider(workspace.project.provider);
-
-      // Build reference assets from hero image if available (i2v mode)
-      const heroImageKey =
-        (prompt.metadata?.reference_image_r2_key as string | undefined) ??
-        (workspace.workflowRun?.stateSnapshot as Record<string, unknown> | undefined)
-          ?.hero_image_r2_key as string | undefined;
-      const r2PublicUrl = process.env.R2_PUBLIC_URL ?? "";
-      const referenceAssets =
-        heroImageKey && r2PublicUrl
-          ? [{ url: `${r2PublicUrl}/${heroImageKey}` }]
-          : undefined;
-      const generationMode = (prompt.metadata?.generation_mode as string | undefined) ?? (referenceAssets ? "i2v" : "t2v");
+      const execution = await buildClipExecution({
+        workspace,
+        scene,
+        prompt,
+        brandProfile
+      });
+      const initialSegmentSeconds = execution.executionPlan[0] ?? scene.durationSeconds;
+      const initialPrompt = execution.segmentPrompts[0] ?? prompt.compiledPrompt;
 
       const job = await provider.generateClip({
         provider: workspace.project.provider,
         projectId: workspace.project.id,
         sceneId: scene.id,
-        prompt: prompt.compiledPrompt,
-        durationSeconds: scene.durationSeconds,
+        prompt: initialPrompt,
+        durationSeconds: initialSegmentSeconds,
         aspectRatio: scene.aspectRatio,
         stylePreset: workspace.project.tone,
-        referenceAssets,
+        referenceAssets: execution.referenceAssets,
         metadata: {
-          preferredModel: prompt.model,
-          generationMode
+          preferredModel: execution.providerModel,
+          preferredFormat: execution.preferredFormat,
+          platformPreset: execution.platformPreset,
+          generationMode: execution.generationMode,
+          segmentKind: "initial",
+          segmentIndex: 0,
+          executionPlan: execution.executionPlan,
+          resolvedDurationSeconds: execution.resolvedDurationSeconds
         }
       });
 
@@ -284,7 +608,33 @@ export const generateProjectClips = async (projectId: string, options?: { force?
           providerJobId: job.providerJobId,
           status: job.status,
           actualDurationSeconds: job.actualDurationSeconds,
-          metadata: mergeMetadata(clip.metadata, job.providerMetadata),
+          metadata: mergeMetadata(clip.metadata, {
+            ...job.providerMetadata,
+            durationRecommendation: execution.durationRecommendation,
+            executionPlan: execution.executionPlan,
+            resolvedDurationSeconds: execution.resolvedDurationSeconds,
+            platformPreset: execution.platformPreset,
+            format: execution.preferredFormat,
+            providerModel: execution.providerModel,
+            generationMode: execution.generationMode,
+            referenceAssets: execution.referenceAssets ?? [],
+            masterPrompt: execution.masterPrompt,
+            promptPlan: execution.promptPlan,
+            segmentPrompts: execution.segmentPrompts,
+            currentSegmentIndex: 0,
+            sourceVideoId: null,
+            segmentHistory: [],
+            brandProfile:
+              brandProfile && brandProfile.id
+                ? {
+                    id: brandProfile.id,
+                    brandName: brandProfile.brand_name,
+                    brandVoice: brandProfile.brand_voice,
+                    visualStyle: brandProfile.visual_style,
+                    targetAudience: brandProfile.target_audience
+                  }
+                : null
+          }),
           errorMessage: job.errorMessage ?? null
         },
         { client }
@@ -392,23 +742,112 @@ export const pollProjectClips = async (projectId: string) => {
     const provider = createVideoProvider(clip.provider);
 
     try {
+      const executionState = getClipExecutionState(clip);
+      const currentSegmentSeconds =
+        executionState.executionPlan[executionState.currentSegmentIndex] ?? clip.requestedDurationSeconds;
+      const currentSegmentPrompt =
+        executionState.segmentPrompts[executionState.currentSegmentIndex] ?? clip.metadata?.masterPrompt ?? "";
       const job = await provider.pollClip(clip.providerJobId!);
       let updatedClip = await updateClipRecord(
         clip.id,
         {
           status: job.status,
           actualDurationSeconds: job.actualDurationSeconds,
-          metadata: mergeMetadata(clip.metadata, job.providerMetadata),
+          metadata: mergeMetadata(clip.metadata, {
+            ...job.providerMetadata,
+            currentSegmentIndex: executionState.currentSegmentIndex
+          }),
           errorMessage: job.errorMessage ?? null
         },
         { client }
       );
 
       if (job.status === "completed" && !updatedClip.sourceAssetId) {
+        const completedVideoId = clip.providerJobId!;
+        const nextSegmentHistory = [
+          ...executionState.segmentHistory,
+          {
+            segment_index: executionState.currentSegmentIndex,
+            segment_kind: executionState.currentSegmentIndex === 0 ? "initial" : "extension",
+            requested_seconds: currentSegmentSeconds,
+            actual_duration_seconds: job.actualDurationSeconds,
+            provider_job_id: completedVideoId,
+            source_video_id: executionState.sourceVideoId,
+            provider_metadata: job.providerMetadata,
+            prompt: typeof currentSegmentPrompt === "string" ? currentSegmentPrompt : ""
+          }
+        ];
+        const nextSegmentIndex = executionState.currentSegmentIndex + 1;
+
+        if (nextSegmentIndex < executionState.executionPlan.length) {
+          const nextPrompt =
+            executionState.segmentPrompts[nextSegmentIndex] ??
+            executionState.segmentPrompts[executionState.segmentPrompts.length - 1] ??
+            currentSegmentPrompt;
+          const nextSegmentSeconds = executionState.executionPlan[nextSegmentIndex];
+          const nextJob = await provider.generateClip({
+            provider: clip.provider,
+            projectId: workspace.project.id,
+            sceneId: clip.sceneId,
+            prompt: nextPrompt,
+            durationSeconds: nextSegmentSeconds,
+            aspectRatio: clip.aspectRatio,
+            metadata: {
+              preferredModel: executionState.providerModel ?? undefined,
+              preferredFormat: executionState.preferredFormat ?? undefined,
+              platformPreset: executionState.platformPreset ?? undefined,
+              generationMode: executionState.generationMode,
+              segmentKind: "extension",
+              sourceVideoId: completedVideoId,
+              segmentIndex: nextSegmentIndex,
+              executionPlan: executionState.executionPlan
+            }
+          });
+
+          updatedClip = await updateClipRecord(
+            clip.id,
+            {
+              providerJobId: nextJob.providerJobId,
+              status: nextJob.status,
+              actualDurationSeconds: nextJob.actualDurationSeconds,
+              metadata: mergeMetadata(updatedClip.metadata, {
+                ...nextJob.providerMetadata,
+                currentSegmentIndex: nextSegmentIndex,
+                sourceVideoId: completedVideoId,
+                segmentHistory: nextSegmentHistory
+              }),
+              errorMessage: nextJob.errorMessage ?? null
+            },
+            { client }
+          );
+
+          await appendAuditLog(
+            {
+              projectId: workspace.project.id,
+              workflowRunId: workspace.workflowRun?.id ?? null,
+              actorType: "service",
+              action: "clip.extension_requested",
+              entityType: "clip",
+              entityId: updatedClip.id,
+              stage: "clip_generation",
+              metadata: {
+                provider: updatedClip.provider,
+                providerJobId: updatedClip.providerJobId,
+                sourceVideoId: completedVideoId,
+                segmentIndex: nextSegmentIndex
+              }
+            },
+            { client }
+          );
+
+          polledClips.push(updatedClip);
+          continue;
+        }
+
         const { asset } = await persistCompletedClipAsset({
           workspace,
           clip: updatedClip,
-          providerJobId: clip.providerJobId!
+          providerJobId: completedVideoId
         });
 
         updatedClip = await updateClipRecord(
@@ -418,7 +857,11 @@ export const pollProjectClips = async (projectId: string) => {
             status: "completed",
             metadata: mergeMetadata(updatedClip.metadata, {
               assetObjectKey: asset.objectKey,
-              assetPublicUrl: asset.publicUrl
+              assetPublicUrl: asset.publicUrl,
+              segmentHistory: nextSegmentHistory,
+              finalOpenAiVideoId: completedVideoId,
+              currentSegmentIndex: executionState.currentSegmentIndex,
+              sourceVideoId: completedVideoId
             })
           },
           { client }

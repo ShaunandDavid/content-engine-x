@@ -5,13 +5,15 @@ import { EnochTopNav } from "../../components/enoch/enoch-top-nav";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { stageLabels } from "../../lib/dashboard-data";
-import { newProjectRoute, projectEnochRoute, projectRoute, studioRoute, workspaceRoute } from "../../lib/routes";
+import { clipReviewRoute, newProjectRoute, projectEnochRoute, projectRoute, sequenceRouteForProject, studioRoute, workspaceRoute } from "../../lib/routes";
 import { listRecentProjects } from "../../lib/server/projects-index";
 
 export const metadata: Metadata = {
   title: "Projects",
   description: "Open live projects, jump into the right surface, and keep active work moving."
 };
+
+export const dynamic = "force-dynamic";
 
 const formatUpdatedAt = (value: string) =>
   new Date(value).toLocaleString("en-US", {
@@ -116,6 +118,16 @@ export default async function ProjectsPage() {
                         <Button asChild variant="ghost" className="text-white/70 hover:bg-white/8 hover:text-white">
                           <Link href={projectRoute(project.id)} prefetch={false}>
                             Overview
+                          </Link>
+                        </Button>
+                        <Button asChild variant="ghost" className="text-white/70 hover:bg-white/8 hover:text-white">
+                          <Link href={clipReviewRoute(project.id)} prefetch={false}>
+                            Clips
+                          </Link>
+                        </Button>
+                        <Button asChild variant="ghost" className="text-white/70 hover:bg-white/8 hover:text-white">
+                          <Link href={sequenceRouteForProject(project.id)} prefetch={false}>
+                            Sequence
                           </Link>
                         </Button>
                       </div>

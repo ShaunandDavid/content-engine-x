@@ -36,7 +36,7 @@ const formatIdentitySource = (value: "configured_operator" | "first_operator_use
 
 export default async function AccountPage() {
   const overview = await getAccountOverview(24);
-  const recentVideoBank = await listRecentVideoBank(8);
+  const recentVideoBank = await listRecentVideoBank(8, { includeSceneClipFallback: false });
   const user = overview.user;
   const projectCount = overview.projects.length;
 

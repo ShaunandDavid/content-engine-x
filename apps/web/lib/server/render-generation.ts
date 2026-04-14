@@ -10,6 +10,7 @@ import {
   createServiceSupabaseClient,
   getLatestRenderForProject,
   getProjectWorkspace,
+  storeEnochBrainInsight,
   updateRenderRecord,
   updateProjectWorkflowState,
 } from "@content-engine/db";
@@ -347,6 +348,29 @@ export const startProjectRender = async (projectId: string) => {
       },
       { client }
     );
+
+    try {
+      await storeEnochBrainInsight(
+        {
+          category: "workflow_optimization",
+          insight: `Final render completed successfully for ${workspace.project.name} with ${renderableClips.length} scene clips and ${durationSeconds} seconds of runtime.`,
+          confidence: 0.56,
+          source: "self_reflection",
+          sourceProjectId: workspace.project.id,
+          sourceRunId: workspace.workflowRun?.id ?? null,
+          tags: ["render_complete", workspace.project.provider, workspace.project.aspectRatio],
+          metadata: {
+            renderId: completedRender.id,
+            provider: workspace.project.provider,
+            durationSeconds,
+            sceneCount: renderableClips.length
+          }
+        },
+        { client }
+      );
+    } catch (brainError) {
+      console.warn("[enoch] render brain write skipped:", brainError);
+    }
 
     return {
       projectId: workspace.project.id,

@@ -23,6 +23,8 @@ type FeedbackSuccess = {
   feedbackId: string;
   targetKind: FeedbackTargetKind;
   createdAt: string;
+  brainInsightId: string | null;
+  brainWarning: string | null;
 };
 
 export const EnochFeedbackPanel = ({
@@ -112,7 +114,9 @@ export const EnochFeedbackPanel = ({
       setSuccess({
         feedbackId: result.id,
         targetKind: effectiveTargetKind,
-        createdAt: result.created_at
+        createdAt: result.created_at,
+        brainInsightId: typeof result.brainInsightId === "string" ? result.brainInsightId : null,
+        brainWarning: typeof result.brainWarning === "string" ? result.brainWarning : null
       });
       setNote("");
     } catch (submitError) {
@@ -209,6 +213,13 @@ export const EnochFeedbackPanel = ({
                     minute: "2-digit"
                   })}
                   .
+                </p>
+                <p className="muted">
+                  {success.brainInsightId
+                    ? `Fed into Enoch Brain as insight ${success.brainInsightId}.`
+                    : success.brainWarning
+                      ? `Feedback saved, but brain distill needs attention: ${success.brainWarning}`
+                      : "Feedback saved and ready for future distillation."}
                 </p>
               </article>
             ) : null}

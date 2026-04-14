@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { getLatestPublishJobForProject, getLatestRenderForProject } from "@content-engine/db";
-import type { ClipRecord, SceneRecord } from "@content-engine/shared";
+import type { SceneRecord } from "@content-engine/shared";
 
 import { demoProject, stageLabels } from "../../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../../lib/server/project-data";
+import { getLatestClipCounts } from "../../../../../lib/server/project-pipeline-state";
 
 export const runtime = "nodejs";
-
-const ACTIVE_CLIP_STATUSES = new Set(["pending", "queued", "running"]);
 
 const formatStatus = (value: string) =>
   value
@@ -38,10 +37,7 @@ export async function GET(
     const sceneCount = workspace.scenes.length;
     const approvedSceneCount = workspace.scenes.filter((scene: SceneRecord) => scene.approvalStatus === "approved").length;
     const completedSceneCount = workspace.scenes.filter((scene: SceneRecord) => scene.status === "completed").length;
-    const clipCount = workspace.clips.length;
-    const completedClipCount = workspace.clips.filter((clip: ClipRecord) => clip.status === "completed").length;
-    const activeClipCount = workspace.clips.filter((clip: ClipRecord) => ACTIVE_CLIP_STATUSES.has(clip.status)).length;
-    const failedClipCount = workspace.clips.filter((clip: ClipRecord) => clip.status === "failed").length;
+    const { clipCount, completedClipCount, activeClipCount, failedClipCount } = getLatestClipCounts(workspace);
 
     const hasFinalRender = latestRender?.status === "completed";
     const isRendering = latestRender?.status === "running";
@@ -51,6 +47,7 @@ export async function GET(
     let stepLabel = "Waiting to start";
     let detailLabel = "No active video creation process yet.";
     let isActive = false;
+    let progressMode: "determinate" | "indeterminate" = "determinate";
 
     if (sceneCount > 0) {
       progressPercent = Math.max(progressPercent, 20);
@@ -70,10 +67,11 @@ export async function GET(
     }
 
     if (isRendering) {
-      progressPercent = Math.max(progressPercent, 92);
+      progressPercent = Math.max(progressPercent, 88);
       stepLabel = "Rendering final video";
       detailLabel = "Assembling the completed scene clips into one final output.";
       isActive = true;
+      progressMode = "indeterminate";
     }
 
     if (hasFinalRender) {
@@ -130,6 +128,7 @@ export async function GET(
         : null,
       tracker: {
         progressPercent,
+        progressMode,
         stepLabel,
         detailLabel,
         isActive,

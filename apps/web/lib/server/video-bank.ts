@@ -17,10 +17,15 @@ export type RecentVideoBankItem = {
   sceneTitle?: string | null;
 };
 
+type RecentVideoBankOptions = {
+  includeSceneClipFallback?: boolean;
+};
+
 const resolveAssetHref = (projectId: string, asset: { id: string; publicUrl?: string | null }) =>
   asset.publicUrl ?? `/api/projects/${projectId}/assets/${asset.id}`;
 
-export const listRecentVideoBank = async (limit = 8): Promise<RecentVideoBankItem[]> => {
+export const listRecentVideoBank = async (limit = 8, options: RecentVideoBankOptions = {}): Promise<RecentVideoBankItem[]> => {
+  const includeSceneClipFallback = options.includeSceneClipFallback ?? true;
   const projectsResult = await listRecentProjects(Math.max(limit * 3, 12));
   if (!projectsResult.ok || projectsResult.projects.length === 0) {
     return [];
@@ -52,6 +57,10 @@ export const listRecentVideoBank = async (limit = 8): Promise<RecentVideoBankIte
             sceneTitle: null
           };
         }
+      }
+
+      if (!includeSceneClipFallback) {
+        return null;
       }
 
       const latestCompletedClip = [...workspace.clips]

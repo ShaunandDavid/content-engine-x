@@ -36,6 +36,7 @@ type ProgressResponse = {
   } | null;
   tracker: {
     progressPercent: number;
+    progressMode: "determinate" | "indeterminate";
     stepLabel: string;
     detailLabel: string;
     isActive: boolean;
@@ -142,7 +143,9 @@ export function ProjectProgressTracker() {
   }
 
   const progressPercent = progress?.tracker.progressPercent ?? 0;
+  const progressMode = progress?.tracker.progressMode ?? "determinate";
   const bubbleLabel = progress?.tracker.stepLabel ?? "Video status";
+  const progressCopy = progressMode === "indeterminate" && progress?.tracker.isActive ? "Live" : `${progressPercent}%`;
 
   return (
     <div className="project-progress-tracker" aria-live="polite">
@@ -163,13 +166,23 @@ export function ProjectProgressTracker() {
             </button>
           </div>
 
-          <div className="project-progress-tracker__meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-            <div className="project-progress-tracker__meter-fill" style={{ width: `${progressPercent}%` }} />
+          <div
+            className={`project-progress-tracker__meter${progressMode === "indeterminate" ? " project-progress-tracker__meter--indeterminate" : ""}`}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressMode === "determinate" ? progressPercent : undefined}
+            aria-valuetext={progressMode === "indeterminate" ? "Rendering in progress" : `${progressPercent}% complete`}
+          >
+            <div
+              className={`project-progress-tracker__meter-fill${progressMode === "indeterminate" ? " project-progress-tracker__meter-fill--indeterminate" : ""}`}
+              style={progressMode === "determinate" ? { width: `${progressPercent}%` } : undefined}
+            />
           </div>
 
           <div className="project-progress-tracker__status">
             <strong>{progress?.tracker.stepLabel ?? "Checking status"}</strong>
-            <span>{progressPercent}%</span>
+            <span>{progressCopy}</span>
           </div>
 
           <p className="project-progress-tracker__detail">
@@ -248,7 +261,7 @@ export function ProjectProgressTracker() {
         </span>
         <span className="project-progress-tracker__fab-copy">
           <strong>{bubbleLabel}</strong>
-          <span>{progressPercent}%</span>
+          <span>{progressCopy}</span>
         </span>
       </button>
     </div>

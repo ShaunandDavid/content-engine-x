@@ -24,6 +24,11 @@ export const SplineScene = ({
 }: Props) => {
   const viewerRef = useRef<HTMLElement | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const isHanaScene = scene.endsWith(".hanacode");
+  const scriptSrc = isHanaScene
+    ? "https://cdn.spline.design/@splinetool/hana-viewer@1.2.51/hana-viewer.js"
+    : "https://unpkg.com/@splinetool/viewer/build/spline-viewer.js";
+  const viewerTagName = isHanaScene ? "hana-viewer" : "spline-viewer";
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -39,7 +44,7 @@ export const SplineScene = ({
 
   return (
     <>
-      <Script src="https://unpkg.com/@splinetool/viewer/build/spline-viewer.js" type="module" strategy="afterInteractive" />
+      <Script src={scriptSrc} type="module" strategy="afterInteractive" />
       <div
         className={cn("relative h-full w-full overflow-hidden", decorative && "pointer-events-none", className)}
         aria-hidden={decorative || undefined}
@@ -51,13 +56,17 @@ export const SplineScene = ({
         </div>
 
         <div className={cn("absolute inset-0 transition-opacity duration-700", loaded ? "opacity-100" : "opacity-0", stageClassName)}>
-          <spline-viewer
-            ref={viewerRef}
-            url={scene}
-            loading={eager ? "eager" : "lazy"}
-            loading-anim-type="spinner-small-dark"
-            style={{ width: "100%", height: "100%", background: "transparent" }}
-          />
+          {viewerTagName === "hana-viewer" ? (
+            <hana-viewer ref={viewerRef} url={scene} style={{ width: "100%", height: "100%", background: "transparent" }} />
+          ) : (
+            <spline-viewer
+              ref={viewerRef}
+              url={scene}
+              loading={eager ? "eager" : "lazy"}
+              loading-anim-type="spinner-small-dark"
+              style={{ width: "100%", height: "100%", background: "transparent" }}
+            />
+          )}
         </div>
       </div>
     </>

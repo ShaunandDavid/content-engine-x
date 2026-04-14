@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type FormEvent, type KeyboardEvent } from "react";
 
 import { useEnochVoice } from "../../hooks/use-enoch-voice";
-import { clipReviewRoute, enochAssistantRoute, projectRoute, sceneReviewRoute } from "../../lib/routes";
+import { clipReviewRoute, enochAssistantRoute, sceneReviewRoute } from "../../lib/routes";
 import { SplineScene } from "../spline/spline-scene";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -272,13 +272,8 @@ export const WorkspaceOrbConsole = ({
 
             <aside className="space-y-4">
               <div className="rounded-[32px] border border-white/10 bg-black/22 px-5 py-5 backdrop-blur-xl">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/36">Live controls</p>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-white/36">Session</p>
                 <div className="mt-4 grid gap-3">
-                  <Button onClick={handleOrbPress} disabled={voiceState === "thinking"} className="w-full justify-between bg-white !text-black hover:bg-white/94">
-                    <span>{primaryActionLabel(voiceState)}</span>
-                    <span className="text-black/40">{runtimeLabel(voiceState)}</span>
-                  </Button>
-
                   {voiceState === "listening" ? (
                     <Button onClick={cancelListening} variant="secondary" className="w-full border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
                       Cancel turn
@@ -291,8 +286,15 @@ export const WorkspaceOrbConsole = ({
                     </Button>
                   ) : null}
 
+                  <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/36">Current thread</p>
+                    <p className="mt-2 text-sm leading-6 text-white/68">
+                      {sessionId ? "This workspace turn is attached to a saved Enoch thread." : "Start a turn and Enoch will keep the thread linked to this project."}
+                    </p>
+                  </div>
+
                   <Button onClick={restartSession} variant="ghost" className="w-full text-white/72 hover:bg-white/8 hover:text-white">
-                    New session
+                    Start fresh
                   </Button>
                 </div>
               </div>
@@ -316,14 +318,8 @@ export const WorkspaceOrbConsole = ({
                       </Button>
                       <Button asChild variant="secondary" className="w-full justify-between border-white/12 bg-white/10 text-white hover:bg-white/14 hover:text-white">
                         <Link href={assistantHref} prefetch={false}>
-                          <span>Open Assistant</span>
+                          <span>Thread + Assistant</span>
                           <span className="text-white/42">03</span>
-                        </Link>
-                      </Button>
-                      <Button asChild variant="ghost" className="w-full justify-between text-white/72 hover:bg-white/8 hover:text-white">
-                        <Link href={projectRoute(activeProjectId)} prefetch={false}>
-                          <span>Project Overview</span>
-                          <span className="text-white/34">04</span>
                         </Link>
                       </Button>
                     </>
@@ -336,20 +332,11 @@ export const WorkspaceOrbConsole = ({
               </div>
 
               <div className="rounded-[32px] border border-white/10 bg-black/22 px-5 py-5 backdrop-blur-xl">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/36">Session path</p>
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/36">Current thread</p>
-                    <p className="mt-2 text-sm leading-6 text-white/68">
-                      {sessionId ? "This workspace turn is attached to a saved Enoch thread." : "Start a voice or typed turn and the thread will be reusable in Assistant."}
-                    </p>
-                  </div>
-                  <div className="rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/36">Voice path</p>
-                    <p className="mt-2 text-sm leading-6 text-white/68">
-                      {isAudioPlaybackAvailable ? "Voice output is available on this device when playback succeeds." : "This device stays text-first and keeps the full reply readable."}
-                    </p>
-                  </div>
+                <p className="text-[10px] uppercase tracking-[0.24em] text-white/36">Voice path</p>
+                <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-4">
+                  <p className="text-sm leading-6 text-white/68">
+                    {isAudioPlaybackAvailable ? "Voice output is available on this device when playback succeeds." : "This device stays text-first and keeps the full reply readable."}
+                  </p>
                 </div>
               </div>
             </aside>

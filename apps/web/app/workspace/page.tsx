@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { stageLabels } from "../../lib/dashboard-data";
 import { clipReviewRoute, projectsRoute, renderRoute, sceneReviewRoute, sequenceRoute, sequenceRouteForProject, studioRoute } from "../../lib/routes";
+import { getLatestClipCounts } from "../../lib/server/project-pipeline-state";
 import { getEnochWorkspaceSummary } from "../../lib/server/enoch-project-data";
 import { getProjectWorkspaceOrDemo } from "../../lib/server/project-data";
 import { listRecentProjects } from "../../lib/server/projects-index";
@@ -87,12 +88,13 @@ export default async function WorkspacePage({
       : [];
 
   const activeProject = workspace?.project ?? null;
-  const recentVideoBank = await listRecentVideoBank(4);
+  const recentVideoBank = await listRecentVideoBank(4, { includeSceneClipFallback: false });
   const projectName = activeProject?.name ?? "No active project";
   const sceneCount = workspace?.scenes.length ?? 0;
   const promptCount = workspace?.prompts.length ?? 0;
-  const activeClipCount = workspace?.clips.filter((clip) => ["pending", "queued", "running"].includes(clip.status)).length ?? 0;
-  const completedClipCount = workspace?.clips.filter((clip) => clip.status === "completed").length ?? 0;
+  const latestClipCounts = workspace ? getLatestClipCounts(workspace) : null;
+  const activeClipCount = latestClipCounts?.activeClipCount ?? 0;
+  const completedClipCount = latestClipCounts?.completedClipCount ?? 0;
   const recentSceneStack = workspace?.scenes.slice(0, 4) ?? [];
 
   return (

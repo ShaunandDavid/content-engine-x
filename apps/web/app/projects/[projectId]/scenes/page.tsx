@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: "Scene Planner"
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function SceneReviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
   const workspacePromise = getProjectWorkspaceOrDemo(projectId);

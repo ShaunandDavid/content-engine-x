@@ -5,6 +5,7 @@ import {
   getLatestPublishJobForProject,
   getLatestRenderForProject,
   getProjectWorkspace,
+  storeEnochBrainInsight,
   updateProjectWorkflowState,
   updatePublishJobRecord
 } from "@content-engine/db";
@@ -344,6 +345,28 @@ export const startProjectPublishHandoff = async (projectId: string) => {
       },
       { client }
     );
+
+    try {
+      await storeEnochBrainInsight(
+        {
+          category: "workflow_optimization",
+          insight: `Publish handoff completed for ${workspace.project.name} and delivered the final render payload to the configured webhook.`,
+          confidence: 0.58,
+          source: "self_reflection",
+          sourceProjectId: workspace.project.id,
+          sourceRunId: workspace.workflowRun?.id ?? null,
+          tags: ["publish_complete", workspace.project.provider, ...workspace.project.platforms],
+          metadata: {
+            publishJobId: completedPublishJob.id,
+            renderId: render.id,
+            responseStatus: response.status
+          }
+        },
+        { client }
+      );
+    } catch (brainError) {
+      console.warn("[enoch] publish brain write skipped:", brainError);
+    }
 
     return {
       projectId: workspace.project.id,

@@ -116,7 +116,7 @@ const DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-5.4";
 
-const INTENT_VERBS = /\b(create|start|make|build|open|launch|spin up|set up|setup|initialize)\b/i;
+const INTENT_VERBS = /\b(create|start|make|build|open|launch|spin up|set up|setup|initialize|generate|produce|craft)\b/i;
 const INTENT_OBJECTS =
   /\b(project|workflow|video|campaign|concept|sora|image generation|image-gen|shorts?|ads?|advert(?:isement)?|commercial|promo)\b/i;
 
@@ -417,7 +417,7 @@ const buildCreatedProjectReply = (input: {
 const buildCreationFailureReply = (message: string) =>
   [
     "I recognized this as a real project-creation request, but I did not create a project.",
-    message
+    humanizeProjectCreationError(message)
   ].join(" ");
 
 const inferBrandName = (message: string) => {
@@ -555,6 +555,20 @@ const buildFallbackIntent = (message: string): EnochProjectIntent => {
   };
 };
 
+const humanizeProjectCreationError = (message: string) => {
+  const normalized = message.trim();
+
+  if (/billing hard limit has been reached/i.test(normalized)) {
+    return "The connected OpenAI video account has reached its billing limit, so Enoch cannot start new video work right now.";
+  }
+
+  if (/request failed with status 429/i.test(normalized) || /rate limit/i.test(normalized)) {
+    return "The model provider is temporarily rate-limited, so Enoch could not finish project setup right now.";
+  }
+
+  return normalized;
+};
+
 const createProjectFromIntent = async (input: {
   payload: EnochProjectIntent;
   provider: string;
@@ -581,7 +595,9 @@ const createProjectFromIntent = async (input: {
     try {
       await triggerPythonWorkflowRun({ workflowRunId: result.workflowRun.id });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to trigger Python orchestrator.";
+      const message = humanizeProjectCreationError(
+        error instanceof Error ? error.message : "Failed to trigger Python orchestrator."
+      );
 
       await updateProjectWorkflowState({
         projectId: result.project.id,
@@ -683,7 +699,7 @@ export const maybeCreateEnochProjectFromMessage = async (message: string): Promi
         usage: extracted.usage
       });
     } catch (error) {
-      lastError = error instanceof Error ? error.message : "Enoch project creation failed.";
+      lastError = humanizeProjectCreationError(error instanceof Error ? error.message : "Enoch project creation failed.");
       console.error(`[enoch] ${provider} project creation failed: ${lastError}`);
     }
   }
@@ -695,7 +711,9 @@ export const maybeCreateEnochProjectFromMessage = async (message: string): Promi
       model: "heuristic_project_intake_v1"
     });
   } catch (fallbackError) {
-    const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "Heuristic project creation failed.";
+    const fallbackMessage = humanizeProjectCreationError(
+      fallbackError instanceof Error ? fallbackError.message : "Heuristic project creation failed."
+    );
     console.error(`[enoch] fallback project creation failed: ${fallbackMessage}`);
     lastError = fallbackMessage;
   }

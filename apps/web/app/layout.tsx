@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 
+import { EnochGlobalControl } from "../components/enoch-global-control";
 import { ProjectProgressTracker } from "../components/project-progress-tracker";
 
 import "./globals.css";
@@ -28,6 +29,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       </head>
       <body className="bg-background text-foreground antialiased">
         {children}
+        <Suspense fallback={null}>
+          <EnochGlobalControl />
+        </Suspense>
         <Suspense fallback={null}>
           <ProjectProgressTracker />
         </Suspense>

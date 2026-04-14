@@ -43,10 +43,14 @@ export const getSceneReviewMetadata = (
 ): SceneReviewMetadata & { reviewState: SceneReviewState } => {
   const parsed = sceneReviewMetadataSchema.safeParse(getNestedSceneReviewMetadata(metadata));
   const baseMetadata = parsed.success ? parsed.data : {};
+  const readyForNextStage =
+    approvalStatus === "approved"
+      ? baseMetadata.readyForNextStage !== false || baseMetadata.reviewState === "approved"
+      : false;
 
   const reviewState =
     baseMetadata.reviewState ??
-    (baseMetadata.readyForNextStage && approvalStatus === "approved"
+    (readyForNextStage && approvalStatus === "approved"
       ? "ready"
       : approvalStatus === "approved"
         ? "approved"
@@ -56,7 +60,7 @@ export const getSceneReviewMetadata = (
 
   return {
     ...baseMetadata,
-    reviewState,
-    readyForNextStage: Boolean(baseMetadata.readyForNextStage && approvalStatus === "approved")
+    reviewState: approvalStatus === "approved" && readyForNextStage ? "ready" : reviewState,
+    readyForNextStage
   };
 };

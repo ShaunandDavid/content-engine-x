@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   title: "Publish Handoff"
 };
 
+export const dynamic = "force-dynamic";
+
 const resolveAssetHref = (projectId: string, asset?: AssetRecord | null) =>
   asset ? asset.publicUrl ?? `/api/projects/${projectId}/assets/${asset.id}` : null;
 

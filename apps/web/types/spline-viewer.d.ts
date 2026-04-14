@@ -18,6 +18,12 @@ declare module "react" {
         "loading-anim-type"?: string;
         "events-target"?: "local" | "global";
       };
+      "hana-viewer": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        url: string;
+      };
     }
   }
 }

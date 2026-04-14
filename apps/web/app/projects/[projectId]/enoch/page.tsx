@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   title: "Project Enoch"
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjectEnochDetailPage({
   params,
   searchParams
@@ -130,7 +132,7 @@ export default async function ProjectEnochDetailPage({
       />
 
       <div className="page-grid">
-        <FormCard title="Bridge Status" description="The stored Enoch linkage for this project.">
+      <FormCard title="Bridge Status" description="The stored Enoch linkage for this project.">
           <div className="stack">
             <div className="two-up">
               <div>
@@ -142,8 +144,13 @@ export default async function ProjectEnochDetailPage({
                 <p>{enochDetail.summary.runId ?? "No canonical Enoch run linked."}</p>
               </div>
             </div>
-            {enochDetail.summary.errorMessage ? <p className="error-banner">{enochDetail.summary.errorMessage}</p> : null}
-            {enochDetail.lookupError ? <p className="error-banner">{enochDetail.lookupError}</p> : null}
+            {enochDetail.summary.errorMessage || enochDetail.lookupError ? (
+              <div className="payload-card">
+                <p className="eyebrow">Bridge note</p>
+                <strong>{enochDetail.summary.errorMessage ?? "Lookup needs attention"}</strong>
+                <p className="muted">{enochDetail.lookupError ?? "Enoch linkage is available."}</p>
+              </div>
+            ) : null}
           </div>
         </FormCard>
 
@@ -256,7 +263,7 @@ export default async function ProjectEnochDetailPage({
               {selectedArtifact ? (
                 <div className="stack">
                   {requestedArtifactMissing ? (
-                    <p className="error-banner">
+                    <p className="muted">
                       The requested artifact preview is no longer available. Showing the most recent stored artifact instead.
                     </p>
                   ) : null}

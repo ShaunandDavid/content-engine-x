@@ -956,9 +956,21 @@ export const useEnochVoice = (options?: { projectId?: string | null }) => {
         chat.metadata && typeof chat.metadata === "object" && chat.metadata.createdProject && typeof chat.metadata.createdProject === "object"
           ? (chat.metadata.createdProject as { id?: unknown; route?: unknown })
           : null;
+      const workflowAction =
+        chat.metadata && typeof chat.metadata === "object" && chat.metadata.workflowAction && typeof chat.metadata.workflowAction === "object"
+          ? (chat.metadata.workflowAction as { projectId?: unknown })
+          : null;
+      const primaryRoute =
+        chat.metadata && typeof chat.metadata === "object" && typeof chat.metadata.primaryRoute === "string" && chat.metadata.primaryRoute.trim()
+          ? chat.metadata.primaryRoute.trim()
+          : null;
 
       if (createdProject && typeof createdProject.id === "string" && createdProject.id.trim()) {
         window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, createdProject.id);
+      }
+
+      if (workflowAction && typeof workflowAction.projectId === "string" && workflowAction.projectId.trim()) {
+        window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, workflowAction.projectId);
       }
 
       if (createdProject && typeof createdProject.route === "string" && createdProject.route.trim()) {
@@ -970,6 +982,8 @@ export const useEnochVoice = (options?: { projectId?: string | null }) => {
         if (options?.projectId !== createdProject.id) {
           router.push(targetHref);
         }
+      } else if (primaryRoute) {
+        router.push(primaryRoute);
       }
 
       await playReply(chat.replyText, chat.session.sessionId);

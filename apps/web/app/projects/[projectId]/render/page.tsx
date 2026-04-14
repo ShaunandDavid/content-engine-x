@@ -9,11 +9,14 @@ import { FormCard } from "../../../../components/form-card";
 import { RenderActions } from "../../../../components/render-actions";
 import { demoProject } from "../../../../lib/dashboard-data";
 import { getProjectWorkspaceOrDemo } from "../../../../lib/server/project-data";
+import { getLatestClipCounts } from "../../../../lib/server/project-pipeline-state";
 import { getRenderReadiness } from "../../../../lib/server/project-flow-readiness";
 
 export const metadata: Metadata = {
   title: "Render Pipeline"
 };
+
+export const dynamic = "force-dynamic";
 
 const resolveAssetHref = (projectId: string, asset?: AssetRecord | null) =>
   asset ? asset.publicUrl ?? `/api/projects/${projectId}/assets/${asset.id}` : null;
@@ -46,8 +49,7 @@ async function FinalRenderContent({
     projectId === demoProject.id
       ? demoProject.render.operations
       : ["normalize_clips", "stitch_concat", "burn_captions", "overlay_logo", "insert_end_card", "mix_music_bed", "extract_thumbnail"];
-  const completedClipCount = workspace.clips.filter((clip) => clip.status === "completed").length;
-  const failedClipCount = workspace.clips.filter((clip) => clip.status === "failed").length;
+  const { completedClipCount, failedClipCount } = getLatestClipCounts(workspace);
   const isDemoProject = projectId === demoProject.id;
   const assetsById = new Map(workspace.assets.map((asset) => [asset.id, asset]));
   const masterAsset = latestRender?.masterAssetId ? assetsById.get(latestRender.masterAssetId) : undefined;

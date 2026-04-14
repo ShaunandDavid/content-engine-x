@@ -9,6 +9,9 @@ const getLatestCompletedSceneClip = (workspace: ProjectWorkspace, sceneId: strin
     .reverse()
     .find((clip) => clip.sceneId === sceneId && clip.status === "completed" && clip.sourceAssetId);
 
+const getLatestSceneClip = (workspace: ProjectWorkspace, sceneId: string) =>
+  [...workspace.clips].reverse().find((clip) => clip.sceneId === sceneId);
+
 const getAssetById = (assets: AssetRecord[], assetId: string | null | undefined) =>
   assetId ? assets.find((asset) => asset.id === assetId) ?? null : null;
 
@@ -91,8 +94,15 @@ export const getRenderReadiness = (workspace: ProjectWorkspace) => {
   const blockingIssues: string[] = [];
   const missingClipSceneOrdinals: number[] = [];
   const missingAssetSceneOrdinals: number[] = [];
+  const failedClipSceneOrdinals: number[] = [];
 
   for (const scene of workspace.scenes) {
+    const latestClip = getLatestSceneClip(workspace, scene.id);
+    if (latestClip?.status === "failed") {
+      failedClipSceneOrdinals.push(scene.ordinal);
+      continue;
+    }
+
     const clip = getLatestCompletedSceneClip(workspace, scene.id);
     if (!clip) {
       missingClipSceneOrdinals.push(scene.ordinal);
@@ -107,6 +117,12 @@ export const getRenderReadiness = (workspace: ProjectWorkspace) => {
 
   if (workspace.scenes.length < 1) {
     blockingIssues.push("Final render is blocked because no scenes are available for this project.");
+  }
+
+  if (failedClipSceneOrdinals.length > 0) {
+    blockingIssues.push(
+      `Final render is blocked because clip generation failed for scene ${failedClipSceneOrdinals.join(", ")}. Regenerate the failed clips before rendering.`
+    );
   }
 
   if (missingClipSceneOrdinals.length > 0) {
@@ -124,6 +140,7 @@ export const getRenderReadiness = (workspace: ProjectWorkspace) => {
   return {
     canStartRender: blockingIssues.length === 0,
     blockingIssues,
+    failedClipSceneOrdinals,
     missingClipSceneOrdinals,
     missingAssetSceneOrdinals
   };

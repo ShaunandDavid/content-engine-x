@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createServiceSupabaseClient } from "@content-engine/db";
 
-// POST /api/performance — record performance data after publishing
+import { triggerPerformanceDistill } from "../../../lib/server/performance-distill";
+
 export async function POST(request: NextRequest) {
   const client = createServiceSupabaseClient();
   const body = await request.json();
@@ -25,14 +26,13 @@ export async function POST(request: NextRequest) {
     concept_title,
     motion_scores,
     brand_name,
-    primary_color,
+    primary_color
   } = body;
 
   if (!project_id || !platform) {
     return NextResponse.json({ error: "project_id and platform are required." }, { status: 400 });
   }
 
-  // Auto-detect viral threshold (100k views in 48 hours)
   const went_viral = (views ?? 0) >= 100_000;
 
   const { data, error } = await client
@@ -59,18 +59,25 @@ export async function POST(request: NextRequest) {
         motion_scores: motion_scores ?? null,
         brand_name: brand_name ?? null,
         primary_color: primary_color ?? null,
-        feedback_distilled: false,
+        feedback_distilled: false
       },
       { onConflict: "project_id,platform" }
     )
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const distill = await triggerPerformanceDistill();
+
+  return NextResponse.json({
+    record: data,
+    distill
+  });
 }
 
-// GET /api/performance?project_id=xxx&undistilled=true
 export async function GET(request: NextRequest) {
   const client = createServiceSupabaseClient();
   const { searchParams } = new URL(request.url);

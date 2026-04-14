@@ -26,8 +26,8 @@ const resolveNextReviewState = (action: SceneReviewAction) => {
     case "approve":
       return {
         approvalStatus: "approved" as const,
-        reviewState: "approved" as const,
-        readyForNextStage: false
+        reviewState: "ready" as const,
+        readyForNextStage: true
       };
     case "mark_ready":
       return {

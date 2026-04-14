@@ -8,6 +8,7 @@ import "./ensure-runtime-env";
 import { getEnochEnvValue } from "./enoch-env";
 import { getProjectWorkspaceOrDemo } from "./project-data";
 import { getEnochReviewDetails, getEnochReviewReadiness, getEnochWorkspaceDetail } from "./enoch-project-data";
+import { maybeRunEnochWorkflowAction } from "./enoch-workflow-actions";
 import { generateEnochReply } from "./enoch-providers";
 import { maybeCreateEnochProjectFromMessage } from "./enoch-project-creation";
 
@@ -55,6 +56,7 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
   let model = "local_fallback_v1";
   let usage: { inputTokens?: number | null; outputTokens?: number | null } | undefined;
   let createdProject: Record<string, unknown> | null = null;
+  let responseMetadata: Record<string, unknown> = {};
   const sessionContext = getMetadataString(request.metadata, "assistantSessionContext");
   const projectBrainContext = getMetadataString(request.metadata, "projectBrainContext");
 
@@ -90,31 +92,50 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
   }
 
   if (state !== "error") {
-    const projectCreationResult = await maybeCreateEnochProjectFromMessage(request.message);
+    const workflowActionResult = await maybeRunEnochWorkflowAction({
+      message: request.message,
+      projectId
+    });
 
-    if (projectCreationResult.matchedIntent) {
-      replyText = projectCreationResult.replyText ?? "Enoch could not create the requested project.";
-      provider = projectCreationResult.provider ?? "local_fallback";
-      model = projectCreationResult.model ?? "project_creation_failed";
-      usage = projectCreationResult.usage;
-      errorMessage = projectCreationResult.created ? null : projectCreationResult.errorMessage ?? null;
+    if (workflowActionResult.matched) {
+      replyText = workflowActionResult.replyText ?? "Enoch completed the requested workflow action.";
+      state = workflowActionResult.state ?? (workflowActionResult.handled ? "speaking" : "error");
+      errorMessage = workflowActionResult.errorMessage ?? null;
+      responseMetadata = workflowActionResult.metadata ?? {};
 
-      if (projectCreationResult.project) {
-        projectId = projectCreationResult.project.id;
-        runId = projectCreationResult.project.workflowRunId;
-        createdProject = projectCreationResult.project;
+      if (workflowActionResult.projectId) {
+        projectId = workflowActionResult.projectId;
+      }
+      if (workflowActionResult.runId) {
+        runId = workflowActionResult.runId;
       }
     } else {
-      const providerResult = await generateEnochReply({
-        message: request.message,
-        projectContext,
-        systemPrompt: getEnochEnvValue("SYSTEM_PROMPT")
-      });
+      const projectCreationResult = await maybeCreateEnochProjectFromMessage(request.message);
 
-      replyText = providerResult.replyText;
-      provider = providerResult.provider;
-      model = providerResult.model;
-      usage = providerResult.usage;
+      if (projectCreationResult.matchedIntent) {
+        replyText = projectCreationResult.replyText ?? "Enoch could not create the requested project.";
+        provider = projectCreationResult.provider ?? "local_fallback";
+        model = projectCreationResult.model ?? "project_creation_failed";
+        usage = projectCreationResult.usage;
+        errorMessage = projectCreationResult.created ? null : projectCreationResult.errorMessage ?? null;
+
+        if (projectCreationResult.project) {
+          projectId = projectCreationResult.project.id;
+          runId = projectCreationResult.project.workflowRunId;
+          createdProject = projectCreationResult.project;
+        }
+      } else {
+        const providerResult = await generateEnochReply({
+          message: request.message,
+          projectContext,
+          systemPrompt: getEnochEnvValue("SYSTEM_PROMPT")
+        });
+
+        replyText = providerResult.replyText;
+        provider = providerResult.provider;
+        model = providerResult.model;
+        usage = providerResult.usage;
+      }
     }
   }
 
@@ -134,11 +155,12 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
       metadata: {
         source: "enoch_chat_v1",
         currentState: request.currentState ?? "idle",
-      provider,
-      model,
-      usage: usage ?? null,
-      createdProject
-    }
+        provider,
+        model,
+        usage: usage ?? null,
+        createdProject,
+        ...responseMetadata
+      }
   });
 
   return enochChatResponseSchema.parse({
@@ -149,7 +171,8 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
       provider,
       model,
       usage: usage ?? null,
-      createdProject
+      createdProject,
+      ...responseMetadata
     }
   });
 };

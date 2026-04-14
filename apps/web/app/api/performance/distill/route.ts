@@ -1,27 +1,13 @@
 import { NextResponse } from "next/server";
 
-// POST /api/performance/distill — trigger the Python performance distiller
-// Call this after new performance data is ingested, or on a schedule
+import { triggerPerformanceDistill } from "../../../../lib/server/performance-distill";
+
 export async function POST() {
-  const orchestratorUrl = process.env.CONTENT_ENGINE_PYTHON_ORCHESTRATOR_URL ?? "http://localhost:8000";
+  const result = await triggerPerformanceDistill();
 
-  try {
-    const response = await fetch(`${orchestratorUrl.replace(/\/$/, "")}/performance/distill`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return NextResponse.json({ error }, { status: 502 });
-    }
-
-    const result = await response.json();
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { error: `Orchestrator unreachable: ${String(error)}` },
-      { status: 503 }
-    );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  return NextResponse.json(result.result, { status: result.status });
 }

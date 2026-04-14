@@ -112,7 +112,9 @@ export async function POST(
       metadata: {
         source: "enoch_assistant",
         assistantSessionContext: sessionContextSummary,
-        projectBrainContext
+        projectBrainContext,
+        memoryOperatorUserId: detail.session.ownerUserId ?? undefined,
+        memoryBusinessId: requestedProjectId ?? undefined
       }
     });
 

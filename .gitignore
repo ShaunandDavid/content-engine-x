@@ -30,3 +30,13 @@ tmp/
 .codex-preview/
 
 apps/web/.env.local.txt
+data/enoch-memory-cache/**
+!data/enoch-memory-cache/packs/
+!data/enoch-memory-cache/packs/users/
+!data/enoch-memory-cache/packs/users/.gitkeep
+!data/enoch-memory-cache/packs/businesses/
+!data/enoch-memory-cache/packs/businesses/.gitkeep
+!data/enoch-memory-cache/indices/
+!data/enoch-memory-cache/indices/.gitkeep
+!data/enoch-memory-cache/distill/
+!data/enoch-memory-cache/distill/.gitkeep

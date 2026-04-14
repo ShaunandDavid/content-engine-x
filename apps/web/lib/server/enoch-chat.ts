@@ -11,6 +11,7 @@ import { getEnochReviewDetails, getEnochReviewReadiness, getEnochWorkspaceDetail
 import { maybeRunEnochWorkflowAction } from "./enoch-workflow-actions";
 import { generateEnochReply } from "./enoch-providers";
 import { maybeCreateEnochProjectFromMessage } from "./enoch-project-creation";
+import { buildRuntimeMemoryContext } from "./enoch-memory/runtime-context";
 
 const buildProjectContext = (input: {
   projectName: string;
@@ -18,6 +19,7 @@ const buildProjectContext = (input: {
   reviewDetails: ReturnType<typeof getEnochReviewDetails>;
   sessionContext?: string | null;
   projectBrainContext?: string | null;
+  runtimeMemoryContext?: string | null;
 }) => {
   const unavailable = input.reviewDetails.items
     .filter((item) => item.state !== "available")
@@ -32,6 +34,7 @@ const buildProjectContext = (input: {
       : "All expected review categories are currently available.",
     `Review detail states: ${input.reviewDetails.items.map((item) => `${item.title}=${item.state}`).join("; ")}.`,
     input.projectBrainContext?.trim() ? `Project memory: ${input.projectBrainContext.trim()}` : null,
+    input.runtimeMemoryContext?.trim() ? `Compact runtime memory: ${input.runtimeMemoryContext.trim()}` : null,
     input.sessionContext?.trim() ? `Recent session context: ${input.sessionContext.trim()}` : null
   ].join(" ");
 };
@@ -59,6 +62,8 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
   let responseMetadata: Record<string, unknown> = {};
   const sessionContext = getMetadataString(request.metadata, "assistantSessionContext");
   const projectBrainContext = getMetadataString(request.metadata, "projectBrainContext");
+  let runtimeMemoryContext: string | null = null;
+  let runtimeMemoryMetadata: Record<string, unknown> | null = null;
 
   if (request.projectId) {
     const workspace = await getProjectWorkspaceOrDemo(request.projectId);
@@ -72,21 +77,54 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
       const detail = await getEnochWorkspaceDetail(workspace);
       const readiness = getEnochReviewReadiness(detail);
       const reviewDetails = getEnochReviewDetails(detail);
+      const runtimeMemory = await buildRuntimeMemoryContext({
+        workspace,
+        operatorUserId: getMetadataString(request.metadata, "memoryOperatorUserId"),
+        businessId: getMetadataString(request.metadata, "memoryBusinessId")
+      }).catch(() => null);
 
       projectId = workspace.project.id;
       runId = readiness.runId;
+      runtimeMemoryContext = runtimeMemory?.memoryContextText ?? null;
+      runtimeMemoryMetadata = runtimeMemory
+        ? {
+            runtimeMemory: runtimeMemory.memoryMetadata,
+            contradictionWarnings: runtimeMemory.contradictionWarnings
+          }
+        : null;
       projectContext = buildProjectContext({
         projectName: workspace.project.name,
         readiness,
         reviewDetails,
         sessionContext,
-        projectBrainContext
+        projectBrainContext,
+        runtimeMemoryContext
       });
     }
   }
 
-  if (!projectContext && (sessionContext || projectBrainContext)) {
-    projectContext = [projectBrainContext ? `Project memory: ${projectBrainContext}` : null, sessionContext ? `Recent session context: ${sessionContext}` : null]
+  if (!projectContext) {
+    const metadataRuntimeMemory = await buildRuntimeMemoryContext({
+      operatorUserId: getMetadataString(request.metadata, "memoryOperatorUserId"),
+      businessId: getMetadataString(request.metadata, "memoryBusinessId")
+    }).catch(() => null);
+    runtimeMemoryContext = runtimeMemoryContext ?? metadataRuntimeMemory?.memoryContextText ?? null;
+    runtimeMemoryMetadata =
+      runtimeMemoryMetadata ??
+      (metadataRuntimeMemory
+        ? {
+            runtimeMemory: metadataRuntimeMemory.memoryMetadata,
+            contradictionWarnings: metadataRuntimeMemory.contradictionWarnings
+          }
+        : null);
+  }
+
+  if (!projectContext && (sessionContext || projectBrainContext || runtimeMemoryContext)) {
+    projectContext = [
+      projectBrainContext ? `Project memory: ${projectBrainContext}` : null,
+      runtimeMemoryContext ? `Compact runtime memory: ${runtimeMemoryContext}` : null,
+      sessionContext ? `Recent session context: ${sessionContext}` : null
+    ]
       .filter(Boolean)
       .join(" ");
   }
@@ -159,6 +197,7 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
         model,
         usage: usage ?? null,
         createdProject,
+        ...(runtimeMemoryMetadata ?? {}),
         ...responseMetadata
       }
   });
@@ -172,6 +211,7 @@ export const createEnochChatResponse = async (request: EnochChatRequest): Promis
       model,
       usage: usage ?? null,
       createdProject,
+      ...(runtimeMemoryMetadata ?? {}),
       ...responseMetadata
     }
   });

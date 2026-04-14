@@ -9,6 +9,9 @@ import type { EnochAssistantMessage, EnochAssistantSceneBundle, EnochModelRoutin
 import { enochAssistantSceneBundleSchema } from "@content-engine/shared";
 
 import { getEnochWorkspaceDetail } from "./enoch-project-data";
+import { evaluateLessonLoopFromSceneBundle } from "./enoch-memory/evaluation";
+import { buildRuntimeMemoryContext } from "./enoch-memory/runtime-context";
+import { persistDistilledMemory, type DistilledMemoryDelta } from "./enoch-memory/writeback";
 import { getProjectWorkspaceOrDemo } from "./project-data";
 
 export class EnochAssistantSceneBundleError extends Error {
@@ -99,6 +102,7 @@ export const generateEnochAssistantSceneBundle = async (input: {
     getEnochWorkspaceDetail(workspace),
     loadEnochBrainForProject(workspace.project.id).catch(() => [] as EnochBrainInsight[])
   ]);
+  const runtimeMemory = await buildRuntimeMemoryContext({ workspace }).catch(() => null);
 
   const conversationContext = buildConversationContext(input.messages);
   const memoryContext = brainInsights.slice(0, 3).map((insight: EnochBrainInsight) => insight.insight);
@@ -125,6 +129,7 @@ export const generateEnochAssistantSceneBundle = async (input: {
   const combinedConstraints = [
     ...normalizedIntake.intent.constraints,
     ...memoryContext.map((insight) => `Project memory: ${insight}`),
+    ...(runtimeMemory?.memoryContextText ? [`Compact runtime memory: ${runtimeMemory.memoryContextText}`] : []),
     ...(conversationContext.note ? [`Session context: ${conversationContext.note}`] : []),
     ...(input.instruction?.trim() ? [`Current request: ${input.instruction.trim()}`] : [])
   ].slice(0, 8);
@@ -140,6 +145,7 @@ export const generateEnochAssistantSceneBundle = async (input: {
       reasoningSummary: [
         normalizedIntake.planning.reasoningSummary,
         memoryContext.length > 0 ? `Project memory focus: ${memoryContext.join(" ")}` : null,
+        runtimeMemory?.memoryContextText ? `Compact runtime memory: ${runtimeMemory.memoryContextText}` : null,
         conversationContext.note ? `Session context: ${conversationContext.note}` : null,
         input.instruction?.trim() ? `Current request: ${input.instruction.trim()}` : null
       ]
@@ -155,6 +161,89 @@ export const generateEnochAssistantSceneBundle = async (input: {
   });
 
   const bundle = buildPromptGenerationBundle(promptGenerationInput);
+  const memoryWritebackResult =
+    workspace.project.ownerUserId && workspace.project.ownerUserId !== "demo-user"
+      ? await persistDistilledMemory(
+          {
+            operatorUserId: workspace.project.ownerUserId,
+            businessId: workspace.project.id,
+            projectId: workspace.project.id,
+            sessionId: input.sessionId,
+            source: "enoch_assistant_scene_bundle",
+            sourceTitle: "Scene bundle generation",
+            timestamp: new Date().toISOString(),
+            certainty: "confirmed",
+            companyName: null,
+            offer: null,
+            icp: null,
+            tone: workspace.project.tone,
+            currentCampaign: workspace.project.name,
+            goals: [workspace.brief.objective],
+            decisions: [
+              `Generated ${bundle.scenes.length} scene${bundle.scenes.length === 1 ? "" : "s"} for ${workspace.project.name}.`,
+              ...(input.instruction?.trim() ? [`Bundle request: ${input.instruction.trim()}`] : [])
+            ],
+            constraints: workspace.brief.guardrails,
+            lessons: [],
+            activeContext: conversationContext.note ? [conversationContext.note] : [],
+            userPreferences: [],
+            contradictions: [],
+            canonicalFacts: []
+          } satisfies DistilledMemoryDelta,
+          { dryRun: false }
+        ).catch((error) => ({
+          accepted: false,
+          wrote: false,
+          dryRun: false,
+          status: "ready" as const,
+          reason: error instanceof Error ? error.message : "Failed to write distilled memory.",
+          warnings: [],
+          notePaths: [],
+          cachePaths: [],
+          contradictions: [],
+          preview: null,
+          metadata: {
+            source: "enoch_assistant_scene_bundle"
+          }
+        }))
+      : null;
+
+  const lessonEvaluation =
+    workspace.project.ownerUserId && workspace.project.ownerUserId !== "demo-user"
+      ? await evaluateLessonLoopFromSceneBundle({
+          operatorUserId: workspace.project.ownerUserId,
+          businessId: workspace.project.id,
+          projectId: workspace.project.id,
+          sessionId: input.sessionId,
+          projectName: workspace.project.name,
+          sceneCount: bundle.scenes.length,
+          instruction: input.instruction,
+          contradictionWarnings: runtimeMemory?.contradictionWarnings ?? [],
+          memoryWritebackAccepted: memoryWritebackResult?.accepted ?? true
+        }).catch((error) => ({
+          enabled: false,
+          autoPromoteEnabled: false,
+          minConfidence: 0.75,
+          event: null,
+          signals: [],
+          candidates: [],
+          preview: null,
+          execution: {
+            executed: false,
+            autoPromotedCount: 0,
+            previewCount: 0,
+            rejectedCount: 0,
+            candidates: [],
+            writeDeltas: [],
+            metadata: {
+              summary: error instanceof Error ? error.message : "Lesson evaluation failed."
+            }
+          },
+          decisions: [],
+          summary: error instanceof Error ? error.message : "Lesson evaluation failed."
+        }))
+      : null;
+
   const sceneBundle = enochAssistantSceneBundleSchema.parse({
     projectId: workspace.project.id,
     instruction: input.instruction?.trim() || null,
@@ -172,7 +261,28 @@ export const generateEnochAssistantSceneBundle = async (input: {
     metadata: {
       source: "enoch_assistant",
       brainInsightCount: brainInsights.length,
-      sessionContextIncluded: Boolean(conversationContext.note)
+      sessionContextIncluded: Boolean(conversationContext.note),
+      runtimeMemoryIncluded: Boolean(runtimeMemory?.memoryContextText),
+      runtimeMemory: runtimeMemory?.memoryMetadata ?? null,
+      contradictionWarnings: runtimeMemory?.contradictionWarnings ?? [],
+      memoryWriteback: memoryWritebackResult
+        ? {
+            accepted: memoryWritebackResult.accepted,
+            wrote: memoryWritebackResult.wrote,
+            reason: memoryWritebackResult.reason,
+            notePaths: memoryWritebackResult.notePaths,
+            cachePaths: memoryWritebackResult.cachePaths
+          }
+        : null,
+      lessonEvaluation:
+        lessonEvaluation && lessonEvaluation.candidates.length > 0
+          ? {
+              summary: lessonEvaluation.summary,
+              candidates: lessonEvaluation.candidates,
+              preview: lessonEvaluation.preview,
+              execution: lessonEvaluation.execution
+            }
+          : null
     }
   });
 
